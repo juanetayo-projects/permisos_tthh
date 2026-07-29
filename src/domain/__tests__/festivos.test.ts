@@ -3,6 +3,7 @@ import {
   contarDiasHabiles,
   esDiaHabil,
   esFestivo,
+  fechaFinPorDiasHabiles,
   festivosDe,
   siguienteDiaHabil,
   sumarDiasHabiles,
@@ -29,8 +30,19 @@ describe('festivos de Colombia', () => {
     expect(esFestivo('2026-04-05')).toBe(false) // El domingo de Pascua no es festivo de ley
   })
 
-  it('produce 18 festivos en un año normal', () => {
-    expect(festivosDe(2026).size).toBe(18)
+  it('incluye el 13 de junio a partir de 2026', () => {
+    expect(esFestivo('2025-06-13')).toBe(false)
+    expect(esFestivo('2026-06-13')).toBe(true)
+    // En 2026 cae sábado, así que ese año no cambia ningún conteo de hábiles.
+    expect(esDiaHabil('2026-06-12')).toBe(true)
+    // En 2028 cae martes: ahí sí deja de ser día hábil.
+    expect(esFestivo('2028-06-13')).toBe(true)
+    expect(esDiaHabil('2028-06-13')).toBe(false)
+  })
+
+  it('produce 19 festivos en un año normal desde 2026', () => {
+    expect(festivosDe(2026).size).toBe(19)
+    expect(festivosDe(2024).size).toBe(18)
   })
 
   it('produce 17 en 2025, cuando dos festivos caen el mismo día', () => {
@@ -68,6 +80,26 @@ describe('conteo de días hábiles', () => {
   it('cuenta un solo día hábil cuando inicio y fin coinciden', () => {
     expect(contarDiasHabiles('2026-03-10', '2026-03-10')).toBe(1)
     expect(contarDiasHabiles('2026-03-14', '2026-03-14')).toBe(0) // sábado
+  })
+
+  it('calcula la fecha final a partir de los días hábiles a disfrutar', () => {
+    // Mismo ejemplo del formato, resuelto al revés: 6 días desde el 2 de enero.
+    expect(fechaFinPorDiasHabiles('2026-01-02', 6)).toBe('2026-01-09')
+
+    // Periodo completo de vacaciones: 15 días hábiles desde el 2 de enero.
+    // Salta el lunes 12 (Reyes trasladado) y los cuatro fines de semana.
+    expect(fechaFinPorDiasHabiles('2026-01-02', 15)).toBe('2026-01-23')
+    expect(contarDiasHabiles('2026-01-02', '2026-01-23')).toBe(15)
+    expect(siguienteDiaHabil('2026-01-23')).toBe('2026-01-26')
+  })
+
+  it('empieza a contar en el primer día hábil si el inicio cae en fin de semana', () => {
+    // Sábado 3 de enero de 2026: el primer día hábil es el lunes 5.
+    expect(fechaFinPorDiasHabiles('2026-01-03', 1)).toBe('2026-01-05')
+  })
+
+  it('devuelve el inicio si no hay días que contar', () => {
+    expect(fechaFinPorDiasHabiles('2026-01-02', 0)).toBe('2026-01-02')
   })
 
   it('suma días hábiles saltando fines de semana y festivos', () => {

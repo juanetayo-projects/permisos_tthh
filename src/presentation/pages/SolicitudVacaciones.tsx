@@ -5,13 +5,14 @@ import { useAuth } from '@/application/auth/AuthProvider'
 import {
   useAreas,
   useCargos,
+  useConfig,
   useCoordinadores,
   useEmpresas,
   useTramite,
 } from '@/application/catalogos/useCatalogos'
 import { crearSolicitud } from '@/application/solicitudes/api'
 import { calcularVacaciones, evaluarAntelacion, validarSaldos } from '@/domain/reglas'
-import { aISO } from '@/domain/festivos'
+import { aISO, fechaFinPorDiasHabiles } from '@/domain/festivos'
 import { formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
 import { Button } from '@/presentation/components/ui/button'
@@ -37,6 +38,9 @@ export default function SolicitudVacaciones() {
   const { data: areas } = useAreas()
   const { data: cargos } = useCargos()
   const { data: coordinadores } = useCoordinadores()
+  const { data: config } = useConfig()
+
+  const periodoCompleto = Number(config?.dias_vacaciones_periodo_completo ?? 15)
 
   const [form, setForm] = useState({
     empresaId: '',
@@ -46,7 +50,8 @@ export default function SolicitudVacaciones() {
     diasADisfrutar: '',
     diasPendientes: '',
     fechaInicio: HOY,
-    fechaFin: HOY,
+    /** Vacío = la app calcula la fecha final desde los días a disfrutar. */
+    fechaFinManual: '',
     reintegroManual: '',
     observaciones: '',
     declaracion: false,
@@ -69,14 +74,30 @@ export default function SolicitudVacaciones() {
 
   const aDisfrutar = form.diasADisfrutar === '' ? null : Number(form.diasADisfrutar)
 
+  /**
+   * La fecha final la calcula la app a partir de los días hábiles a disfrutar,
+   * saltando fines de semana y festivos colombianos. El colaborador puede
+   * sobrescribirla si su caso no encaja con el cálculo.
+   */
+  const fechaFinCalculada = useMemo(
+    () =>
+      aDisfrutar && aDisfrutar > 0
+        ? fechaFinPorDiasHabiles(form.fechaInicio, Math.round(aDisfrutar))
+        : null,
+    [form.fechaInicio, aDisfrutar]
+  )
+
+  const fechaFin = form.fechaFinManual || fechaFinCalculada || form.fechaInicio
+  const fechaFinEsManual = Boolean(form.fechaFinManual)
+
   const calculo = useMemo(
     () =>
       calcularVacaciones({
         fechaInicio: form.fechaInicio,
-        fechaFin: form.fechaFin,
+        fechaFin,
         diasADisfrutar: aDisfrutar,
       }),
-    [form.fechaInicio, form.fechaFin, aDisfrutar]
+    [form.fechaInicio, fechaFin, aDisfrutar]
   )
 
   const saldos = useMemo(
@@ -108,18 +129,26 @@ export default function SolicitudVacaciones() {
     if (antelacion?.mensaje) lista.push({ tono: 'advertencia', texto: antelacion.mensaje })
     if (calculo.advertencia) lista.push({ tono: 'advertencia', texto: calculo.advertencia })
     if (saldos.advertencia) lista.push({ tono: 'advertencia', texto: saldos.advertencia })
-    if (!form.reintegroManual && calculo.fechaReintegro) {
+
+    if (!fechaFinEsManual && fechaFinCalculada) {
       lista.push({
-        tono: 'info',
-        texto: `Te presentas a laborar el ${formatearFechaLarga(calculo.fechaReintegro)}, saltando fines de semana y festivos.`,
+        tono: 'exito',
+        texto: `Con ${aDisfrutar} días hábiles desde el inicio, el periodo termina el ${formatearFechaLarga(fechaFinCalculada)} y te presentas a laborar el ${formatearFechaLarga(calculo.fechaReintegro)}.`,
       })
     }
+    if (fechaFinEsManual && fechaFinCalculada && form.fechaFinManual !== fechaFinCalculada) {
+      lista.push({
+        tono: 'advertencia',
+        texto: `Ajustaste la fecha final a mano. Por días hábiles correspondería el ${formatearFechaLarga(fechaFinCalculada)}.`,
+      })
+    }
+
     lista.push({
       tono: 'info',
       texto: 'Talento Humano validará los saldos contra nómina antes de aprobar.',
     })
     return lista
-  }, [antelacion, calculo, saldos, form.reintegroManual])
+  }, [antelacion, calculo, saldos, fechaFinEsManual, fechaFinCalculada, form.fechaFinManual, aDisfrutar])
 
   async function guardar(enviar: boolean) {
     setError(null)
@@ -145,7 +174,7 @@ export default function SolicitudVacaciones() {
           cargo_id: cargoId ? Number(cargoId) : null,
           coordinador_id: coordinador?.id ?? null,
           fecha_inicio: form.fechaInicio,
-          fecha_fin: form.fechaFin,
+          fecha_fin: fechaFin,
           observaciones: form.observaciones.trim() || null,
           extemporanea: antelacion?.extemporanea ?? false,
         },
@@ -275,10 +304,23 @@ export default function SolicitudVacaciones() {
                   id="disfrutar"
                   type="number"
                   min={0}
-                  step={0.5}
+                  step={1}
                   value={form.diasADisfrutar}
-                  onChange={(e) => set('diasADisfrutar', e.target.value)}
+                  onChange={(e) => {
+                    set('diasADisfrutar', e.target.value)
+                    set('fechaFinManual', '') // Vuelve al cálculo automático.
+                  }}
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    set('diasADisfrutar', String(periodoCompleto))
+                    set('fechaFinManual', '')
+                  }}
+                  className="text-xs font-medium text-[var(--cac-azul-contraste)] underline-offset-2 hover:underline dark:text-[var(--cac-azul-300)]"
+                >
+                  Tomar el periodo completo ({periodoCompleto} días hábiles)
+                </button>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pendientes">Días pendientes</Label>
@@ -306,20 +348,38 @@ export default function SolicitudVacaciones() {
                   value={form.fechaInicio}
                   onChange={(e) => {
                     set('fechaInicio', e.target.value)
-                    if (e.target.value > form.fechaFin) set('fechaFin', e.target.value)
+                    set('fechaFinManual', '')
+                    set('reintegroManual', '')
                   }}
                 />
               </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="fin">Fecha de fin</Label>
                 <Input
                   id="fin"
                   type="date"
                   min={form.fechaInicio}
-                  value={form.fechaFin}
-                  onChange={(e) => set('fechaFin', e.target.value)}
+                  value={fechaFin}
+                  onChange={(e) => set('fechaFinManual', e.target.value)}
                 />
+                {fechaFinEsManual ? (
+                  <button
+                    type="button"
+                    onClick={() => set('fechaFinManual', '')}
+                    className="text-xs font-medium text-[var(--cac-azul-contraste)] underline-offset-2 hover:underline dark:text-[var(--cac-azul-300)]"
+                  >
+                    Volver al cálculo automático
+                  </button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {fechaFinCalculada
+                      ? 'Calculada por días hábiles; puedes ajustarla.'
+                      : 'Indica los días a disfrutar y la calculo.'}
+                  </p>
+                )}
               </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="reintegro">Se presenta a laborar</Label>
                 <Input
@@ -328,7 +388,7 @@ export default function SolicitudVacaciones() {
                   value={reintegro}
                   onChange={(e) => set('reintegroManual', e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground">Calculado; puedes ajustarlo.</p>
+                <p className="text-xs text-muted-foreground">Calculada; puedes ajustarla.</p>
               </div>
             </div>
           </section>
@@ -369,7 +429,7 @@ export default function SolicitudVacaciones() {
             { etiqueta: 'Servicio', valor: nombreArea ?? '—' },
             {
               etiqueta: 'Periodo',
-              valor: `${formatearFechaLarga(form.fechaInicio)} → ${formatearFechaLarga(form.fechaFin)}`,
+              valor: `${formatearFechaLarga(form.fechaInicio)} → ${formatearFechaLarga(fechaFin)}`,
             },
             { etiqueta: 'Días hábiles', valor: calculo.diasHabiles, destacado: true },
             { etiqueta: 'Días calendario', valor: calculo.diasCalendario },

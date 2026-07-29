@@ -15,6 +15,9 @@ export type FechaISO = string
 
 const MS_POR_DIA = 86_400_000
 
+/** Primer año en que el 13 de junio cuenta como festivo. */
+const ANIO_INICIO_13_JUNIO = 2026
+
 /** Construye una fecha en UTC para que el huso horario nunca corra un día. */
 function fecha(anio: number, mes: number, dia: number): Date {
   return new Date(Date.UTC(anio, mes - 1, dia))
@@ -78,6 +81,14 @@ export function festivosDe(anio: number): Set<FechaISO> {
     fecha(anio, 12, 8), // Inmaculada Concepción
     fecha(anio, 12, 25), // Navidad
   ]
+
+  // Festivo vigente a partir de 2026. Se trata como fijo en su fecha, sin
+  // traslado por Ley Emiliani. En 2026 cae sábado, así que ese año no altera
+  // ningún conteo de días hábiles; sí lo hará en los años en que caiga entre
+  // lunes y viernes.
+  if (anio >= ANIO_INICIO_13_JUNIO) {
+    fijos.push(fecha(anio, 6, 13))
+  }
 
   // Trasladables al lunes siguiente (Ley Emiliani).
   const trasladables = [
@@ -157,6 +168,35 @@ export function contarDiasCalendario(inicio: FechaISO, fin: FechaISO): number {
 export function siguienteDiaHabil(desde: FechaISO): FechaISO {
   let d = sumarDias(desdeISO(desde), 1)
   while (!esDiaHabil(d)) d = sumarDias(d, 1)
+  return aISO(d)
+}
+
+/**
+ * Fecha en que se cumple el N-ésimo día hábil contando desde `inicio` inclusive.
+ *
+ * Es lo que necesita el formato de vacaciones: dado el primer día del disfrute
+ * y cuántos días hábiles se van a tomar, cuál es el último día del periodo.
+ * Si `inicio` no es hábil, el conteo empieza en el primer hábil siguiente.
+ *
+ * Verificado contra el ejemplo del TH-F-005: 6 días hábiles desde el 2 de enero
+ * de 2026 terminan el 9 de enero.
+ */
+export function fechaFinPorDiasHabiles(inicio: FechaISO, diasHabiles: number): FechaISO {
+  if (diasHabiles <= 0) return inicio
+
+  let d = desdeISO(inicio)
+  let contados = 0
+
+  // Cota de seguridad: 15 días hábiles nunca abarcan más de un par de meses,
+  // pero un dato absurdo no debe colgar el navegador.
+  for (let i = 0; i < 400; i += 1) {
+    if (esDiaHabil(d)) {
+      contados += 1
+      if (contados >= diasHabiles) return aISO(d)
+    }
+    d = sumarDias(d, 1)
+  }
+
   return aISO(d)
 }
 
