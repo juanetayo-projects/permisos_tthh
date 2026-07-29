@@ -1,0 +1,51 @@
+# Dependencias
+node_modules/
+.pnp/
+.pnp.js
+
+# Build
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+
+# Entorno — NUNCA subir claves
+.env
+.env.*
+!.env.example
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos temporales de Office (bloqueo al abrir un xlsx)
+~$*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# Supabase local
+supabase/.temp/
+supabase/.branches/
+
+# Datos con PII — Ley 1581 (habeas data). No deben entrar al repositorio.
+datos/
+*.local.xlsx
+*.local.csv

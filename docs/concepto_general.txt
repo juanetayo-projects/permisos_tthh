@@ -1,0 +1,292 @@
+## PRIMERO ##
+
+NO escribas código inmediatamente.
+
+Primero debes actuar como un Software Architect Senior.
+
+Analiza completamente este proyecto.
+
+Antes de crear un solo archivo debes entregar:
+
+1. Arquitectura completa.
+2. Modelo de datos.
+3. Módulos.
+4. Flujo de navegación.
+5. Casos de uso.
+6. Roles.
+7. Wireframes.
+8. Riesgos.
+9. Mejoras.
+10. Preguntas pendientes.
+
+Si encuentras inconsistencias en este documento debes proponer alternativas.
+
+Cuando todo esté aprobado comenzarás el desarrollo.
+
+## OBJETIVO ##
+
+Construir una aplicación empresarial para la gestión completa de permisos y ausentismos del personal de la Clínica de Alta Complejidad Santa Bárbara.
+El sistema reemplazará completamente el proceso manual en papel.
+Debe cumplir estándares de calidad ISO 9001.
+Debe ser altamente mantenible.
+Debe poder crecer en módulos.
+Debe ser escalable.
+Debe seguir principios SOLID.
+Debe seguir Clean Architecture.
+Debe utilizar Domain Driven Design donde aplique.
+Debe estar preparado para auditorías.
+
+## FILOSOFIA ##
+
+Todas las decisiones deben priorizar:
+
+• simplicidad
+• mantenibilidad
+• escalabilidad
+• experiencia del usuario
+• velocidad
+• accesibilidad
+• seguridad
+Nunca generar código duplicado.
+Siempre reutilizar componentes.
+Todo debe ser responsive.
+Todo debe estar tipado.
+Todo debe documentarse.
+Todo debe incluir pruebas cuando sea posible.
+
+## ARQUITECTURA ##
+
+Frontend
+NextJS 15
+React 19
+TypeScript
+Tailwind
+shadcn/ui
+React Hook Form
+Zod
+TanStack Table
+TanStack Query
+Framer Motion
+Lucide Icons
+React PDF
+Recharts
+Backend
+Supabase
+PostgreSQL
+Storage
+Auth
+Realtime
+Edge Functions
+Infraestructura
+Github
+Github Actions
+Resend
+MCP Github
+MCP Supabase
+MCP Resend
+
+## UX ##
+Todas las pantallas deben sentirse como:
+
+Linear
+Stripe
+Notion
+Odoo
+Vercel
+Nunca parecer un CRUD tradicional.
+Las tablas deben tener:
+hover
+loading
+skeleton
+sticky header
+sticky filters
+quick search
+export
+column selector
+density
+fullscreen
+drag columns
+bulk actions
+context menu
+keyboard shortcuts
+
+## Dashboard ##
+El Dashboard debe parecer un Executive Dashboard.
+Debe contener:
+Cards
+KPIs
+Tendencias
+Indicadores
+Heatmaps
+Calendario
+Alertas
+Pendientes
+Ranking
+Comparativos
+Drill Down
+Filtros globales
+Tooltips
+Animaciones
+Lazy Loading
+Responsive
+Dark Mode
+
+
+## SEGURIDAD ##
+Implementar:
+RLS
+JWT
+Policies
+Rate Limit
+Logs
+Auditoría
+Historial
+Versionado
+Soft Delete
+Backups
+MFA preparado
+Permisos por rol
+Permisos por módulo
+Permisos por acción
+
+
+## ISO 9001 ##
+Toda acción importante debe generar trazabilidad.
+
+Registrar:
+usuario
+fecha
+hora
+IP
+acción
+antes
+después
+motivo
+Todos los cambios deben ser auditables.
+
+## BPM ##
+BORRADOR
+
+↓
+ENVIADA
+↓
+PENDIENTE COORDINADOR
+↓
+APROBADA COORDINADOR
+↓
+PENDIENTE TALENTO HUMANO
+↓
+APROBADA TH
+↓
+FINALIZADA
+↓
+ARCHIVADA
+o
+RECHAZADA COORDINADOR
+o
+RECHAZADA TH
+o
+CANCELADA
+o
+VENCIDA
+
+
+## Diagramas ##
+Generar automáticamente
+
+ERD
+Sequence Diagram
+Flow Diagram
+Use Case Diagram
+Arquitectura
+Componentes
+Deployment Diagram
+Todo en formato Mermaid.
+
+
+## carpeta docs ##
+/docs
+
+Architecture.md
+ERD.md
+API.md
+Database.md
+UX.md
+Branding.md
+Deploy.md
+Roadmap.md
+CHANGELOG.md
+DECISIONS.md
+SECURITY.md
+TESTING.md
+
+
+## CI/CD ##
+
+Cada commit debe:
+
+Lint
+Type Check
+Build
+Tests
+Deploy Preview
+
+
+## Testing ##
+
+Unit Testing
+Integration Testing
+E2E
+Playwright
+Vitest
+Coverage
+
+
+## IA ##
+Toda la aplicación debe quedar preparada para integrar IA.
+
+Crear un módulo AI.
+Utilizar arquitectura desacoplada.
+Permitir agregar posteriormente:
+OpenAI
+Claude
+Gemini
+DeepSeek
+MCP
+RAG
+Embeddings
+Chat interno
+Asistente para Talento Humano
+Explicación de métricas
+Generación automática de reportes
+Clasificación automática de documentos
+Extracción OCR
+Resumen de solicitudes
+Búsqueda semántica
+
+
+## Eventos ##
+Cada acción importante debe emitir eventos.
+
+SolicitudCreada
+SolicitudAprobada
+SolicitudRechazada
+DocumentoAdjunto
+UsuarioRegistrado
+UsuarioActivado
+CorreoEnviado
+Estos eventos deben permitir automatizaciones futuras.
+
+## APLICACION ##
+Construye un producto empresarial.
+
+No un CRUD.
+Cada decisión debe justificarse.
+Cada módulo debe ser escalable.
+Cada componente debe ser reutilizable.
+Cada pantalla debe ser digna de un SaaS moderno.
+Piensa como si este software fuera a venderse a cientos de clínicas.
+No hagas el camino más corto.
+Haz la mejor arquitectura posible.
+
+ 

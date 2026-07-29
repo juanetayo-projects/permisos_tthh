@@ -1,0 +1,185 @@
+Build: Aplicacion para Gestion de solicitudes de Permisos -PERMISOS-
+
+Se requiere construir una app que permita
+
+	.- Construye el proyecto a partir de la ruta de mi pc C:\www\permisos_tthh_
+	En la ruta: C:\Users\Juan Carlos Etayo\movilidad_interna\images se encuentran los logos de la Clinica
+	.- El color azul debe utilizar este:#0D2D6B y con constrastes de este azul #16468E
+	
+
+1.- Infraestructura
+	Github (ya cuento con MCP para todo el despliegue)
+		El nombre del repositorio deber ser: permisos_tthh
+	Supabase (ya cuento con MCP para todo el despliegue)
+		El nombre del repositorio deber ser: permisos_tthh
+	Resend (ya cuento con MCP para todo el despliegue)
+		La API Key deben llamarse notificacionturnos
+		
+	
+2.- La aplicacion debe tener las siguientes condiciones
+		Debe contar con un acceso a traves de credenciales basadas en correo electronico y contraseña
+		Los usuarios que no tenga credenciales deben tener la opcion de crear su propio usuario y contraseña basado en la estructura del punto anterior
+		La notificación de crear el usuario debe llegar al correo utilizando un nombre apropiado como remitente y el link debe ir a la aplicacion con confirmación de usuario
+		La habilitacion del usuario debe hacer desde el link que se le envie al correo electronico
+		Utiliza el modelo el login de acuerdo al proyecto de "cambiodeturno"
+		La app debe contar con las opciones tipo "CRUD" para la gestion de los registros
+		La app debe crear tablas para los campos que sea tipo lista desplegable
+		La app debe ser desplegada (push y commit) desde el momento inicial en Github
+		La app debera crear un usuario administrador asi: usuario: juan.etayo@cacsantabarbara.co contraseña: (la misma de los proyectos anteirores) nombres: Juan Carlos Etayo, rol: administrador
+		El formulario de solicitud debe ser lo más profesional posible, que ocupe solo una pantalla sin que tengan que hacer scroll vertical y mantener el diseño del modelo del archivo excel compartido
+		Utilizar el logo de la Clinica
+		Utilizar colores relacionados con el logo
+
+2.1- Reportes
+			.- Todos los posibles
+			.- Con opcion de exportar a Excel PDF
+			.- Los archivos exportados deben contener titulos y logo de la Clínica
+
+2.2.- La base de datos debe estar en Supabase
+				Todas las tablas deben tener opcion (CRUD) para la gestion
+				Se debe contemplar todas las opciones de permisos y accesos que requiera Supabase
+
+
+3.- Branding
+		Utiliza un diseño "Neumorfismo"
+		Color basados en la paleta de colores del logo de la Clínica
+		La app debe contar con las cards metrics posibles, deben contar con colores segun el tipo de datos, estas deben tener sombras y relieves para destacar la informacion
+		Las cards metris, tablas, graficos, etc deben estar destacados con bordes y sombras
+		Las tablas deben resaltarse las filas pares de las impares
+		El nombre del usuario debe quedar ubicado en la parte superior izquierda
+		El boton de cierre de sesión debe aparecer debejo del nombre del usuario una vez se de clic sobre el
+		Utilizar la vista de resumen como en el proyecto de "SIAU" en donde se destacan los campos o inputs de cada variable
+        Los datos deben quedar registrada en una tabla de la base de datos de Supabase (recuerda ya cuento con MCP de Supabase)
+		Crea el Dashboard de metricas usando shadcn/ui.
+		Filtros por año, mes, proceso/area, etc.
+		Filtros todos los posibles
+		Graficos, tablas con diseño tipo www.odoo.com
+		Utiliza todos los botones tipo shadcn/ui.
+
+3.1.- Utiliza los modelos de shadcn/ui
+			Para obtener interfaces modernas, consistentes y altamente personalizables, 
+			Analiza donde adicionar animaciones para mejorar la experiencia al usuario
+
+
+3.2.- Debe actuar como si fuera:
+
+		Actúa como:
+		
+		- Product Designer Senior
+		- UX Researcher
+		- Especialista ISO 9001
+		- Product Manager
+		
+		Diseña el producto completo.
+		
+		Define:
+		
+		- módulos
+		- navegación
+		- arquitectura
+		- flujo de usuarios
+		- pantallas
+		- prioridades
+		- qué debe ver cada tipo de usuario
+		
+		Antes de escribir una sola línea de código.
+		
+		Quiero conocer:
+		
+		- experiencia completa
+		- recorrido del usuario
+		- wireframes
+		- navegación
+		- botones
+		- iconos
+		- mensajes
+		- estados vacíos
+		- errores
+		- loading
+		- confirmaciones
+		- colores
+		- mejores prácticas UX		
+
+
+		Haz una tabla moderna.
+		
+		Debe parecer diseñada por Stripe.
+		
+		Debe tener:
+		
+		- excelente espaciado
+		- jerarquía visual
+		- tipografía limpia
+		- estados hover
+		- filtros rápidos
+		- búsqueda inmediata
+		- columnas configurables
+		- skeleton loading
+		- acciones contextuales
+		- responsive
+
+
+		
+		
+
+
+
+4.- Logica o flujo de la aplicación
+
+		La aplicacion se diseña para resolver un problema de gestion de documentos en papel y que se lleva actualmente de forma manual
+		Todas las solicitudes se presentan siguiendo un formato preestablecido (comparto el diseño en formato de excel)
+		
+		Paso 1
+			El usuario o colaborador que requiere solicitar un permiso de ausentimo tales como
+			.- cita medica
+			.- diligencia personal
+			.- licencia maternidad
+			.- calamidad domestica
+			.- luto
+			.- votaciones
+			.- deberes de acudiente
+			.- movilidad sostenible
+			
+			Para estos casos se debe adjuntar un documento de soporte (opcional)
+			
+		Paso 2
+			Esta solicitud debe llegarle a la bandeja del coordinador de su area
+			El coordinador revisar la solicitud y puede tener dos opciones
+			a.- Autoizarla
+				En este caso una vez autorizada, la app notificará al solicitante la autorización
+				Esta solicitud ahora debe quedar en la bandeja del personal de talento humano
+				Quienes podran dar el VoBo y archivarla
+				O podran rechazarla por algun concepto
+			b.- Rechazarla
+				Quien debera describir la causa del rechazo y se le enviara una notificacion al solicitante
+				Esta solicitud rechazada debe quedar en un estado que mas adelante el personal de talento humano consulte solicitudes rechazadas por coordinadores
+				
+		Paso 3
+			El personal de talento humano tendra a disposición en la bandeja todas las solicitudes aprobadas por los coordinadores
+			La app debe disponer de todos los filtros posibles
+			Debe haber un dashboard con todas las metricas necesarias (incluyendo filtros)
+			Utilizar tooltips en las graficas, cards, etc.
+			Reportes 
+			Estadisticas (utilizando el modelo de Panle Ejecutivo) que tengo en mi skill
+			Mapa de calor por area o servicio
+			Reutilizar las tablas de areas/servicios, coordinadores, usuarios de los proyectos anteriores
+			
+		Paso 4
+			Consideraciones
+				Para las solicitudes tales como
+					Cita Medica
+						El estado de la solicitud a pesar que haya quedado autorizada debe quedar marcada de tal forma que el solicitante despues de cumplir su ausentismo
+						debe presentar copia de la asistencia medica, incapacidad medica, registro de la incapacidad o copia de la historia clinica cuando el tiempo de ausentismo sea mayor a 2 dias
+				Para los casos tales como	
+					Solicitud de Cesantias
+						Esta debe llegar directamente a la bandeja de la gerente de talento humano
+			
+		
+5.- Resumen
+		Se debe generar el super prompt basado en estas notas y todos los cambios que surgan del desarrollo
+		Se debe contar con todo el codigo fuente de la aplicacion para futuros cambios o despligues en otro servidor e indicar la carpeta donde queda el codigo fuente
+		Se deben generar todos los archivos .MD necesarios
+		Se debe generar un informe de la estructura del proyecto
+		Debes suministrar la ruta y nombre del archivo de este chat
+	
+6.- Antes de iniciar el proceso sugiero revises este prompt y has las sugerencias que consideres
