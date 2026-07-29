@@ -30,19 +30,30 @@ describe('festivos de Colombia', () => {
     expect(esFestivo('2026-04-05')).toBe(false) // El domingo de Pascua no es festivo de ley
   })
 
-  it('incluye el 13 de junio a partir de 2026', () => {
+  it('incluye el 13 de junio desde 2026, trasladado al lunes siguiente', () => {
     expect(esFestivo('2025-06-13')).toBe(false)
-    expect(esFestivo('2026-06-13')).toBe(true)
-    // En 2026 cae sábado, así que ese año no cambia ningún conteo de hábiles.
-    expect(esDiaHabil('2026-06-12')).toBe(true)
-    // En 2028 cae martes: ahí sí deja de ser día hábil.
-    expect(esFestivo('2028-06-13')).toBe(true)
-    expect(esDiaHabil('2028-06-13')).toBe(false)
+
+    // 2026: cae sábado y se corre al lunes 15, que además ya era el Sagrado
+    // Corazón. Ese año no aporta ningún día libre nuevo.
+    expect(esFestivo('2026-06-13')).toBe(false)
+    expect(esFestivo('2026-06-15')).toBe(true)
+
+    // 2027: cae domingo y se corre al lunes 14, sin chocar con nada.
+    expect(esFestivo('2027-06-14')).toBe(true)
+    expect(esDiaHabil('2027-06-14')).toBe(false)
+
+    // 2028: cae martes y se corre al lunes 19, que ya era Corpus Christi.
+    // El martes 13 sigue siendo día hábil.
+    expect(esDiaHabil('2028-06-13')).toBe(true)
+    expect(esFestivo('2028-06-19')).toBe(true)
   })
 
-  it('produce 19 festivos en un año normal desde 2026', () => {
-    expect(festivosDe(2026).size).toBe(19)
+  it('cuenta los festivos del año descontando los que se solapan', () => {
     expect(festivosDe(2024).size).toBe(18)
+    // 2026 sigue en 18 porque el 13 de junio cae sobre el Sagrado Corazón.
+    expect(festivosDe(2026).size).toBe(18)
+    // 2027 sí gana un festivo: el lunes 14 de junio no chocaba con ninguno.
+    expect(festivosDe(2027).size).toBe(19)
   })
 
   it('produce 17 en 2025, cuando dos festivos caen el mismo día', () => {

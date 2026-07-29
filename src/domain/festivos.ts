@@ -82,13 +82,6 @@ export function festivosDe(anio: number): Set<FechaISO> {
     fecha(anio, 12, 25), // Navidad
   ]
 
-  // Festivo vigente a partir de 2026. Se trata como fijo en su fecha, sin
-  // traslado por Ley Emiliani. En 2026 cae sábado, así que ese año no altera
-  // ningún conteo de días hábiles; sí lo hará en los años en que caiga entre
-  // lunes y viernes.
-  if (anio >= ANIO_INICIO_13_JUNIO) {
-    fijos.push(fecha(anio, 6, 13))
-  }
 
   // Trasladables al lunes siguiente (Ley Emiliani).
   const trasladables = [
@@ -100,6 +93,11 @@ export function festivosDe(anio: number): Set<FechaISO> {
     fecha(anio, 11, 1), // Todos los Santos
     fecha(anio, 11, 11), // Independencia de Cartagena
   ]
+
+  // Festivo vigente a partir de 2026, sujeto a Ley Emiliani como los anteriores.
+  if (anio >= ANIO_INICIO_13_JUNIO) {
+    trasladables.push(fecha(anio, 6, 13))
+  }
 
   // Relativos a la Pascua: Jueves y Viernes Santo no se trasladan.
   const juevesSanto = sumarDias(pascua, -3)
