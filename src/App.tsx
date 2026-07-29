@@ -11,6 +11,9 @@ import PerfilPendiente from '@/presentation/pages/PerfilPendiente'
 import Inicio from '@/presentation/pages/Inicio'
 import SolicitudPermiso from '@/presentation/pages/SolicitudPermiso'
 import SolicitudVacaciones from '@/presentation/pages/SolicitudVacaciones'
+import MisSolicitudes from '@/presentation/pages/MisSolicitudes'
+import DetalleSolicitud from '@/presentation/pages/DetalleSolicitud'
+import Bandeja from '@/presentation/pages/Bandeja'
 import EnConstruccion from '@/presentation/pages/EnConstruccion'
 import type { Rol } from '@/domain/estados'
 
@@ -69,12 +72,13 @@ function Rutas() {
           <Route path="/" element={<Inicio />} />
           <Route path="/solicitar/permiso" element={<SolicitudPermiso />} />
           <Route path="/solicitar/vacaciones" element={<SolicitudVacaciones />} />
-          <Route path="/mis-solicitudes" element={<EnConstruccion modulo="Mis solicitudes" />} />
+          <Route path="/mis-solicitudes" element={<MisSolicitudes />} />
+          <Route path="/solicitud/:id" element={<DetalleSolicitud />} />
           <Route
             path="/bandeja/coordinador"
             element={
               <RutaPorRol roles={['coordinador', 'administrador']}>
-                <EnConstruccion modulo="Bandeja del área" />
+                <Bandeja vista="coordinador" />
               </RutaPorRol>
             }
           />
@@ -82,7 +86,7 @@ function Rutas() {
             path="/bandeja/th"
             element={
               <RutaPorRol roles={['analista_th', 'gerente_th']}>
-                <EnConstruccion modulo="Bandeja de Talento Humano" />
+                <Bandeja vista="th" />
               </RutaPorRol>
             }
           />
@@ -90,7 +94,7 @@ function Rutas() {
             path="/bandeja/gerencia"
             element={
               <RutaPorRol roles={['gerente_th']}>
-                <EnConstruccion modulo="Cesantías" />
+                <Bandeja vista="gerencia" />
               </RutaPorRol>
             }
           />
