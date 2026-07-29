@@ -10,9 +10,9 @@ export function AuthLayout({
 }) {
   return (
     <div className="min-h-dvh bg-background">
-      <header className="franja-institucional px-6 py-5">
-        <div className="mx-auto flex max-w-5xl items-center gap-4">
-          <img src={LOGO_BLANCO} alt="Clínica CAC Santa Bárbara" className="h-11 w-auto" />
+      <header className="franja-institucional px-6 py-6">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-3 text-center">
+          <img src={LOGO_BLANCO} alt="Clínica CAC Santa Bárbara" className="h-12 w-auto" />
           <div className="text-white">
             <p className="text-lg font-semibold leading-tight">Permisos y Vacaciones</p>
             <p className="text-xs text-white/80">Proceso de Talento Humano</p>

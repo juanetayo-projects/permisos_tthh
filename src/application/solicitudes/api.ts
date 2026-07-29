@@ -1,0 +1,178 @@
+import { supabase } from '@/infrastructure/supabase/client'
+import { estadoAlEnviar, type Estado } from '@/domain/estados'
+import type { FechaISO } from '@/domain/festivos'
+
+export interface BaseSolicitud {
+  tramite_id: number
+  solicitante_id: string
+  empresa_id: number | null
+  area_id: number | null
+  cargo_id: number | null
+  coordinador_id: number | null
+  fecha_inicio: FechaISO
+  fecha_fin: FechaISO
+  observaciones?: string | null
+  extemporanea: boolean
+}
+
+export interface DetallePermiso {
+  categoria_id: number | null
+  tipo_id: number | null
+  tipo_otro?: string | null
+  hora_salida?: string | null
+  hora_regreso?: string | null
+  horas_permiso: number
+  dias_permiso: number
+  remunerado: boolean
+  requiere_compensacion: boolean
+  plan_compensacion?: string | null
+  justificacion?: string | null
+  requiere_soporte_posterior: boolean
+  fecha_limite_soporte?: FechaISO | null
+}
+
+export interface DetalleVacaciones {
+  dias_corresponden: number | null
+  dias_a_disfrutar: number | null
+  dias_pendientes: number | null
+  fecha_reintegro: FechaISO | null
+  dias_habiles_calculados: number
+  declaracion_aceptada: boolean
+  fecha_constancia: FechaISO
+}
+
+/**
+ * Crea una solicitud y su detalle.
+ *
+ * El consecutivo y el código de verificación los asigna un trigger cuando el
+ * estado deja de ser BORRADOR, así que un borrador no consume numeración.
+ */
+export async function crearSolicitud(params: {
+  base: BaseSolicitud
+  enviar: boolean
+  rutaAprobacion?: 'coordinador_th' | 'gerente_th_directo'
+  detallePermiso?: DetallePermiso
+  detalleVacaciones?: DetalleVacaciones
+}): Promise<{ id: string; consecutivo: string | null; estado: Estado }> {
+  const estado: Estado = params.enviar
+    ? estadoAlEnviar(params.rutaAprobacion ?? 'coordinador_th')
+    : 'BORRADOR'
+
+  const { data, error } = await supabase
+    .from('permisos_solicitudes')
+    .insert({ ...params.base, estado })
+    .select('id, consecutivo, estado')
+    .single()
+
+  if (error) throw error
+
+  const solicitudId = data.id as string
+
+  try {
+    if (params.detallePermiso) {
+      const { error: e } = await supabase
+        .from('permisos_detalle_permiso')
+        .insert({ solicitud_id: solicitudId, ...params.detallePermiso })
+      if (e) throw e
+    }
+
+    if (params.detalleVacaciones) {
+      const { error: e } = await supabase
+        .from('permisos_detalle_vacaciones')
+        .insert({ solicitud_id: solicitudId, ...params.detalleVacaciones })
+      if (e) throw e
+    }
+  } catch (err) {
+    // Sin transacciones desde el cliente: si el detalle falla, la cabecera
+    // quedaría huérfana. Se marca como borrada para que no aparezca en ninguna
+    // bandeja ni cuente en las métricas.
+    await supabase
+      .from('permisos_solicitudes')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', solicitudId)
+    throw err
+  }
+
+  return {
+    id: solicitudId,
+    consecutivo: data.consecutivo as string | null,
+    estado: data.estado as Estado,
+  }
+}
+
+/** Cambia el estado de una solicitud dejando constancia del motivo. */
+export async function cambiarEstado(params: {
+  id: string
+  estado: Estado
+  motivo?: string | null
+  campos?: Record<string, unknown>
+}): Promise<void> {
+  const { error } = await supabase
+    .from('permisos_solicitudes')
+    .update({
+      estado: params.estado,
+      motivo_rechazo: params.motivo ?? null,
+      ...params.campos,
+    })
+    .eq('id', params.id)
+
+  if (error) throw error
+}
+
+const MIME_PERMITIDOS = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+
+export class ErrorArchivo extends Error {}
+
+/**
+ * Sube un soporte al bucket privado.
+ *
+ * La ruta es `{solicitud_id}/{momento}/{archivo}` porque las policies de
+ * Storage resuelven el permiso a partir del primer segmento.
+ */
+export async function subirSoporte(params: {
+  solicitudId: string
+  archivo: File
+  momento: 'previo' | 'posterior'
+  usuarioId: string
+  maxMB?: number
+}): Promise<void> {
+  const maxBytes = (params.maxMB ?? 10) * 1024 * 1024
+
+  if (params.archivo.size > maxBytes) {
+    throw new ErrorArchivo(`El archivo supera el máximo de ${params.maxMB ?? 10} MB.`)
+  }
+  if (!MIME_PERMITIDOS.includes(params.archivo.type)) {
+    throw new ErrorArchivo('Solo se aceptan archivos PDF, JPG, PNG o WEBP.')
+  }
+
+  const nombreSeguro = params.archivo.name.replace(/[^\w.\-]+/g, '_')
+  const ruta = `${params.solicitudId}/${params.momento}/${Date.now()}_${nombreSeguro}`
+
+  const { error: errorSubida } = await supabase.storage
+    .from('soportes-permisos')
+    .upload(ruta, params.archivo, { contentType: params.archivo.type, upsert: false })
+
+  if (errorSubida) throw errorSubida
+
+  const { error } = await supabase.from('permisos_adjuntos').insert({
+    solicitud_id: params.solicitudId,
+    momento: params.momento,
+    nombre_archivo: params.archivo.name,
+    ruta_storage: ruta,
+    mime: params.archivo.type,
+    tamano_bytes: params.archivo.size,
+    subido_por: params.usuarioId,
+  })
+
+  if (error) throw error
+}
+
+/** URL temporal para ver un soporte. Caduca en 60 s (dato de salud, Ley 1581). */
+export async function urlFirmadaSoporte(ruta: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('soportes-permisos')
+    .createSignedUrl(ruta, 60)
+
+  if (error) throw error
+  return data.signedUrl
+}

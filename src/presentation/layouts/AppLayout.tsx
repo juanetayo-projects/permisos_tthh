@@ -130,9 +130,10 @@ export function AppLayout() {
           !menuAbierto && 'max-lg:pb-0'
         )}
       >
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <img src={LOGO_BLANCO} alt="Clínica CAC Santa Bárbara" className="h-9 w-auto shrink-0" />
+        <div className="flex items-start justify-between gap-3">
+          {/* El nombre de la aplicación va debajo del logo institucional. */}
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+            <img src={LOGO_BLANCO} alt="Clínica CAC Santa Bárbara" className="h-10 w-auto" />
             <div className="min-w-0 text-white">
               <p className="truncate text-sm font-semibold leading-tight">Permisos y Vacaciones</p>
               <p className="truncate text-[11px] text-white/70">Talento Humano</p>

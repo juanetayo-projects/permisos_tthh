@@ -9,6 +9,8 @@ import RecuperarClave from '@/presentation/pages/RecuperarClave'
 import EstablecerClave from '@/presentation/pages/EstablecerClave'
 import PerfilPendiente from '@/presentation/pages/PerfilPendiente'
 import Inicio from '@/presentation/pages/Inicio'
+import SolicitudPermiso from '@/presentation/pages/SolicitudPermiso'
+import SolicitudVacaciones from '@/presentation/pages/SolicitudVacaciones'
 import EnConstruccion from '@/presentation/pages/EnConstruccion'
 import type { Rol } from '@/domain/estados'
 
@@ -65,8 +67,8 @@ function Rutas() {
       <Route element={<RutaPrivada />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Inicio />} />
-          <Route path="/solicitar/permiso" element={<EnConstruccion modulo="Solicitud de permiso (TH-F-002)" />} />
-          <Route path="/solicitar/vacaciones" element={<EnConstruccion modulo="Solicitud de vacaciones (TH-F-005)" />} />
+          <Route path="/solicitar/permiso" element={<SolicitudPermiso />} />
+          <Route path="/solicitar/vacaciones" element={<SolicitudVacaciones />} />
           <Route path="/mis-solicitudes" element={<EnConstruccion modulo="Mis solicitudes" />} />
           <Route
             path="/bandeja/coordinador"
