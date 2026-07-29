@@ -1,0 +1,249 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Sistema de diseño — Clínica CAC Santa Bárbara
+   Híbrido aprobado (D3): base limpia estilo Stripe/shadcn para tablas y
+   formularios, con relieve neumórfico reservado a las metric cards y a los
+   paneles del dashboard.
+   ========================================================================== */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Marca institucional */
+  --cac-azul: #0d2d6b;
+  --cac-azul-contraste: #16468e;
+  --cac-azul-50: #eef3fb;
+  --cac-azul-100: #d7e3f5;
+  --cac-azul-200: #b0c6ea;
+  --cac-azul-300: #7fa2db;
+  --cac-azul-400: #4b7bc8;
+  --cac-azul-500: #2a5cae;
+  --cac-azul-600: #16468e;
+  --cac-azul-700: #0d2d6b;
+  --cac-azul-800: #0a2354;
+  --cac-azul-900: #071940;
+
+  /* Semánticos por tipo de dato */
+  --exito: #0f9d58;
+  --exito-suave: #e6f4ec;
+  --advertencia: #f4b400;
+  --advertencia-suave: #fdf4dd;
+  --error: #d93025;
+  --error-suave: #fbeae9;
+  --info: #16468e;
+  --info-suave: #e8eef8;
+  --neutro: #64748b;
+  --neutro-suave: #f1f5f9;
+
+  /* Superficies */
+  --background: #f4f6fb;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: var(--cac-azul);
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f8;
+  --secondary-foreground: #0d2d6b;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #e8eef8;
+  --accent-foreground: #0d2d6b;
+  --destructive: var(--error);
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: var(--cac-azul-contraste);
+
+  /* Filas alternas — requisito explícito del cliente */
+  --fila-par: #f8fafc;
+  --fila-impar: #ffffff;
+  --fila-hover: #eef3fb;
+
+  --radius: 0.625rem;
+
+  /* Relieve neumórfico (solo metric cards y paneles) */
+  --relieve: 6px 6px 14px rgba(13, 45, 107, 0.1), -6px -6px 14px rgba(255, 255, 255, 0.95);
+  --relieve-sm: 3px 3px 8px rgba(13, 45, 107, 0.08), -3px -3px 8px rgba(255, 255, 255, 0.9);
+  --relieve-hover: 8px 8px 20px rgba(13, 45, 107, 0.14), -8px -8px 20px rgba(255, 255, 255, 1);
+  --hundido: inset 4px 4px 8px rgba(13, 45, 107, 0.08), inset -4px -4px 8px rgba(255, 255, 255, 0.9);
+}
+
+.dark {
+  --background: #0b1220;
+  --foreground: #e2e8f0;
+  --card: #111c30;
+  --card-foreground: #e2e8f0;
+  --popover: #111c30;
+  --popover-foreground: #e2e8f0;
+  --primary: #4b7bc8;
+  --primary-foreground: #04101f;
+  --secondary: #1a2740;
+  --secondary-foreground: #cbd5e1;
+  --muted: #16223a;
+  --muted-foreground: #94a3b8;
+  --accent: #1a2740;
+  --accent-foreground: #e2e8f0;
+  --border: #1e2b45;
+  --input: #1e2b45;
+  --ring: #4b7bc8;
+
+  --fila-par: #0f1a2c;
+  --fila-impar: #111c30;
+  --fila-hover: #17243c;
+
+  --exito-suave: #0d2a1e;
+  --advertencia-suave: #2c2410;
+  --error-suave: #2c1512;
+  --info-suave: #12203a;
+  --neutro-suave: #16223a;
+
+  --relieve: 6px 6px 14px rgba(0, 0, 0, 0.45), -6px -6px 14px rgba(255, 255, 255, 0.03);
+  --relieve-sm: 3px 3px 8px rgba(0, 0, 0, 0.4), -3px -3px 8px rgba(255, 255, 255, 0.025);
+  --relieve-hover: 8px 8px 20px rgba(0, 0, 0, 0.55), -8px -8px 20px rgba(255, 255, 255, 0.04);
+  --hundido: inset 4px 4px 8px rgba(0, 0, 0, 0.4), inset -4px -4px 8px rgba(255, 255, 255, 0.03);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-cac-50: var(--cac-azul-50);
+  --color-cac-100: var(--cac-azul-100);
+  --color-cac-200: var(--cac-azul-200);
+  --color-cac-300: var(--cac-azul-300);
+  --color-cac-400: var(--cac-azul-400);
+  --color-cac-500: var(--cac-azul-500);
+  --color-cac-600: var(--cac-azul-600);
+  --color-cac-700: var(--cac-azul-700);
+  --color-cac-800: var(--cac-azul-800);
+  --color-cac-900: var(--cac-azul-900);
+
+  --color-exito: var(--exito);
+  --color-exito-suave: var(--exito-suave);
+  --color-advertencia: var(--advertencia);
+  --color-advertencia-suave: var(--advertencia-suave);
+  --color-error: var(--error);
+  --color-error-suave: var(--error-suave);
+  --color-info: var(--info);
+  --color-info-suave: var(--info-suave);
+  --color-neutro: var(--neutro);
+  --color-neutro-suave: var(--neutro-suave);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-relieve: var(--relieve);
+  --shadow-relieve-sm: var(--relieve-sm);
+  --shadow-relieve-hover: var(--relieve-hover);
+  --shadow-hundido: var(--hundido);
+
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* El cuerpo nunca hace scroll horizontal */
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Los números tabulares evitan que las cifras "bailen" al actualizarse */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer components {
+  /* Panel con relieve — metric cards y paneles del dashboard */
+  .panel-relieve {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--relieve);
+    transition:
+      box-shadow 0.25s ease,
+      transform 0.25s ease;
+  }
+
+  .panel-relieve:hover {
+    box-shadow: var(--relieve-hover);
+  }
+
+  .panel-hundido {
+    background-color: var(--background);
+    border-radius: var(--radius);
+    box-shadow: var(--hundido);
+  }
+
+  /* Tabla estilo Stripe con filas alternas */
+  .tabla-cac tbody tr:nth-child(odd) {
+    background-color: var(--fila-impar);
+  }
+
+  .tabla-cac tbody tr:nth-child(even) {
+    background-color: var(--fila-par);
+  }
+
+  .tabla-cac tbody tr:hover {
+    background-color: var(--fila-hover);
+  }
+
+  /* Franja azul institucional de los encabezados */
+  .franja-institucional {
+    background: linear-gradient(135deg, var(--cac-azul) 0%, var(--cac-azul-contraste) 100%);
+  }
+}
+
+/* Respeta a quien pidió menos movimiento en su sistema operativo */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
