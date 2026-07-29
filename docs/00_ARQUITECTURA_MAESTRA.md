@@ -23,7 +23,7 @@
 | D2 | Base de datos | **Reusar el proyecto Supabase `cambiodeturnos`** (`rykondrasrvnuurolqqk`), tablas nuevas con prefijo `permisos_` | US$0 adicionales; reutiliza en vivo `areas` (16), `coordinadores` (23), `cargos` (17) y el padrón de usuarios ya autenticados. |
 | D3 | Lenguaje visual | **Híbrido**: base limpia shadcn/Stripe + relieve neumórfico en metric cards y paneles | Resuelve el conflicto entre `prompt_inicial.txt` (neumorfismo) y `concepto_general.txt` (Stripe/Linear/Odoo) sin sacrificar legibilidad en tablas densas. |
 | D4 | Motivos de permiso | **Dos niveles**: categoría del formato oficial → tipo específico | El PDF marca la casilla del RED-GTH-F-002 y las estadísticas se hacen por tipo. Ambos catálogos con CRUD. |
-| D5 | Registro de usuarios | **Auto-registro restringido a `@cacsantabarbara.co` + validación de Talento Humano** | Evita que un colaborador se asigne a un área equivocada y dispare el flujo al coordinador incorrecto. |
+| D5 | Registro de usuarios | **Auto-registro con cualquier correo + validación obligatoria de Talento Humano** | No todos los colaboradores tienen cuenta institucional: muchos usan correo personal. El filtro real es la validación de TH, que confirma identidad, área y jefe directo antes de habilitar solicitudes. La restricción por dominio queda **configurable** en `permisos_config.dominios_permitidos` (lista vacía = cualquier dominio) por si la clínica decide cerrarla más adelante. |
 | D6 | Roles | **5 roles**: `colaborador`, `coordinador`, `analista_th`, `gerente_th`, `administrador` | Las cesantías llegan directo a `gerente_th` como exige el Paso 4 del prompt. |
 | D7 | Firmas | **Sello de trazabilidad + QR de verificación** | Cumple ISO 9001 (usuario, fecha, hora, IP) sin firmas escaneadas ni papel. |
 | D8 | Alcance v1 | Núcleo + **Dashboard ejecutivo y mapa de calor** + **Reportes Excel/PDF con logo** + **Testing y CI/CD completo** | El **módulo IA queda fuera de v1** (ver Roadmap §9). |
@@ -368,8 +368,8 @@ barra de filtros sticky.
 
 | ID | Caso de uso | Actor | Precondición | Resultado |
 |---|---|---|---|---|
-| CU-01 | Registrarse y confirmar cuenta | Colaborador | Correo `@cacsantabarbara.co` | Perfil en `pendiente_validacion` |
-| CU-02 | Validar perfil nuevo | analista_th | CU-01 | Perfil `activo` con área y coordinador confirmados |
+| CU-01 | Registrarse y confirmar cuenta | Colaborador | Correo institucional **o personal** | Perfil en `pendiente_validacion` |
+| CU-02 | Validar perfil nuevo | analista_th | CU-01 | Perfil `activo` con identidad, área y coordinador confirmados |
 | CU-03 | Crear solicitud de permiso | Colaborador | Perfil activo | Solicitud en `PENDIENTE_COORDINADOR` + correo al coordinador |
 | CU-04 | Guardar borrador | Colaborador | — | Solicitud en `BORRADOR` |
 | CU-05 | Adjuntar soporte previo | Colaborador | Solicitud propia editable | Archivo en Storage privado |
@@ -586,6 +586,7 @@ en diálogo con motivo obligatorio. Animaciones sutiles con Framer Motion
 | R9 | Coordinador ausente ⇒ solicitudes estancadas | Medio | Alerta a las 24 h y escalamiento automático a TH; el suplente queda en el roadmap |
 | R10 | **Saldos de vacaciones digitados a mano** (D11): el colaborador puede equivocarse o inflar los días | Alto | La app calcula los días hábiles en paralelo y muestra la diferencia; TH debe validar explícitamente el saldo antes de aprobar y queda registrado quién lo hizo (`saldo_validado_por`). El motor de saldos automático está en el roadmap |
 | R11 | Dos formatos ⇒ tentación de duplicar código de bandejas, PDF y reportes | Medio | Motor común `permisos_solicitudes` + detalle por trámite; el PDF se genera desde una plantilla parametrizada por `permisos_tramites` |
+| R12 | **Registro abierto a cualquier dominio** (D5): un desconocido puede crear una cuenta | Medio | La cuenta nace inerte: `pendiente_validacion` no puede crear solicitudes ni ver datos de nadie (RLS). Talento Humano valida identidad y documento antes de activarla. La lista `dominios_permitidos` permite cerrar el registro sin desplegar |
 
 ---
 

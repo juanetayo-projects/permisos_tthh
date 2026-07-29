@@ -1,8 +1,16 @@
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { AuthProvider, useAuth } from '@/application/auth/AuthProvider'
+import { AppLayout } from '@/presentation/layouts/AppLayout'
 import Login from '@/presentation/pages/Login'
+import Registro from '@/presentation/pages/Registro'
+import RecuperarClave from '@/presentation/pages/RecuperarClave'
+import EstablecerClave from '@/presentation/pages/EstablecerClave'
+import PerfilPendiente from '@/presentation/pages/PerfilPendiente'
+import Inicio from '@/presentation/pages/Inicio'
+import EnConstruccion from '@/presentation/pages/EnConstruccion'
+import type { Rol } from '@/domain/estados'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,27 +29,24 @@ function Cargando() {
   )
 }
 
-/** Marcador temporal mientras se construyen los módulos (tareas 5 a 9). */
-function EnConstruccion() {
-  const { perfil, session, salir } = useAuth()
-  return (
-    <div className="min-h-dvh bg-background p-8">
-      <div className="panel-relieve mx-auto max-w-xl space-y-3 p-8">
-        <h1 className="text-lg font-semibold">Sesión iniciada</h1>
-        <p className="text-sm text-muted-foreground">
-          {perfil
-            ? `${perfil.nombre} · ${perfil.rol} · ${perfil.estado}`
-            : `${session?.user.email} — todavía no tienes un perfil de Permisos creado.`}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Los módulos de solicitud, bandejas y dashboard están en construcción.
-        </p>
-        <button onClick={() => void salir()} className="text-sm text-[var(--cac-azul-contraste)] underline">
-          Cerrar sesión
-        </button>
-      </div>
-    </div>
-  )
+/** Exige sesión, perfil creado y validado por Talento Humano. */
+function RutaPrivada() {
+  const { session, perfil, cargandoSesion, cargandoPerfil } = useAuth()
+
+  if (cargandoSesion) return <Cargando />
+  if (!session) return <Navigate to="/login" replace />
+  if (cargandoPerfil && !perfil) return <Cargando />
+  if (!perfil || perfil.estado !== 'activo') return <PerfilPendiente />
+
+  return <Outlet />
+}
+
+function RutaPorRol({ roles, children }: { roles: Rol[]; children: React.ReactNode }) {
+  const { perfil } = useAuth()
+  if (!perfil || !roles.includes(perfil.rol)) {
+    return <EnConstruccion modulo="No tienes permiso para ver esta sección" />
+  }
+  return <>{children}</>
 }
 
 function Rutas() {
@@ -52,7 +57,68 @@ function Rutas() {
   return (
     <Routes>
       <Route path="/login" element={session ? <Navigate to="/" replace /> : <Login />} />
-      <Route path="/" element={session ? <EnConstruccion /> : <Navigate to="/login" replace />} />
+      <Route path="/registro" element={session ? <Navigate to="/" replace /> : <Registro />} />
+      <Route path="/recuperar" element={session ? <Navigate to="/" replace /> : <RecuperarClave />} />
+      <Route path="/establecer-clave" element={<EstablecerClave />} />
+      <Route path="/bienvenida" element={<Navigate to="/" replace />} />
+
+      <Route element={<RutaPrivada />}>
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<Inicio />} />
+          <Route path="/solicitar/permiso" element={<EnConstruccion modulo="Solicitud de permiso (TH-F-002)" />} />
+          <Route path="/solicitar/vacaciones" element={<EnConstruccion modulo="Solicitud de vacaciones (TH-F-005)" />} />
+          <Route path="/mis-solicitudes" element={<EnConstruccion modulo="Mis solicitudes" />} />
+          <Route
+            path="/bandeja/coordinador"
+            element={
+              <RutaPorRol roles={['coordinador', 'administrador']}>
+                <EnConstruccion modulo="Bandeja del área" />
+              </RutaPorRol>
+            }
+          />
+          <Route
+            path="/bandeja/th"
+            element={
+              <RutaPorRol roles={['analista_th', 'gerente_th']}>
+                <EnConstruccion modulo="Bandeja de Talento Humano" />
+              </RutaPorRol>
+            }
+          />
+          <Route
+            path="/bandeja/gerencia"
+            element={
+              <RutaPorRol roles={['gerente_th']}>
+                <EnConstruccion modulo="Cesantías" />
+              </RutaPorRol>
+            }
+          />
+          <Route
+            path="/validaciones"
+            element={
+              <RutaPorRol roles={['analista_th', 'gerente_th', 'administrador']}>
+                <EnConstruccion modulo="Validar colaboradores" />
+              </RutaPorRol>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <RutaPorRol roles={['coordinador', 'analista_th', 'gerente_th', 'administrador']}>
+                <EnConstruccion modulo="Dashboard ejecutivo" />
+              </RutaPorRol>
+            }
+          />
+          <Route
+            path="/administracion"
+            element={
+              <RutaPorRol roles={['administrador']}>
+                <EnConstruccion modulo="Administración" />
+              </RutaPorRol>
+            }
+          />
+        </Route>
+      </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
