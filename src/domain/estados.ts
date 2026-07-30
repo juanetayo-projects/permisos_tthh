@@ -23,7 +23,23 @@ export const ESTADOS = [
 
 export type Estado = (typeof ESTADOS)[number]
 
-export type Rol = 'colaborador' | 'coordinador' | 'analista_th' | 'gerente_th' | 'administrador'
+export const ROLES = [
+  'colaborador',
+  'coordinador',
+  'analista_th',
+  'gerente_th',
+  'administrador',
+] as const
+
+export type Rol = (typeof ROLES)[number]
+
+export const ETIQUETA_ROL: Record<Rol, string> = {
+  colaborador: 'Colaborador',
+  coordinador: 'Coordinador (jefe directo)',
+  analista_th: 'Analista de Talento Humano',
+  gerente_th: 'Gerente de Talento Humano',
+  administrador: 'Administrador',
+}
 
 export type Accion =
   | 'enviar'

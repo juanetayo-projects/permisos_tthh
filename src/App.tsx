@@ -24,6 +24,10 @@ import EnConstruccion from '@/presentation/pages/EnConstruccion'
  * permiso y nunca abre el panel.
  */
 const Dashboard = lazy(() => import('@/presentation/pages/Dashboard'))
+
+/** Solo la usa el administrador: no tiene por qué pesar en el arranque de todos. */
+const Administracion = lazy(() => import('@/presentation/pages/Administracion'))
+const Validaciones = lazy(() => import('@/presentation/pages/Validaciones'))
 import type { Rol } from '@/domain/estados'
 
 const queryClient = new QueryClient({
@@ -113,7 +117,9 @@ function Rutas() {
             path="/validaciones"
             element={
               <RutaPorRol roles={['analista_th', 'gerente_th', 'administrador']}>
-                <EnConstruccion modulo="Validar colaboradores" />
+                <Suspense fallback={<Cargando />}>
+                  <Validaciones />
+                </Suspense>
               </RutaPorRol>
             }
           />
@@ -131,7 +137,9 @@ function Rutas() {
             path="/administracion"
             element={
               <RutaPorRol roles={['administrador']}>
-                <EnConstruccion modulo="Administración" />
+                <Suspense fallback={<Cargando />}>
+                  <Administracion />
+                </Suspense>
               </RutaPorRol>
             }
           />
