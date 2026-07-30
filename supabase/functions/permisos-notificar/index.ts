@@ -78,14 +78,23 @@ function fechaCorta(iso?: string | null) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
   try {
-    const { tipo, solicitud_id } = await req.json()
+    // `preview: true` devuelve el HTML sin enviar nada. Sirve para revisar el
+    // diseño de las plantillas sin llenar de correos de prueba las bandejas
+    // reales de coordinadores y colaboradores.
+    const { tipo, solicitud_id, preview } = await req.json()
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
 
     const { data: apiKey } = await sb.rpc("get_secret", { p_name: "RESEND_API_KEY" })
     const RESEND_API_KEY = (apiKey as string) || Deno.env.get("RESEND_API_KEY") || ""
 
+    const previsualizados: { destinatario: string; asunto: string; html: string }[] = []
+
     async function enviar(to: string | null | undefined, subject: string, html: string) {
       if (!to) return
+      if (preview) {
+        previsualizados.push({ destinatario: to, asunto: subject, html })
+        return
+      }
       if (!RESEND_API_KEY) { console.warn("RESEND_API_KEY no disponible; correo omitido."); return }
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -101,7 +110,7 @@ Deno.serve(async (req) => {
     const { data: s, error } = await sb
       .from("permisos_solicitudes")
       .select(`
-        id, consecutivo, codigo_verificacion, fecha_inicio, fecha_fin, motivo_rechazo,
+        id, consecutivo, codigo_verificacion, fecha_inicio, fecha_fin, motivo_rechazo, coordinador_id,
         tramite:permisos_tramites(nombre, codigo),
         solicitante:permisos_perfiles(nombre, correo, coordinador_id),
         area:areas(nombre),
@@ -125,10 +134,14 @@ Deno.serve(async (req) => {
     const esVacaciones = tramite?.codigo === "vacaciones"
     const nombreMotivo = esVacaciones ? "Vacaciones" : (tipoMotivo?.nombre ?? "Permiso")
 
+    // El jefe directo es el ELEGIDO en la solicitud, no el del perfil: quien
+    // cambio de servicio deja el perfil desactualizado y el correo llegaria al
+    // jefe anterior. El perfil solo sirve de respaldo para datos antiguos.
+    const coordinadorId = s.coordinador_id ?? solicitante?.coordinador_id ?? null
     let coordCorreo: string | null = null
     let coordNombre = ""
-    if (solicitante?.coordinador_id) {
-      const { data: coord } = await sb.from("coordinadores").select("nombre, correo").eq("id", solicitante.coordinador_id).maybeSingle()
+    if (coordinadorId) {
+      const { data: coord } = await sb.from("coordinadores").select("nombre, correo").eq("id", coordinadorId).maybeSingle()
       coordCorreo = (coord?.correo as string) ?? null
       coordNombre = (coord?.nombre as string) ?? ""
     }
@@ -217,7 +230,10 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true }), { headers: { ...cors, "Content-Type": "application/json" } })
+    return new Response(
+      JSON.stringify(preview ? { ok: true, preview: previsualizados } : { ok: true }),
+      { headers: { ...cors, "Content-Type": "application/json" } }
+    )
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: cors })
   }
