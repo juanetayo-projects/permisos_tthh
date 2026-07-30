@@ -208,32 +208,26 @@ export default function SolicitudVacaciones() {
 
   return (
     <form
-      className="mx-auto flex max-w-7xl flex-col gap-4"
+      className="mx-auto flex max-w-7xl flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault()
         void guardar(true)
       }}
     >
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Solicitud de vacaciones</h1>
-          <p className="text-sm text-muted-foreground">
-            Formato {tramite?.codigo_formato} · versión {tramite?.version_formato}
-          </p>
-        </div>
+      <header className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <h1 className="text-lg font-semibold tracking-tight">Solicitud de vacaciones</h1>
         <p className="text-xs text-muted-foreground">
-          Solicitado el {formatearFechaLarga(aISO(new Date()))}
+          Formato {tramite?.codigo_formato} · versión {tramite?.version_formato} · solicitado el{' '}
+          {formatearFechaLarga(aISO(new Date()))}
         </p>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-        <div className="space-y-4">
-          <section className="rounded-lg border border-border bg-card p-4">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Información general
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1.5">
+      <div className="grid gap-3 lg:grid-cols-[1fr_19rem]">
+        <div className="space-y-3">
+          <section className="bloque-datos bloque-azul p-3">
+            <h2 className="bloque-titulo mb-2">Información general</h2>
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              <div className="space-y-1">
                 <Label htmlFor="empresa">Empresa</Label>
                 <Select value={empresaId} onValueChange={(v) => set('empresaId', v)}>
                   <SelectTrigger id="empresa">
@@ -248,7 +242,7 @@ export default function SolicitudVacaciones() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="area">Servicio o área</Label>
                 <Select value={areaId} onValueChange={(v) => set('areaId', v)}>
                   <SelectTrigger id="area">
@@ -263,7 +257,7 @@ export default function SolicitudVacaciones() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="cargo">Cargo</Label>
                 <Select value={cargoId} onValueChange={(v) => set('cargoId', v)}>
                   <SelectTrigger id="cargo">
@@ -281,13 +275,11 @@ export default function SolicitudVacaciones() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-card p-4">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Periodo a disfrutar
-            </h2>
+          <section className="bloque-datos bloque-teal p-3">
+            <h2 className="bloque-titulo mb-2">Periodo a disfrutar</h2>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1.5">
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              <div className="space-y-1">
                 <Label htmlFor="corresponden">Días que corresponden</Label>
                 <Input
                   id="corresponden"
@@ -298,7 +290,7 @@ export default function SolicitudVacaciones() {
                   onChange={(e) => set('diasCorresponden', e.target.value)}
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="disfrutar">Días a disfrutar</Label>
                 <Input
                   id="disfrutar"
@@ -322,7 +314,7 @@ export default function SolicitudVacaciones() {
                   Tomar el periodo completo ({periodoCompleto} días hábiles)
                 </button>
               </div>
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="pendientes">Días pendientes</Label>
                 <Input
                   id="pendientes"
@@ -335,12 +327,12 @@ export default function SolicitudVacaciones() {
               </div>
             </div>
 
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-1.5 text-xs text-muted-foreground">
               Estos saldos los verifica Talento Humano contra nómina.
             </p>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1.5">
+            <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
+              <div className="space-y-1">
                 <Label htmlFor="inicio">Fecha de inicio</Label>
                 <Input
                   id="inicio"
@@ -354,7 +346,7 @@ export default function SolicitudVacaciones() {
                 />
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="fin">Fecha de fin</Label>
                 <Input
                   id="fin"
@@ -380,7 +372,7 @@ export default function SolicitudVacaciones() {
                 )}
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="reintegro">Se presenta a laborar</Label>
                 <Input
                   id="reintegro"
@@ -393,32 +385,37 @@ export default function SolicitudVacaciones() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-card p-4">
-            <Label htmlFor="observaciones" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Observaciones
-            </Label>
-            <Textarea
-              id="observaciones"
-              className="mt-2 min-h-20"
-              value={form.observaciones}
-              onChange={(e) => set('observaciones', e.target.value)}
-              placeholder="Por ejemplo: días pendientes del periodo anterior…"
-            />
-          </section>
-
-          <section className="rounded-lg border border-[var(--cac-azul-200)] bg-[var(--info-suave)] p-4 dark:border-[var(--cac-azul-800)]">
-            <label className="flex items-start gap-3 text-sm">
-              <Checkbox
-                className="mt-0.5"
-                checked={form.declaracion}
-                onCheckedChange={(v) => set('declaracion', v === true)}
+          {/* En paralelo y no apilados: es lo que permite que el formato quepa
+              sin scroll en un portátil de 768 px de alto. */}
+          <div className="grid gap-3 md:grid-cols-2">
+            <section className="bloque-datos bloque-ambar p-3">
+              <Label htmlFor="observaciones" className="bloque-titulo">
+                Observaciones
+              </Label>
+              <Textarea
+                id="observaciones"
+                className="mt-2 min-h-16"
+                value={form.observaciones}
+                onChange={(e) => set('observaciones', e.target.value)}
+                placeholder="Por ejemplo: días pendientes del periodo anterior…"
               />
-              <span>
-                Expreso mi conformidad de solicitar y gozar mis vacaciones de acuerdo con lo
-                estipulado en el Código Sustantivo del Trabajo.
-              </span>
-            </label>
-          </section>
+            </section>
+
+            <section className="bloque-datos bloque-violeta p-3">
+              <p className="bloque-titulo mb-2">Declaración de conformidad</p>
+              <label className="flex items-start gap-2.5 text-sm">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={form.declaracion}
+                  onCheckedChange={(v) => set('declaracion', v === true)}
+                />
+                <span>
+                  Expreso mi conformidad de solicitar y gozar mis vacaciones de acuerdo con lo
+                  estipulado en el Código Sustantivo del Trabajo.
+                </span>
+              </label>
+            </section>
+          </div>
         </div>
 
         <PanelResumen

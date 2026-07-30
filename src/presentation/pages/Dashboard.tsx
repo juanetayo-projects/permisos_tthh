@@ -197,7 +197,7 @@ export default function Dashboard() {
           etiqueta="En trámite"
           valor={kpis.enTramite}
           icono={Hourglass}
-          tono={kpis.enTramite > 0 ? 'advertencia' : 'neutro'}
+          tono="advertencia"
           // No todas esperan una decisión: las de PENDIENTE_SOPORTE ya están
           // autorizadas y lo que falta es el documento.
           detalle="Aún en el flujo"
@@ -231,7 +231,7 @@ export default function Dashboard() {
           etiqueta="Rechazadas"
           valor={kpis.rechazadas}
           icono={XCircle}
-          tono={kpis.rechazadas > 0 ? 'error' : 'neutro'}
+          tono="error"
           detalle="Por jefe directo o TH"
           onClick={() =>
             abrirDetalle(
@@ -245,7 +245,7 @@ export default function Dashboard() {
           valor={kpis.horasAusentismo}
           sufijo="h"
           icono={Clock}
-          tono="azul"
+          tono="teal"
           detalle="Solo permisos aprobados"
         />
         <MetricCard
@@ -253,7 +253,7 @@ export default function Dashboard() {
           valor={kpis.diasVacaciones}
           sufijo="días"
           icono={Palmtree}
-          tono="azul"
+          tono="violeta"
           detalle="Aprobados en el periodo"
         />
         <MetricCard
@@ -268,7 +268,7 @@ export default function Dashboard() {
           etiqueta="Extemporáneas"
           valor={kpis.extemporaneas}
           icono={TriangleAlert}
-          tono={kpis.extemporaneas > 0 ? 'advertencia' : 'neutro'}
+          tono="advertencia"
           detalle="Sin la antelación del formato"
           onClick={() => abrirDetalle('Solicitudes extemporáneas', filtradas.filter((s) => s.extemporanea))}
         />

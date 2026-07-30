@@ -36,6 +36,28 @@
   --neutro: #64748b;
   --neutro-suave: #f1f5f9;
 
+  /*
+   * Tintes de los bloques de datos.
+   *
+   * Son deliberadamente más suaves que los `*-suave` semánticos: aquellos
+   * marcan un estado (éxito, error) y deben saltar a la vista; estos solo
+   * agrupan campos, así que tiñen sin competir con el contenido.
+   */
+  --acento-ambar: #b45309;
+  --acento-violeta: #6d28d9;
+  --acento-teal: #0f766e;
+
+  --tinte-azul: #f2f6fd;
+  --tinte-azul-borde: #d8e3f6;
+  --tinte-verde: #f1f9f4;
+  --tinte-verde-borde: #d5ebdd;
+  --tinte-ambar: #fdf9ef;
+  --tinte-ambar-borde: #f2e4c6;
+  --tinte-violeta: #f7f5fd;
+  --tinte-violeta-borde: #e2dcf5;
+  --tinte-teal: #f0f9f8;
+  --tinte-teal-borde: #cfe8e5;
+
   /* Superficies */
   --background: #f4f6fb;
   --foreground: #0f172a;
@@ -99,6 +121,26 @@
   --error-suave: #2c1512;
   --info-suave: #12203a;
   --neutro-suave: #16223a;
+
+  /*
+   * Tintes de bloque en oscuro. No se aclara el fondo: se le da color y se
+   * sube el borde, que es lo que separa los grupos cuando todo es oscuro.
+   * Los acentos se aclaran para que el texto del título siga siendo legible.
+   */
+  --acento-ambar: #fbbf24;
+  --acento-violeta: #a78bfa;
+  --acento-teal: #2dd4bf;
+
+  --tinte-azul: #101c31;
+  --tinte-azul-borde: #22344f;
+  --tinte-verde: #0e2018;
+  --tinte-verde-borde: #1d3d2e;
+  --tinte-ambar: #221c0e;
+  --tinte-ambar-borde: #40341a;
+  --tinte-violeta: #181432;
+  --tinte-violeta-borde: #2e2755;
+  --tinte-teal: #0c2321;
+  --tinte-teal-borde: #1a413d;
 
   --relieve: 6px 6px 14px rgba(0, 0, 0, 0.45), -6px -6px 14px rgba(255, 255, 255, 0.03);
   --relieve-sm: 3px 3px 8px rgba(0, 0, 0, 0.4), -3px -3px 8px rgba(255, 255, 255, 0.025);
@@ -233,6 +275,65 @@
   /* Franja azul institucional de los encabezados */
   .franja-institucional {
     background: linear-gradient(135deg, var(--cac-azul) 0%, var(--cac-azul-contraste) 100%);
+  }
+
+  /*
+   * Bloques de datos de los formularios.
+   *
+   * Sobre fondo blanco, una tarjeta blanca con borde gris no separa nada: los
+   * grupos se leían como un bloque continuo. Cada bloque lleva ahora un tinte
+   * propio y una franja de acento a la izquierda, de modo que el ojo agrupe
+   * los campos sin tener que leer los títulos. Los tintes se redefinen en modo
+   * oscuro, así que el contraste se mantiene en ambos temas.
+   */
+  .bloque-datos {
+    background-color: var(--bloque-fondo, var(--card));
+    border: 1px solid var(--bloque-borde, var(--border));
+    border-left: 3px solid var(--bloque-acento, var(--cac-azul-600));
+    border-radius: var(--radius);
+    box-shadow: 0 1px 2px rgb(13 45 107 / 6%);
+  }
+
+  .dark .bloque-datos {
+    box-shadow: 0 1px 2px rgb(0 0 0 / 30%);
+  }
+
+  .bloque-datos > .bloque-titulo {
+    color: var(--bloque-acento, var(--cac-azul-600));
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .bloque-azul {
+    --bloque-fondo: var(--tinte-azul);
+    --bloque-borde: var(--tinte-azul-borde);
+    --bloque-acento: var(--cac-azul-600);
+  }
+
+  .bloque-verde {
+    --bloque-fondo: var(--tinte-verde);
+    --bloque-borde: var(--tinte-verde-borde);
+    --bloque-acento: var(--exito);
+  }
+
+  .bloque-ambar {
+    --bloque-fondo: var(--tinte-ambar);
+    --bloque-borde: var(--tinte-ambar-borde);
+    --bloque-acento: var(--acento-ambar);
+  }
+
+  .bloque-violeta {
+    --bloque-fondo: var(--tinte-violeta);
+    --bloque-borde: var(--tinte-violeta-borde);
+    --bloque-acento: var(--acento-violeta);
+  }
+
+  .bloque-teal {
+    --bloque-fondo: var(--tinte-teal);
+    --bloque-borde: var(--tinte-teal-borde);
+    --bloque-acento: var(--acento-teal);
   }
 }
 

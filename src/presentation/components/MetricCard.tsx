@@ -2,31 +2,55 @@ import type { LucideIcon } from 'lucide-react'
 import { TrendingDown, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type TonoMetrica = 'azul' | 'exito' | 'advertencia' | 'error' | 'neutro'
+export type TonoMetrica = 'azul' | 'exito' | 'advertencia' | 'error' | 'teal' | 'violeta' | 'neutro'
 
-const TONOS: Record<TonoMetrica, { icono: string; valor: string; barra: string }> = {
+/**
+ * Cada tono tiñe la tarjeta entera, no solo el icono.
+ *
+ * Con todas las tarjetas en blanco sobre fondo claro, la retícula se leía como
+ * una masa uniforme y había que leer cada cifra para orientarse. El tinte usa
+ * las variables de bloque, que ya están definidas para tema claro y oscuro.
+ */
+const TONOS: Record<TonoMetrica, { fondo: string; icono: string; valor: string; barra: string }> = {
   azul: {
-    icono: 'bg-[var(--info-suave)] text-[var(--cac-azul)] dark:text-[var(--cac-azul-300)]',
+    fondo: 'bg-[var(--tinte-azul)] border-[var(--tinte-azul-borde)]',
+    icono: 'bg-[var(--cac-azul)] text-white',
     valor: 'text-[var(--cac-azul)] dark:text-[var(--cac-azul-300)]',
     barra: 'bg-[var(--cac-azul)]',
   },
   exito: {
-    icono: 'bg-[var(--exito-suave)] text-[var(--exito)]',
+    fondo: 'bg-[var(--tinte-verde)] border-[var(--tinte-verde-borde)]',
+    icono: 'bg-[var(--exito)] text-white',
     valor: 'text-[var(--exito)]',
     barra: 'bg-[var(--exito)]',
   },
   advertencia: {
-    icono: 'bg-[var(--advertencia-suave)] text-[#8a6400] dark:text-[var(--advertencia)]',
-    valor: 'text-[#8a6400] dark:text-[var(--advertencia)]',
-    barra: 'bg-[var(--advertencia)]',
+    fondo: 'bg-[var(--tinte-ambar)] border-[var(--tinte-ambar-borde)]',
+    icono: 'bg-[var(--acento-ambar)] text-white dark:text-[#221c0e]',
+    valor: 'text-[var(--acento-ambar)]',
+    barra: 'bg-[var(--acento-ambar)]',
   },
   error: {
-    icono: 'bg-[var(--error-suave)] text-[var(--error)]',
+    fondo: 'bg-[var(--error-suave)] border-[var(--error)]/25',
+    icono: 'bg-[var(--error)] text-white',
     valor: 'text-[var(--error)]',
     barra: 'bg-[var(--error)]',
   },
+  teal: {
+    fondo: 'bg-[var(--tinte-teal)] border-[var(--tinte-teal-borde)]',
+    icono: 'bg-[var(--acento-teal)] text-white',
+    valor: 'text-[var(--acento-teal)]',
+    barra: 'bg-[var(--acento-teal)]',
+  },
+  violeta: {
+    fondo: 'bg-[var(--tinte-violeta)] border-[var(--tinte-violeta-borde)]',
+    icono: 'bg-[var(--acento-violeta)] text-white',
+    valor: 'text-[var(--acento-violeta)]',
+    barra: 'bg-[var(--acento-violeta)]',
+  },
   neutro: {
-    icono: 'bg-[var(--neutro-suave)] text-[var(--neutro)]',
+    fondo: 'bg-[var(--neutro-suave)] border-[var(--neutro)]/30',
+    icono: 'bg-[var(--neutro)] text-white',
     valor: 'text-foreground',
     barra: 'bg-[var(--neutro)]',
   },
@@ -64,7 +88,8 @@ export function MetricCard({
     <Elemento
       onClick={onClick}
       className={cn(
-        'panel-relieve group relative overflow-hidden p-4 text-left transition-transform',
+        'panel-relieve group relative overflow-hidden border p-4 text-left transition-transform',
+        t.fondo,
         onClick && 'cursor-pointer hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
       )}
     >
@@ -72,7 +97,7 @@ export function MetricCard({
 
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{etiqueta}</p>
-        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl', t.icono)}>
+        <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl shadow-sm', t.icono)}>
           <Icono className="size-4" />
         </span>
       </div>

@@ -226,33 +226,27 @@ export default function SolicitudPermiso() {
 
   return (
     <form
-      className="mx-auto flex max-w-7xl flex-col gap-4"
+      className="mx-auto flex max-w-7xl flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault()
         void guardar(true)
       }}
     >
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Nueva solicitud de permiso</h1>
-          <p className="text-sm text-muted-foreground">
-            Formato {tramite?.codigo_formato} · versión {tramite?.version_formato}
-          </p>
-        </div>
+      <header className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <h1 className="text-lg font-semibold tracking-tight">Nueva solicitud de permiso</h1>
         <p className="text-xs text-muted-foreground">
-          Solicitado el {formatearFechaLarga(aISO(new Date()))}
+          Formato {tramite?.codigo_formato} · versión {tramite?.version_formato} · solicitado el{' '}
+          {formatearFechaLarga(aISO(new Date()))}
         </p>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-        <div className="space-y-4">
+      <div className="grid gap-3 lg:grid-cols-[1fr_19rem]">
+        <div className="space-y-3">
           {/* ------------------------------------------------ Información general */}
-          <section className="rounded-lg border border-border bg-card p-4">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Información general
-            </h2>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1.5">
+          <section className="bloque-datos bloque-azul p-3">
+            <h2 className="bloque-titulo mb-2">Información general</h2>
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              <div className="space-y-1">
                 <Label htmlFor="empresa">Empresa</Label>
                 <Select value={empresaId} onValueChange={(v) => set('empresaId', v)}>
                   <SelectTrigger id="empresa">
@@ -268,7 +262,7 @@ export default function SolicitudPermiso() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="area">Proceso o área</Label>
                 <Select value={areaId} onValueChange={(v) => set('areaId', v)}>
                   <SelectTrigger id="area">
@@ -284,7 +278,7 @@ export default function SolicitudPermiso() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <Label htmlFor="cargo">Cargo</Label>
                 <Select value={cargoId} onValueChange={(v) => set('cargoId', v)}>
                   <SelectTrigger id="cargo">
@@ -303,13 +297,11 @@ export default function SolicitudPermiso() {
           </section>
 
           {/* -------------------------------------------------------- Dos columnas */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <section className="rounded-lg border border-border bg-card p-4">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Tiempos del permiso
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
+          <div className="grid gap-3 md:grid-cols-2">
+            <section className="bloque-datos bloque-teal p-3">
+              <h2 className="bloque-titulo mb-2">Tiempos del permiso</h2>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <div className="space-y-1">
                   <Label htmlFor="desde">Desde</Label>
                   <Input
                     id="desde"
@@ -321,7 +313,7 @@ export default function SolicitudPermiso() {
                     }}
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor="hasta">Hasta</Label>
                   <Input
                     id="hasta"
@@ -331,7 +323,7 @@ export default function SolicitudPermiso() {
                     onChange={(e) => set('fechaFin', e.target.value)}
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor="salida">Hora de salida</Label>
                   <Input
                     id="salida"
@@ -340,7 +332,7 @@ export default function SolicitudPermiso() {
                     onChange={(e) => set('horaSalida', e.target.value)}
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor="regreso">Hora de regreso</Label>
                   <Input
                     id="regreso"
@@ -351,7 +343,7 @@ export default function SolicitudPermiso() {
                 </div>
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-4">
+              <div className="mt-2.5 flex flex-wrap items-center gap-4">
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
                     checked={form.remunerado}
@@ -369,12 +361,10 @@ export default function SolicitudPermiso() {
               </div>
             </section>
 
-            <section className="rounded-lg border border-border bg-card p-4">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Motivo del permiso
-              </h2>
-              <div className="space-y-3">
-                <div className="space-y-1.5">
+            <section className="bloque-datos bloque-violeta p-3">
+              <h2 className="bloque-titulo mb-2">Motivo del permiso</h2>
+              <div className="space-y-2.5">
+                <div className="space-y-1">
                   <Label htmlFor="categoria">Categoría</Label>
                   <Select
                     value={form.categoriaId}
@@ -396,7 +386,7 @@ export default function SolicitudPermiso() {
                   </Select>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <Label htmlFor="tipo">Motivo</Label>
                   <Select
                     value={form.tipoId}
@@ -431,30 +421,30 @@ export default function SolicitudPermiso() {
           </div>
 
           {/* -------------------------------------------------- Textos del formato */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <section className="rounded-lg border border-border bg-card p-4">
-              <Label htmlFor="justificacion" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="grid gap-3 md:grid-cols-2">
+            <section className="bloque-datos bloque-ambar p-3">
+              <Label htmlFor="justificacion" className="bloque-titulo">
                 Justificación del permiso o calamidad
               </Label>
               <Textarea
                 id="justificacion"
-                className="mt-2 min-h-24"
+                className="mt-2 min-h-16"
                 value={form.justificacion}
                 onChange={(e) => set('justificacion', e.target.value)}
                 placeholder="Describe brevemente el motivo…"
               />
             </section>
 
-            <section className="rounded-lg border border-border bg-card p-4">
-              <Label htmlFor="compensacion" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <section className="bloque-datos bloque-verde p-3">
+              <Label htmlFor="compensacion" className="bloque-titulo">
                 Compensación del tiempo
               </Label>
               <Textarea
                 id="compensacion"
-                className="mt-2 min-h-24"
+                className="mt-2 min-h-16"
                 value={form.planCompensacion}
                 onChange={(e) => set('planCompensacion', e.target.value)}
-                placeholder="Cómo y cuándo propones reponer el tiempo (lo confirma tu jefe directo)…"
+                placeholder="Cómo y cuándo propones reponer el tiempo…"
                 disabled={!form.requiereCompensacion}
               />
             </section>
