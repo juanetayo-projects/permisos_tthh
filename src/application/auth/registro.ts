@@ -1,4 +1,8 @@
 import { supabase, URL_APP } from '@/infrastructure/supabase/client'
+import { dominioPermitido, ErrorDominioNoPermitido } from '@/domain/correo'
+
+// Se reexportan para no romper a quien ya las importaba desde aquí.
+export { dominioDe, dominioPermitido, ErrorDominioNoPermitido } from '@/domain/correo'
 
 export interface DatosRegistro {
   nombre: string
@@ -10,34 +14,6 @@ export interface DatosRegistro {
   empresaId: number
   areaId: number
   cargoId: number
-}
-
-export class ErrorDominioNoPermitido extends Error {
-  constructor(dominios: string[]) {
-    super(
-      dominios.length === 1
-        ? `Solo pueden registrarse los correos @${dominios[0]}.`
-        : `Solo pueden registrarse los correos de estos dominios: ${dominios.map((d) => `@${d}`).join(', ')}.`
-    )
-    this.name = 'ErrorDominioNoPermitido'
-  }
-}
-
-export function dominioDe(correo: string): string {
-  return correo.trim().toLowerCase().split('@')[1] ?? ''
-}
-
-/**
- * Comprueba el dominio del correo contra la lista configurada.
- *
- * Muchos colaboradores de la clínica no tienen cuenta institucional y usan
- * correo personal, así que **la lista vacía acepta cualquier dominio**. Quien
- * decide si la persona entra es Talento Humano al validar el perfil, no el
- * dominio del correo.
- */
-export function dominioPermitido(correo: string, dominios: string[]): boolean {
-  if (dominios.length === 0) return true
-  return dominios.map((d) => d.toLowerCase()).includes(dominioDe(correo))
 }
 
 /**

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { dominioDe, dominioPermitido } from '../registro'
+// Se importa del dominio y no de `registro.ts`: ese módulo carga el cliente de
+// Supabase, que exige credenciales y hace fallar la prueba en CI.
+import { dominioDe, dominioPermitido } from '@/domain/correo'
 
 describe('dominio del correo', () => {
   it('extrae el dominio sin importar mayúsculas ni espacios', () => {
