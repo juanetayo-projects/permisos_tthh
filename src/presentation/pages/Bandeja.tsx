@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import { useDecidir, useSolicitudes, type SolicitudLista } from '@/application/solicitudes/useSolicitudes'
+import { notificar, tipoNotificacionPara } from '@/application/solicitudes/api'
 import { ESTADOS_BANDEJA, estadoTrasVistoBueno, type Estado } from '@/domain/estados'
 import { TablaSolicitudes } from '@/presentation/components/TablaSolicitudes'
 import { DialogoDecision, type TipoDecision } from '@/presentation/components/DialogoDecision'
@@ -92,6 +93,8 @@ export default function Bandeja({ vista }: { vista: Vista }) {
         motivo,
         campos: { [config.campoFecha]: ahora, [config.campoActor]: session.user.id },
       })
+      const tipoNotif = tipoNotificacionPara(config.estadoRechazado)
+      if (tipoNotif) await Promise.all(dialogo.ids.map((id) => notificar(tipoNotif, id)))
     } else {
       // El estado de destino depende de cada solicitud, así que se agrupan
       // por destino en vez de mandar una sola actualización para todas.
@@ -108,6 +111,8 @@ export default function Bandeja({ vista }: { vista: Vista }) {
           motivo,
           campos: { [config.campoFecha]: ahora, [config.campoActor]: session.user.id },
         })
+        const tipoNotif = tipoNotificacionPara(estado)
+        if (tipoNotif) await Promise.all(ids.map((id) => notificar(tipoNotif, id)))
       }
     }
 

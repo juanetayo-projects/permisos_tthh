@@ -2,6 +2,55 @@ import { supabase } from '@/infrastructure/supabase/client'
 import { estadoAlEnviar, type Estado } from '@/domain/estados'
 import type { FechaISO } from '@/domain/festivos'
 
+export type TipoNotificacion =
+  | 'enviada'
+  | 'aprobada_coordinador'
+  | 'rechazada_coordinador'
+  | 'pendiente_soporte'
+  | 'finalizada'
+  | 'rechazada_th'
+  | 'perfil_validado'
+
+/**
+ * Traduce el estado de destino de una decisión al correo que corresponde.
+ * `CANCELADA` y `ARCHIVADA` no tienen correo propio: cancelar es una acción
+ * del propio solicitante y archivar es un paso administrativo sin novedad
+ * para él.
+ */
+export function tipoNotificacionPara(destino: Estado): TipoNotificacion | null {
+  switch (destino) {
+    case 'PENDIENTE_TH':
+      return 'aprobada_coordinador'
+    case 'PENDIENTE_SOPORTE':
+      return 'pendiente_soporte'
+    case 'FINALIZADA':
+      return 'finalizada'
+    case 'RECHAZADA_COORDINADOR':
+      return 'rechazada_coordinador'
+    case 'RECHAZADA_TH':
+      return 'rechazada_th'
+    default:
+      return null
+  }
+}
+
+/**
+ * Dispara el correo correspondiente vía la Edge Function `permisos-notificar`.
+ *
+ * Deliberadamente silenciosa: un correo que falla no debe impedir que el
+ * coordinador o Talento Humano completen su decisión. El intento (o el
+ * error) queda igualmente en `permisos_notificaciones` cuando sí se envía.
+ */
+export async function notificar(tipo: TipoNotificacion, solicitudId: string): Promise<void> {
+  try {
+    await supabase.functions.invoke('permisos-notificar', {
+      body: { tipo, solicitud_id: solicitudId },
+    })
+  } catch (err) {
+    console.error('No fue posible notificar por correo:', err)
+  }
+}
+
 export interface BaseSolicitud {
   tramite_id: number
   solicitante_id: string
@@ -92,6 +141,8 @@ export async function crearSolicitud(params: {
       .eq('id', solicitudId)
     throw err
   }
+
+  if (params.enviar) await notificar('enviada', solicitudId)
 
   return {
     id: solicitudId,

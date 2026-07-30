@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Ban, CheckCircle2, Clock, XCircle } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import { useDecidir, useHistorial, useSolicitud } from '@/application/solicitudes/useSolicitudes'
+import { notificar, tipoNotificacionPara } from '@/application/solicitudes/api'
 import { ETIQUETA_ESTADO, estadoTrasVistoBueno, puedeEjecutar, type Estado } from '@/domain/estados'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { BadgeEstado } from '@/presentation/components/ui/badge'
@@ -71,6 +72,9 @@ export default function DetalleSolicitud() {
             ? { coord_fecha: ahora, coord_actor_id: session.user.id }
             : { th_fecha: ahora, th_actor_id: session.user.id },
     })
+
+    const tipoNotif = tipoNotificacionPara(dialogo.destino)
+    if (tipoNotif) await notificar(tipoNotif, s.id)
   }
 
   return (

@@ -8,6 +8,7 @@ import Registro from '@/presentation/pages/Registro'
 import RecuperarClave from '@/presentation/pages/RecuperarClave'
 import EstablecerClave from '@/presentation/pages/EstablecerClave'
 import PerfilPendiente from '@/presentation/pages/PerfilPendiente'
+import Verificar from '@/presentation/pages/Verificar'
 import Inicio from '@/presentation/pages/Inicio'
 import SolicitudPermiso from '@/presentation/pages/SolicitudPermiso'
 import SolicitudVacaciones from '@/presentation/pages/SolicitudVacaciones'
@@ -65,6 +66,8 @@ function Rutas() {
       <Route path="/registro" element={session ? <Navigate to="/" replace /> : <Registro />} />
       <Route path="/recuperar" element={session ? <Navigate to="/" replace /> : <RecuperarClave />} />
       <Route path="/establecer-clave" element={<EstablecerClave />} />
+      {/* Pública: destino del QR impreso en cada PDF. No exige sesión. */}
+      <Route path="/verificar" element={<Verificar />} />
       <Route path="/bienvenida" element={<Navigate to="/" replace />} />
 
       <Route element={<RutaPrivada />}>
