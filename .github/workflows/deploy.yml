@@ -1,0 +1,91 @@
+name: CI y despliegue
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Un solo despliegue a la vez. No se cancela el que ya está corriendo: dejar
+# GitHub Pages a medias es peor que esperar unos segundos.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------- Calidad
+  verificar:
+    name: Lint, tipos y pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verificación de tipos
+        run: npm run typecheck
+
+      - name: Pruebas unitarias
+        run: npm run test
+
+  # -------------------------------------------------------------- Compilar
+  compilar:
+    name: Compilar
+    needs: verificar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Compilar para producción
+        env:
+          # Solo la clave anónima llega al navegador; lo privilegiado vive en
+          # las Edge Functions con service_role.
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - name: Fallback de SPA para rutas profundas
+        # GitHub Pages devuelve 404 en cualquier ruta que no sea un archivo.
+        # Con HashRouter no debería ocurrir, pero esto cubre el caso de que
+        # alguien entre por una URL sin almohadilla.
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: dist
+
+  # ------------------------------------------------------------- Desplegar
+  desplegar:
+    name: Publicar en GitHub Pages
+    if: github.ref == 'refs/heads/main'
+    needs: compilar
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - id: despliegue
+        uses: actions/deploy-pages@v4

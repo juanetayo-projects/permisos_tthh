@@ -216,7 +216,7 @@ export async function subirSoporte(params: {
     throw new ErrorArchivo('Solo se aceptan archivos PDF, JPG, PNG o WEBP.')
   }
 
-  const nombreSeguro = params.archivo.name.replace(/[^\w.\-]+/g, '_')
+  const nombreSeguro = params.archivo.name.replace(/[^\w.-]+/g, '_')
   const ruta = `${params.solicitudId}/${params.momento}/${Date.now()}_${nombreSeguro}`
 
   const { error: errorSubida } = await supabase.storage
