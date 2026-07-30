@@ -10,7 +10,7 @@ import {
   useEmpresas,
   useTramite,
 } from '@/application/catalogos/useCatalogos'
-import { crearSolicitud } from '@/application/solicitudes/api'
+import { crearSolicitud, guardarDocumentoPropio } from '@/application/solicitudes/api'
 import { calcularVacaciones, evaluarAntelacion, validarSaldos } from '@/domain/reglas'
 import { aISO, fechaFinPorDiasHabiles } from '@/domain/festivos'
 import { formatearFechaLarga } from '@/lib/utils'
@@ -50,6 +50,8 @@ export default function SolicitudVacaciones() {
     cargoId: '',
     /** Vacío = se propone el del área. El colaborador puede cambiarlo. */
     coordinadorId: '',
+    /** Vacío = se toma el del perfil; si el perfil no lo tiene, se pide aquí. */
+    documento: '',
     diasCorresponden: '',
     diasADisfrutar: '',
     diasPendientes: '',
@@ -66,6 +68,7 @@ export default function SolicitudVacaciones() {
   const empresaId = form.empresaId || (perfil?.empresa_id ? String(perfil.empresa_id) : '')
   const areaId = form.areaId || (perfil?.area_id ? String(perfil.area_id) : '')
   const cargoId = form.cargoId || (perfil?.cargo_id ? String(perfil.cargo_id) : '')
+  const documento = form.documento || perfil?.documento || ''
 
   function set<K extends keyof typeof form>(campo: K, valor: (typeof form)[K]) {
     setForm((f) => ({ ...f, [campo]: valor }))
@@ -202,9 +205,18 @@ export default function SolicitudVacaciones() {
       setError('Selecciona el jefe directo que debe autorizar la solicitud.')
       return
     }
+    if (enviar && !documento.trim()) {
+      setError('Indica tu número de identificación: el formato lo exige.')
+      return
+    }
 
     setEnviando(true)
     try {
+      // Se guarda una sola vez: a partir de aquí viene del perfil.
+      if (documento.trim() && documento.trim() !== perfil.documento) {
+        await guardarDocumentoPropio(perfil.user_id, documento)
+      }
+
       const { consecutivo } = await crearSolicitud({
         base: {
           tramite_id: tramite.id,
@@ -268,7 +280,18 @@ export default function SolicitudVacaciones() {
             <h2 className="bloque-titulo mb-2">Información general</h2>
             {/* Cuatro columnas en una sola fila: el selector de jefe directo no
                 debe costar una fila entera, o el formato dejaría de caber. */}
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="space-y-1">
+                <Label htmlFor="documento">N.° de identificación</Label>
+                <Input
+                  id="documento"
+                  inputMode="numeric"
+                  value={documento}
+                  onChange={(e) => set('documento', e.target.value)}
+                  placeholder="Cédula"
+                />
+              </div>
+
               <div className="space-y-1">
                 <Label htmlFor="empresa">Empresa</Label>
                 <Select value={empresaId} onValueChange={(v) => set('empresaId', v)}>
@@ -413,6 +436,7 @@ export default function SolicitudVacaciones() {
                 <Input
                   id="inicio"
                   type="date"
+                  min={HOY}
                   value={form.fechaInicio}
                   onChange={(e) => {
                     set('fechaInicio', e.target.value)
@@ -497,7 +521,7 @@ export default function SolicitudVacaciones() {
         <PanelResumen
           filas={[
             { etiqueta: 'Solicitante', valor: perfil?.nombre ?? '—' },
-            { etiqueta: 'Documento', valor: perfil?.documento ?? '—' },
+            { etiqueta: 'Documento', valor: documento || '—' },
             { etiqueta: 'Empresa', valor: nombreEmpresa ?? '—' },
             { etiqueta: 'Servicio', valor: nombreArea ?? '—' },
             {

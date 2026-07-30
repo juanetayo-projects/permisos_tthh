@@ -51,6 +51,26 @@ export async function notificar(tipo: TipoNotificacion, solicitudId: string): Pr
   }
 }
 
+/**
+ * Guarda el número de identificación en el perfil de quien solicita.
+ *
+ * El documento es obligatorio en el formato impreso, pero muchos perfiles
+ * vienen sin él —los importados de Cambio de Turnos, por ejemplo—. En vez de
+ * exigir un paso previo, se captura en la propia solicitud y se persiste, de
+ * modo que solo haga falta escribirlo una vez.
+ *
+ * La policy `permisos_perfiles_update_propio` permite este cambio porque no
+ * toca ni el rol ni el estado.
+ */
+export async function guardarDocumentoPropio(userId: string, documento: string): Promise<void> {
+  const { error } = await supabase
+    .from('permisos_perfiles')
+    .update({ documento: documento.trim() })
+    .eq('user_id', userId)
+
+  if (error) throw error
+}
+
 export interface BaseSolicitud {
   tramite_id: number
   solicitante_id: string

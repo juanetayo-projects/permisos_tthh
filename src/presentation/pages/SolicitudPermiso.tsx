@@ -12,7 +12,7 @@ import {
   useTipos,
   useTramite,
 } from '@/application/catalogos/useCatalogos'
-import { crearSolicitud, subirSoporte } from '@/application/solicitudes/api'
+import { crearSolicitud, guardarDocumentoPropio, subirSoporte } from '@/application/solicitudes/api'
 import { calcularDuracion, evaluarAntelacion, evaluarSoporte } from '@/domain/reglas'
 import { aISO } from '@/domain/festivos'
 import { formatearFechaLarga } from '@/lib/utils'
@@ -53,6 +53,8 @@ export default function SolicitudPermiso() {
     cargoId: '',
     /** Vacío = se propone el del área. El colaborador puede cambiarlo. */
     coordinadorId: '',
+    /** Vacío = se toma el del perfil; si el perfil no lo tiene, se pide aquí. */
+    documento: '',
     categoriaId: '',
     tipoId: '',
     tipoOtro: '',
@@ -73,6 +75,7 @@ export default function SolicitudPermiso() {
   const empresaId = form.empresaId || (perfil?.empresa_id ? String(perfil.empresa_id) : '')
   const areaId = form.areaId || (perfil?.area_id ? String(perfil.area_id) : '')
   const cargoId = form.cargoId || (perfil?.cargo_id ? String(perfil.cargo_id) : '')
+  const documento = form.documento || perfil?.documento || ''
 
   function set<K extends keyof typeof form>(campo: K, valor: (typeof form)[K]) {
     setForm((f) => ({ ...f, [campo]: valor }))
@@ -100,6 +103,16 @@ export default function SolicitudPermiso() {
 
   const coordinadorId = form.coordinadorId || (coordinadorPropuesto ? String(coordinadorPropuesto.id) : '')
   const coordinador = coordinadores?.find((c) => String(c.id) === coordinadorId)
+
+  /**
+   * Fecha mínima seleccionable.
+   *
+   * Por defecto no se permite pedir un permiso para un día que ya pasó. La
+   * excepción son los motivos exentos de antelación —calamidad y luto—: ocurren
+   * de un momento a otro y se formalizan después, así que bloquearlos impediría
+   * registrar el caso real.
+   */
+  const fechaMinima = tipo?.exento_antelacion ? undefined : HOY
 
   const coordinadoresDelArea = useMemo(
     () => coordinadores?.filter((c) => String(c.area_id) === areaId) ?? [],
@@ -200,9 +213,18 @@ export default function SolicitudPermiso() {
       setError('Selecciona el jefe directo que debe autorizar la solicitud.')
       return
     }
+    if (enviar && !documento.trim()) {
+      setError('Indica tu número de identificación: el formato lo exige.')
+      return
+    }
 
     setEnviando(true)
     try {
+      // Se guarda una sola vez: a partir de aquí viene del perfil.
+      if (documento.trim() && documento.trim() !== perfil.documento) {
+        await guardarDocumentoPropio(perfil.user_id, documento)
+      }
+
       const { id, consecutivo } = await crearSolicitud({
         base: {
           tramite_id: tramite.id,
@@ -268,7 +290,7 @@ export default function SolicitudPermiso() {
       }}
     >
       <header className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <h1 className="text-lg font-semibold tracking-tight">Nueva solicitud de permiso</h1>
+        <h1 className="text-lg font-semibold tracking-tight">Solicitud de permiso</h1>
         <p className="text-xs text-muted-foreground">
           Formato {tramite?.codigo_formato} · versión {tramite?.version_formato} · solicitado el{' '}
           {formatearFechaLarga(aISO(new Date()))}
@@ -282,7 +304,18 @@ export default function SolicitudPermiso() {
             <h2 className="bloque-titulo mb-2">Información general</h2>
             {/* Cuatro columnas en una sola fila: el selector de jefe directo no
                 debe costar una fila entera, o el formato dejaría de caber. */}
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="space-y-1">
+                <Label htmlFor="documento">N.° de identificación</Label>
+                <Input
+                  id="documento"
+                  inputMode="numeric"
+                  value={documento}
+                  onChange={(e) => set('documento', e.target.value)}
+                  placeholder="Cédula"
+                />
+              </div>
+
               <div className="space-y-1">
                 <Label htmlFor="empresa">Empresa</Label>
                 <Select value={empresaId} onValueChange={(v) => set('empresaId', v)}>
@@ -381,6 +414,7 @@ export default function SolicitudPermiso() {
                   <Input
                     id="desde"
                     type="date"
+                    min={fechaMinima}
                     value={form.fechaInicio}
                     onChange={(e) => {
                       set('fechaInicio', e.target.value)
@@ -530,7 +564,7 @@ export default function SolicitudPermiso() {
         <PanelResumen
           filas={[
             { etiqueta: 'Solicitante', valor: perfil?.nombre ?? '—' },
-            { etiqueta: 'Documento', valor: perfil?.documento ?? '—' },
+            { etiqueta: 'Documento', valor: documento || '—' },
             { etiqueta: 'Empresa', valor: nombreEmpresa ?? '—' },
             { etiqueta: 'Área', valor: nombreArea ?? '—' },
             { etiqueta: 'Motivo', valor: tipo?.nombre ?? '—' },
