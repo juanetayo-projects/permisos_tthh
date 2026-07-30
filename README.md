@@ -1,68 +1,67 @@
-# PERMISOS TTHH — Clínica CAC Santa Bárbara
+# Permisos y Vacaciones · Clínica CAC Santa Bárbara
 
-Aplicación empresarial para la gestión de **permisos laborales** y **vacaciones**
-del personal, en reemplazo del proceso manual en papel.
+Aplicación web que reemplaza los formatos en papel **TH-F-002** (autorización de
+permiso laboral) y **TH-F-005** (solicitud de vacaciones) por un flujo digital
+con trazabilidad ISO 9001.
 
-Digitaliza dos formatos del proceso de Talento Humano:
-
-| Trámite | Formato | Antelación mínima |
-|---|---|---|
-| Autorización de permiso laboral | `TH-F-002 V02` | 48 horas |
-| Solicitud y autorización de vacaciones | `TH-F-005 V02` | 20 días |
-
-## Estado
-
-🚧 **En desarrollo.** La arquitectura está aprobada y documentada en
-[`docs/00_ARQUITECTURA_MAESTRA.md`](docs/00_ARQUITECTURA_MAESTRA.md).
-
-## Stack
-
-| Capa | Tecnología |
-|---|---|
-| UI | React 19 · Vite 6 · TypeScript (strict) · Tailwind CSS v4 · shadcn/ui |
-| Formularios | React Hook Form · Zod |
-| Datos | TanStack Query · TanStack Table |
-| Gráficos | Recharts · ECharts (mapa de calor) |
-| Exportación | ExcelJS · pdfmake |
-| Backend | Supabase — PostgreSQL · Auth · Storage · Realtime · Edge Functions |
-| Correo | Resend |
-| Despliegue | GitHub Actions → GitHub Pages |
-
-## Flujo de aprobación
-
-```
-Colaborador → Jefe directo (coordinador) → Dirección de Talento Humano → Archivada
-```
-
-Las **solicitudes de cesantías** saltan al coordinador y llegan directamente a la
-bandeja de la Gerencia de Talento Humano.
-
-## Roles
-
-`colaborador` · `coordinador` · `analista_th` · `gerente_th` · `administrador`
-
-## Desarrollo local
-
-```bash
-npm install
-cp .env.example .env   # completar con las claves de Supabase
-npm run dev
-```
-
-## Documentación
-
-Toda la documentación técnica vive en [`docs/`](docs/). El documento maestro de
-arquitectura recoge modelo de datos, casos de uso, wireframes, riesgos y
-decisiones tomadas.
-
-## Seguridad
-
-- Autenticación y RLS obligatorios: los soportes de permisos contienen datos de
-  salud y están sujetos a la **Ley 1581 de 2012** (habeas data).
-- Ninguna clave ni contraseña se versiona: el cliente solo usa la `anon key` de
-  Supabase; todo lo privilegiado corre en Edge Functions.
-- Trazabilidad ISO 9001 de cada acción (usuario, fecha, hora, IP, antes/después).
+**En producción:** https://juanetayo-projects.github.io/permisos_tthh/
 
 ---
 
-Clínica de Alta Complejidad Santa Bárbara · Proceso de Talento Humano
+## Qué resuelve
+
+Un colaborador solicita un permiso o unas vacaciones desde el navegador. La
+solicitud llega a la bandeja del jefe directo que él mismo señala, y de ahí a
+Talento Humano. Cada paso queda registrado con autor, fecha y hora, y el
+documento final se puede verificar por QR sin necesidad de tener cuenta.
+
+| Trámite | Formato | Consecutivo | Ruta de aprobación |
+|---|---|---|---|
+| Permiso laboral | `TH-F-002 v02` | `PL-2026-00001` | Jefe directo → Talento Humano |
+| Vacaciones | `TH-F-005 v02` | `VA-2026-00001` | Jefe directo → Dirección de TH |
+| Cesantías | (permiso) | `PL-…` | Directo a Gerencia de TH |
+
+## Stack
+
+React 19 · Vite 6 · TypeScript estricto · Tailwind v4 · shadcn/ui ·
+TanStack Query y Table · Recharts y ECharts · ExcelJS y pdfmake ·
+Supabase (Postgres, Auth, Storage, Edge Functions) · Resend · GitHub Pages
+
+## Empezar
+
+```bash
+npm install
+cp .env.example .env   # completa VITE_SUPABASE_ANON_KEY
+npm run dev
+```
+
+| Comando | Qué hace |
+|---|---|
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` | Compilación de producción |
+| `npm run typecheck` | Verificación de tipos |
+| `npm run lint` | ESLint |
+| `npm run test` | Pruebas unitarias (Vitest) |
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| [00_ARQUITECTURA_MAESTRA](docs/00_ARQUITECTURA_MAESTRA.md) | Documento aprobado antes de programar: módulos, casos de uso, wireframes |
+| [Architecture](docs/Architecture.md) | Capas, dependencias y por qué |
+| [Database](docs/Database.md) · [ERD](docs/ERD.md) | Tablas, relaciones y diagrama |
+| [API](docs/API.md) | Edge Functions y funciones de base de datos |
+| [SECURITY](docs/SECURITY.md) | RLS, auditoría y hallazgos corregidos |
+| [DECISIONS](docs/DECISIONS.md) | Cada decisión de diseño y su motivo |
+| [UX](docs/UX.md) · [Branding](docs/Branding.md) | Patrones de interfaz y sistema visual |
+| [Deploy](docs/Deploy.md) | CI/CD y configuración de entornos |
+| [TESTING](docs/TESTING.md) | Qué se prueba y qué no |
+| [Roadmap](docs/Roadmap.md) | Lo que queda |
+| [CHANGELOG](docs/CHANGELOG.md) | Historial de cambios |
+| [ESTRUCTURA](docs/ESTRUCTURA.md) | Mapa de carpetas y archivos |
+| [SUPER_PROMPT](docs/SUPER_PROMPT.md) | Especificación completa para reconstruir o continuar |
+| [plantillas_correo_auth](docs/plantillas_correo_auth.md) | Plantillas de Supabase Auth para pegar en el panel |
+
+> ⚠️ **La base de datos se comparte con Cambio de Turnos.** Las tablas de esta
+> app llevan el prefijo `permisos_`; `areas`, `cargos` y `coordinadores` son
+> comunes a las dos aplicaciones. Ver [DECISIONS.md](docs/DECISIONS.md), D2.

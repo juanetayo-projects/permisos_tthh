@@ -1,0 +1,83 @@
+# Historial de cambios
+
+Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
+
+## [0.1.0] — 2026-07-30
+
+Primera versión desplegada en https://juanetayo-projects.github.io/permisos_tthh/
+
+### Añadido
+
+- **Autenticación y onboarding**: registro con cualquier dominio de correo,
+  confirmación, recuperación de contraseña y validación de perfiles por Talento
+  Humano antes de habilitar a la persona.
+- **Solicitud de permiso (TH-F-002)** y **de vacaciones (TH-F-005)**, cada una
+  en una sola pantalla sin scroll, con panel de resumen en vivo.
+- **Cálculo de días hábiles** con festivos colombianos y Ley Emiliani: duración
+  del permiso, fecha final de vacaciones y fecha de reintegro.
+- **Bandejas por rol**: jefe directo, Talento Humano y Gerencia para cesantías,
+  con acciones en lote y rechazo con motivo obligatorio.
+- **Panel ejecutivo** con ocho KPIs, tendencia mensual, distribución, mapa de
+  calor área × mes y ranking, todo con drill-down al detalle.
+- **Exportación a Excel y PDF** con logo institucional, títulos y filtros
+  aplicados.
+- **Administración**: usuarios y roles, jefes directos, trámites, categorías,
+  motivos, empresas, parámetros y consulta de auditoría.
+- **Importación de personas** que ya existen en Cambio de Turnos.
+- **Notificaciones por correo** en cada paso, con plantillas institucionales.
+- **Verificación pública por QR** del documento aprobado, sin necesidad de
+  tener cuenta.
+- **Trazabilidad ISO 9001**: historial legible, auditoría con antes/después y
+  bus de eventos para automatizaciones futuras.
+- **CI/CD**: lint, tipos, pruebas, compilación y despliegue automático.
+
+### Corregido durante el desarrollo
+
+Todos encontrados probando la aplicación, no revisando código.
+
+- **Ninguna solicitud podía crearse.** Dos fallos bloqueantes encadenados en la
+  misma ruta: el trigger del consecutivo llamaba a `gen_random_bytes` fuera de
+  su `search_path`, y la auditoría no encontraba la clave primaria de las
+  tablas de detalle, que usan `solicitud_id` en vez de `id`.
+- **La solicitud no llegaba al jefe correcto.** La función de correos leía el
+  coordinador del perfil y las policies resolvían la bandeja solo por área, así
+  que el jefe elegido en el formulario se guardaba y no servía para nada.
+- **Eventos duplicados.** Al conectar el bus quedaron dos emisores solapados y
+  cada envío y cada rechazo escribían el evento dos veces.
+- **La exportación a PDF fallaba en silencio.** La carga de la tipografía de
+  pdfmake no contemplaba la forma real del módulo: sin fuente no genera nada y
+  no avisa.
+- **1,4 MB innecesarios en el arranque.** Declarar Recharts y ECharts en
+  `manualChunks` hacía que Vite les añadiera `modulepreload`.
+- **Los desplegables del registro llegaban vacíos**, porque las policies de los
+  catálogos exigen sesión y quien se registra aún no la tiene.
+- **Las metric cards en cero eran invisibles**: el color dependía del valor y
+  caía a un gris casi idéntico al fondo.
+- **Los formatos se desbordaban** 18 px y 109 px a 1366×768.
+- **La barra lateral no cubría la altura** al bajar en el dashboard.
+- **El CI se rompió en la primera ejecución**: faltaba la configuración de
+  ESLint y una prueba de dominio arrastraba el cliente de Supabase.
+
+### Seguridad
+
+- Cerrado un **escalamiento de privilegios**: un `analista_th` podía otorgarse
+  el rol de administrador.
+- Endurecida la inserción en `cambiodeturnos.solicitudes`, que quedó expuesta al
+  compartir `auth.users` entre las dos aplicaciones.
+- Activada la protección de contraseñas filtradas.
+- Funciones `SECURITY DEFINER` con `search_path` acotado.
+
+### Cambios de alcance durante el desarrollo
+
+- **Vacaciones (TH-F-005) entró en la v1.** No estaba en el prompt inicial;
+  apareció al revisar las plantillas del cliente.
+- **El registro dejó de exigir correo institucional.** Muchos colaboradores no
+  tienen cuenta `@cacsantabarbara.co`.
+- **El 13 de junio se añadió como festivo** desde 2026, trasladable por Ley
+  Emiliani.
+- **El solicitante elige su jefe directo**, porque puede haber cambiado de
+  servicio.
+
+## Pendiente
+
+Ver [Roadmap.md](Roadmap.md).

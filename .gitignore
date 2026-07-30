@@ -49,3 +49,6 @@ supabase/.branches/
 datos/
 *.local.xlsx
 *.local.csv
+
+# Archivos temporales de Office (se crean al abrir un .xlsx)
+~$*
