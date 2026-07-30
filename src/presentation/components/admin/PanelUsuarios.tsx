@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react'
-import { AlertCircle, Search, ShieldAlert } from 'lucide-react'
+import { AlertCircle, ChevronDown, Download, Search, ShieldAlert, UserPlus } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
   useCambiarEstadoPerfil,
   useCambiarRol,
+  useImportarUsuarios,
   usePerfiles,
+  useUsuariosHeredados,
   type EstadoPerfil,
   type PerfilAdmin,
 } from '@/application/admin/usePerfiles'
+import { Button } from '@/presentation/components/ui/button'
 import { ROLES, ETIQUETA_ROL, type Rol } from '@/domain/estados'
 import { cn, formatearFecha } from '@/lib/utils'
 import { Badge } from '@/presentation/components/ui/badge'
@@ -33,8 +36,12 @@ export function PanelUsuarios() {
   const cambiarRol = useCambiarRol()
   const cambiarEstado = useCambiarEstadoPerfil()
 
+  const { data: heredados } = useUsuariosHeredados()
+  const importar = useImportarUsuarios()
+
   const [busqueda, setBusqueda] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [mostrarHeredados, setMostrarHeredados] = useState(false)
 
   const filtrados = useMemo(() => {
     const t = busqueda.trim().toLowerCase()
@@ -96,6 +103,56 @@ export function PanelUsuarios() {
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
           {error}
         </p>
+      )}
+
+      {/* ------------------------------------ Personas de Cambio de Turnos */}
+      {(heredados ?? []).length > 0 && (
+        <div className="bloque-datos bloque-ambar p-3">
+          <button
+            onClick={() => setMostrarHeredados((v) => !v)}
+            className="flex w-full items-start justify-between gap-3 text-left"
+            aria-expanded={mostrarHeredados}
+          >
+            <div>
+              <p className="flex items-center gap-2 font-medium">
+                <UserPlus className="size-4 shrink-0" />
+                {(heredados ?? []).length} persona{(heredados ?? []).length === 1 ? '' : 's'} de Cambio
+                de Turnos sin perfil aquí
+              </p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Comparten la cuenta con esta aplicación: pueden iniciar sesión, pero se quedarían sin
+                poder hacer nada hasta que tengan perfil. Al importarlas quedan pendientes de que
+                confirmes su servicio y jefe directo.
+              </p>
+            </div>
+            <ChevronDown
+              className={cn('mt-1 size-4 shrink-0 transition-transform', mostrarHeredados && 'rotate-180')}
+            />
+          </button>
+
+          {mostrarHeredados && (
+            <div className="mt-3 space-y-2">
+              <ul className="max-h-56 space-y-1 overflow-y-auto rounded-md bg-card/60 p-2 text-sm">
+                {(heredados ?? []).map((u) => (
+                  <li key={u.id} className="flex flex-wrap items-baseline justify-between gap-2 px-1 py-0.5">
+                    <span className="font-medium">{u.nombre}</span>
+                    <span className="text-xs text-muted-foreground">{u.correo}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  cargando={importar.isPending}
+                  onClick={() => void ejecutar(() => importar.mutateAsync(heredados ?? []))}
+                >
+                  <Download /> Importar {(heredados ?? []).length} perfil
+                  {(heredados ?? []).length === 1 ? '' : 'es'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {isLoading ? (

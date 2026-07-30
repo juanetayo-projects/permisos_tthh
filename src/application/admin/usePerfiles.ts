@@ -114,6 +114,70 @@ export function useCambiarRol() {
   })
 }
 
+export interface UsuarioHeredado {
+  id: string
+  nombre: string
+  correo: string
+  documento: string | null
+  cargo: string | null
+  activo: boolean
+}
+
+/**
+ * Personas que ya existen en Cambio de Turnos pero aún no tienen perfil aquí.
+ *
+ * Ambas apps comparten `auth.users`, así que estas personas pueden iniciar
+ * sesión en Permisos, pero se quedarían en la pantalla de «cuenta sin perfil»
+ * hasta que alguien se lo cree. Importarlas evita ese callejón sin salida y
+ * ahorra que 24 personas se registren de nuevo.
+ */
+export function useUsuariosHeredados() {
+  return useQuery({
+    queryKey: ['usuarios-heredados'],
+    queryFn: async (): Promise<UsuarioHeredado[]> => {
+      const [{ data: origen, error: e1 }, { data: existentes, error: e2 }] = await Promise.all([
+        supabase.from('profiles').select('id, nombre, correo, documento, cargo, activo').order('nombre'),
+        supabase.from('permisos_perfiles').select('user_id'),
+      ])
+
+      if (e1) throw e1
+      if (e2) throw e2
+
+      const yaTienen = new Set((existentes ?? []).map((p) => p.user_id))
+      return (origen ?? []).filter((p) => !yaTienen.has(p.id))
+    },
+  })
+}
+
+/** Crea el perfil de Permisos para personas que ya están en Cambio de Turnos. */
+export function useImportarUsuarios() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (usuarios: UsuarioHeredado[]) => {
+      const { error } = await supabase.from('permisos_perfiles').insert(
+        usuarios.map((u) => ({
+          user_id: u.id,
+          nombre: u.nombre,
+          correo: u.correo,
+          documento: u.documento,
+          tipo_documento: 'CC',
+          rol: 'colaborador',
+          // Nacen pendientes: Talento Humano confirma servicio y jefe directo,
+          // que es justo el dato que no viene de la otra aplicación.
+          estado: 'pendiente_validacion',
+          activo: false,
+        }))
+      )
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['perfiles'] })
+      void qc.invalidateQueries({ queryKey: ['usuarios-heredados'] })
+    },
+  })
+}
+
 export function useCambiarEstadoPerfil() {
   const qc = useQueryClient()
 

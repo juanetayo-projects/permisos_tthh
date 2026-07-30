@@ -124,9 +124,13 @@ export function AppLayout() {
 
   return (
     <div className="min-h-dvh bg-background lg:flex">
+      {/* En escritorio va fija a la izquierda y no `sticky`: con `sticky` la
+          franja azul solo medía una pantalla y, al bajar en el dashboard,
+          debajo asomaba el fondo de la página. */}
       <aside
         className={cn(
-          'franja-institucional flex w-full shrink-0 flex-col gap-4 p-4 lg:h-dvh lg:w-72 lg:sticky lg:top-0',
+          'franja-institucional flex w-full shrink-0 flex-col gap-4 p-4',
+          'lg:fixed lg:inset-y-0 lg:left-0 lg:w-72 lg:overflow-y-auto',
           !menuAbierto && 'max-lg:pb-0'
         )}
       >
@@ -182,7 +186,10 @@ export function AppLayout() {
 
       {/* Margen contenido a propósito: los formatos TH-F-002 y TH-F-005 deben
           caber sin scroll en un portátil de 720 px de alto. */}
-      <main className="min-w-0 flex-1 p-4 sm:p-5 lg:px-6 lg:py-5">
+      {/* El padding izquierdo deja el hueco de la barra fija (18rem + 1.5rem).
+          Se declara `pl` y `pr` por separado, y no `px` más un `pl`, para no
+          depender del orden en que Tailwind emita las utilidades. */}
+      <main className="min-w-0 flex-1 p-4 sm:p-5 lg:py-5 lg:pr-6 lg:pl-[19.5rem]">
         <Outlet />
       </main>
     </div>

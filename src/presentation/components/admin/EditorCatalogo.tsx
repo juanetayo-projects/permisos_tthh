@@ -54,6 +54,7 @@ export function EditorCatalogo({
   descripcion,
   orden = 'orden',
   valoresPorDefecto = {},
+  advertencia,
 }: {
   tabla: TablaCatalogo
   campos: CampoCatalogo[]
@@ -61,6 +62,8 @@ export function EditorCatalogo({
   descripcion: string
   orden?: string
   valoresPorDefecto?: Record<string, unknown>
+  /** Aviso destacado, p. ej. cuando el catálogo lo comparten dos aplicaciones. */
+  advertencia?: string
 }) {
   const { data: filas, isLoading } = useCatalogo<FilaCatalogo>(tabla, orden)
   const guardar = useGuardarFila(tabla)
@@ -122,6 +125,13 @@ export function EditorCatalogo({
           <Plus /> Agregar
         </Button>
       </div>
+
+      {advertencia && (
+        <p className="flex items-start gap-2 rounded-md border border-[var(--tinte-ambar-borde)] bg-[var(--tinte-ambar)] p-3 text-sm text-[var(--acento-ambar)]">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" />
+          {advertencia}
+        </p>
+      )}
 
       {error && (
         <p role="alert" className="flex items-start gap-2 rounded-md bg-[var(--error-suave)] p-3 text-sm text-[var(--error)]">

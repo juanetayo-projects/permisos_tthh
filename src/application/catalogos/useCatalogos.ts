@@ -20,6 +20,18 @@ export interface Coordinador {
   correo: string
   cargo: string
 }
+
+/**
+ * Etiqueta de un coordinador en los desplegables.
+ *
+ * El nombre solo no basta: hay personas que coordinan varios servicios y
+ * aparecen una vez por cada uno, con lo que las opciones se veían idénticas y
+ * no había forma de saber cuál elegir. El cargo desambigua.
+ */
+export function etiquetaCoordinador(c: Coordinador): string {
+  const nombre = c.nombre?.trim() || c.correo
+  return c.cargo ? `${nombre} · ${c.cargo}` : nombre
+}
 export interface Categoria {
   id: number
   nombre: string

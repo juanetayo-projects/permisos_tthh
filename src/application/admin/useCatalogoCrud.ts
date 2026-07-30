@@ -13,6 +13,10 @@ export type TablaCatalogo =
   | 'permisos_categorias'
   | 'permisos_tipos'
   | 'permisos_tramites'
+  // Compartidos con Cambio de Turnos: editarlos afecta a las dos aplicaciones.
+  | 'coordinadores'
+  | 'areas'
+  | 'cargos'
 
 export function useCatalogo<T extends { id: number }>(tabla: TablaCatalogo, orden = 'orden') {
   return useQuery({
@@ -32,6 +36,9 @@ function invalidar(qc: ReturnType<typeof useQueryClient>, tabla: TablaCatalogo) 
   void qc.invalidateQueries({ queryKey: ['categorias'] })
   void qc.invalidateQueries({ queryKey: ['tipos'] })
   void qc.invalidateQueries({ queryKey: ['tramites'] })
+  void qc.invalidateQueries({ queryKey: ['coordinadores'] })
+  void qc.invalidateQueries({ queryKey: ['areas'] })
+  void qc.invalidateQueries({ queryKey: ['cargos'] })
 }
 
 export function useGuardarFila(tabla: TablaCatalogo) {

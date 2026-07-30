@@ -1,5 +1,14 @@
 import { useState } from 'react'
-import { Building2, FileCog, ListTree, ScrollText, SlidersHorizontal, Tags, Users } from 'lucide-react'
+import {
+  Building2,
+  FileCog,
+  ListTree,
+  ScrollText,
+  SlidersHorizontal,
+  Tags,
+  UserCog,
+  Users,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EditorCatalogo, type CampoCatalogo } from '@/presentation/components/admin/EditorCatalogo'
 import { PanelUsuarios } from '@/presentation/components/admin/PanelUsuarios'
@@ -52,10 +61,19 @@ const CAMPOS_TRAMITE: CampoCatalogo[] = [
   { clave: 'activo', etiqueta: 'Activo', tipo: 'booleano', ancho: 'w-24' },
 ]
 
-type Seccion = 'usuarios' | 'tramites' | 'categorias' | 'tipos' | 'empresas' | 'parametros' | 'auditoria'
+type Seccion =
+  | 'usuarios'
+  | 'coordinadores'
+  | 'tramites'
+  | 'categorias'
+  | 'tipos'
+  | 'empresas'
+  | 'parametros'
+  | 'auditoria'
 
 const SECCIONES: { clave: Seccion; etiqueta: string; icono: typeof Users }[] = [
   { clave: 'usuarios', etiqueta: 'Usuarios y roles', icono: Users },
+  { clave: 'coordinadores', etiqueta: 'Jefes directos', icono: UserCog },
   { clave: 'tramites', etiqueta: 'Trámites y formatos', icono: FileCog },
   { clave: 'categorias', etiqueta: 'Categorías', icono: Tags },
   { clave: 'tipos', etiqueta: 'Motivos de permiso', icono: ListTree },
@@ -71,6 +89,32 @@ export default function Administracion() {
   const { data: categorias } = useCatalogo<{ id: number; nombre: string; activo: boolean }>(
     'permisos_categorias'
   )
+  // Los jefes directos se asocian a un servicio, así que hace falta el catálogo.
+  const { data: areasAdmin } = useCatalogo<{ id: number; nombre: string; activo: boolean }>(
+    'areas',
+    'nombre'
+  )
+
+  const camposCoordinador: CampoCatalogo[] = [
+    { clave: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true },
+    {
+      clave: 'cargo',
+      etiqueta: 'Cargo',
+      tipo: 'texto',
+      requerido: true,
+      ayuda: 'Distingue a quien coordina varios servicios: aparece junto al nombre en el desplegable.',
+    },
+    { clave: 'correo', etiqueta: 'Correo', tipo: 'texto', requerido: true },
+    {
+      clave: 'area_id',
+      etiqueta: 'Servicio',
+      tipo: 'seleccion',
+      requerido: true,
+      opciones: (areasAdmin ?? []).map((a) => ({ valor: String(a.id), etiqueta: a.nombre })),
+      ayuda: 'Una fila por servicio. Quien cubra tres servicios necesita tres filas.',
+    },
+    { clave: 'activo', etiqueta: 'Activo', tipo: 'booleano', ancho: 'w-24' },
+  ]
 
   const camposTipo: CampoCatalogo[] = [
     { clave: 'nombre', etiqueta: 'Motivo', tipo: 'texto', requerido: true },
@@ -150,6 +194,18 @@ export default function Administracion() {
       </nav>
 
       {seccion === 'usuarios' && <PanelUsuarios />}
+
+      {seccion === 'coordinadores' && (
+        <EditorCatalogo
+          tabla="coordinadores"
+          campos={camposCoordinador}
+          orden="nombre"
+          titulo="Jefes directos"
+          descripcion="Quiénes pueden autorizar solicitudes y de qué servicio. Es la lista que ve el colaborador al solicitar."
+          advertencia="Este catálogo lo comparten Permisos y Cambio de Turnos: lo que cambies aquí afecta a las dos aplicaciones."
+          valoresPorDefecto={{ activo: true }}
+        />
+      )}
 
       {seccion === 'tramites' && (
         <EditorCatalogo

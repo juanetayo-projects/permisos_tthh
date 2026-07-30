@@ -7,6 +7,7 @@ import {
   useCargos,
   useConfig,
   useCoordinadores,
+  etiquetaCoordinador,
   useEmpresas,
   useTramite,
 } from '@/application/catalogos/useCatalogos'
@@ -280,7 +281,7 @@ export default function SolicitudVacaciones() {
             <h2 className="bloque-titulo mb-2">Información general</h2>
             {/* Cuatro columnas en una sola fila: el selector de jefe directo no
                 debe costar una fila entera, o el formato dejaría de caber. */}
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid items-end gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-1">
                 <Label htmlFor="documento">N.° de identificación</Label>
                 <Input
@@ -308,7 +309,7 @@ export default function SolicitudVacaciones() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="area">Servicio donde estás ubicado</Label>
+                <Label htmlFor="area">Servicio actual</Label>
                 <Select
                   value={areaId}
                   onValueChange={(v) => {
@@ -356,7 +357,7 @@ export default function SolicitudVacaciones() {
                       <SelectGroup>
                         <SelectLabel>Del servicio seleccionado</SelectLabel>
                         {coordinadoresDelArea.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>{c.nombre ?? c.correo}</SelectItem>
+                          <SelectItem key={c.id} value={String(c.id)}>{etiquetaCoordinador(c)}</SelectItem>
                         ))}
                       </SelectGroup>
                     )}
@@ -364,7 +365,7 @@ export default function SolicitudVacaciones() {
                       <SelectGroup>
                         <SelectLabel>Otros coordinadores</SelectLabel>
                         {otrosCoordinadores.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>{c.nombre ?? c.correo}</SelectItem>
+                          <SelectItem key={c.id} value={String(c.id)}>{etiquetaCoordinador(c)}</SelectItem>
                         ))}
                       </SelectGroup>
                     )}

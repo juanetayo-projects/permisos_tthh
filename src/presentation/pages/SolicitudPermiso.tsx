@@ -8,6 +8,7 @@ import {
   useCategorias,
   useConfig,
   useCoordinadores,
+  etiquetaCoordinador,
   useEmpresas,
   useTipos,
   useTramite,
@@ -304,7 +305,7 @@ export default function SolicitudPermiso() {
             <h2 className="bloque-titulo mb-2">Información general</h2>
             {/* Cuatro columnas en una sola fila: el selector de jefe directo no
                 debe costar una fila entera, o el formato dejaría de caber. */}
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid items-end gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-1">
                 <Label htmlFor="documento">N.° de identificación</Label>
                 <Input
@@ -333,7 +334,7 @@ export default function SolicitudPermiso() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="area">Servicio donde estás ubicado</Label>
+                <Label htmlFor="area">Servicio actual</Label>
                 <Select
                   value={areaId}
                   onValueChange={(v) => {
@@ -383,7 +384,7 @@ export default function SolicitudPermiso() {
                         <SelectLabel>Del servicio seleccionado</SelectLabel>
                         {coordinadoresDelArea.map((c) => (
                           <SelectItem key={c.id} value={String(c.id)}>
-                            {c.nombre ?? c.correo}
+                            {etiquetaCoordinador(c)}
                           </SelectItem>
                         ))}
                       </SelectGroup>
@@ -393,7 +394,7 @@ export default function SolicitudPermiso() {
                         <SelectLabel>Otros coordinadores</SelectLabel>
                         {otrosCoordinadores.map((c) => (
                           <SelectItem key={c.id} value={String(c.id)}>
-                            {c.nombre ?? c.correo}
+                            {etiquetaCoordinador(c)}
                           </SelectItem>
                         ))}
                       </SelectGroup>
