@@ -26,7 +26,9 @@ import { Textarea } from '@/presentation/components/ui/textarea'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/presentation/components/ui/select'
@@ -49,6 +51,8 @@ export default function SolicitudPermiso() {
     empresaId: '',
     areaId: '',
     cargoId: '',
+    /** Vacío = se propone el del área. El colaborador puede cambiarlo. */
+    coordinadorId: '',
     categoriaId: '',
     tipoId: '',
     tipoOtro: '',
@@ -80,11 +84,31 @@ export default function SolicitudPermiso() {
   )
   const tipo = tipos?.find((t) => String(t.id) === form.tipoId)
 
-  // El jefe directo sale del perfil o, si no está fijado, del área.
-  const coordinador = useMemo(() => {
-    if (perfil?.coordinador_id) return coordinadores?.find((c) => c.id === perfil.coordinador_id)
-    return coordinadores?.find((c) => String(c.area_id) === areaId)
+  /**
+   * Jefe directo que autorizará la solicitud.
+   *
+   * Se elige de forma explícita y no se deduce del perfil: un colaborador puede
+   * haber cambiado de servicio, y con el dato del perfil desactualizado la
+   * solicitud caería en la bandeja del coordinador equivocado. Se propone el
+   * del área seleccionada, pero manda lo que elija quien solicita.
+   */
+  const coordinadorPropuesto = useMemo(() => {
+    const delArea = coordinadores?.find((c) => String(c.area_id) === areaId)
+    if (delArea) return delArea
+    return coordinadores?.find((c) => c.id === perfil?.coordinador_id)
   }, [coordinadores, perfil, areaId])
+
+  const coordinadorId = form.coordinadorId || (coordinadorPropuesto ? String(coordinadorPropuesto.id) : '')
+  const coordinador = coordinadores?.find((c) => String(c.id) === coordinadorId)
+
+  const coordinadoresDelArea = useMemo(
+    () => coordinadores?.filter((c) => String(c.area_id) === areaId) ?? [],
+    [coordinadores, areaId]
+  )
+  const otrosCoordinadores = useMemo(
+    () => coordinadores?.filter((c) => String(c.area_id) !== areaId) ?? [],
+    [coordinadores, areaId]
+  )
 
   const duracion = useMemo(
     () =>
@@ -143,11 +167,18 @@ export default function SolicitudPermiso() {
     if (!coordinador && tipo?.ruta_aprobacion !== 'gerente_th_directo') {
       lista.push({
         tono: 'advertencia',
-        texto: 'Tu área no tiene jefe directo asignado. La solicitud llegará a Talento Humano para que lo resuelva.',
+        texto: 'Selecciona el jefe directo que debe autorizar: es quien recibirá la solicitud.',
+      })
+    }
+    // Cambió de servicio respecto a su perfil: conviene que confirme el jefe.
+    if (perfil?.area_id && areaId && String(perfil.area_id) !== areaId) {
+      lista.push({
+        tono: 'info',
+        texto: `Estás solicitando desde un servicio distinto al de tu perfil. Verifica que ${coordinador?.nombre ?? 'el jefe directo'} sea quien debe autorizarte hoy.`,
       })
     }
     return lista
-  }, [antelacion, soporteExigido, tipo, coordinador])
+  }, [antelacion, soporteExigido, tipo, coordinador, perfil, areaId])
 
   async function guardar(enviar: boolean) {
     setError(null)
@@ -163,6 +194,10 @@ export default function SolicitudPermiso() {
     }
     if (enviar && soporteExigido?.momento === 'previo' && !soporte) {
       setError('Este motivo exige adjuntar el soporte al momento de solicitar.')
+      return
+    }
+    if (enviar && !coordinador && tipo?.ruta_aprobacion !== 'gerente_th_directo') {
+      setError('Selecciona el jefe directo que debe autorizar la solicitud.')
       return
     }
 
@@ -245,7 +280,9 @@ export default function SolicitudPermiso() {
           {/* ------------------------------------------------ Información general */}
           <section className="bloque-datos bloque-azul p-3">
             <h2 className="bloque-titulo mb-2">Información general</h2>
-            <div className="grid gap-2.5 sm:grid-cols-3">
+            {/* Cuatro columnas en una sola fila: el selector de jefe directo no
+                debe costar una fila entera, o el formato dejaría de caber. */}
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
                 <Label htmlFor="empresa">Empresa</Label>
                 <Select value={empresaId} onValueChange={(v) => set('empresaId', v)}>
@@ -263,8 +300,15 @@ export default function SolicitudPermiso() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="area">Proceso o área</Label>
-                <Select value={areaId} onValueChange={(v) => set('areaId', v)}>
+                <Label htmlFor="area">Servicio donde estás ubicado</Label>
+                <Select
+                  value={areaId}
+                  onValueChange={(v) => {
+                    set('areaId', v)
+                    // Al cambiar de servicio se vuelve a proponer su jefe directo.
+                    set('coordinadorId', '')
+                  }}
+                >
                   <SelectTrigger id="area">
                     <SelectValue placeholder="Selecciona…" />
                   </SelectTrigger>
@@ -290,6 +334,37 @@ export default function SolicitudPermiso() {
                         {c.nombre}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="coordinador">Jefe directo que autoriza</Label>
+                <Select value={coordinadorId} onValueChange={(v) => set('coordinadorId', v)}>
+                  <SelectTrigger id="coordinador">
+                    <SelectValue placeholder="Selecciona a quién le llega…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {coordinadoresDelArea.length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Del servicio seleccionado</SelectLabel>
+                        {coordinadoresDelArea.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.nombre ?? c.correo}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
+                    {otrosCoordinadores.length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Otros coordinadores</SelectLabel>
+                        {otrosCoordinadores.map((c) => (
+                          <SelectItem key={c.id} value={String(c.id)}>
+                            {c.nombre ?? c.correo}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

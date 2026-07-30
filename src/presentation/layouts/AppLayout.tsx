@@ -180,7 +180,9 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
+      {/* Margen contenido a propósito: los formatos TH-F-002 y TH-F-005 deben
+          caber sin scroll en un portátil de 720 px de alto. */}
+      <main className="min-w-0 flex-1 p-4 sm:p-5 lg:px-6 lg:py-5">
         <Outlet />
       </main>
     </div>
