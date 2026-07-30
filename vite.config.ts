@@ -13,16 +13,20 @@ export default defineConfig({
     },
   },
   build: {
-    // Las librerias de exportacion y graficos son pesadas: se separan para que
-    // no entren en el bundle inicial (riesgo R6 del documento de arquitectura).
     rollupOptions: {
       output: {
+        // Solo se fijan a mano las librerias que USA TODA la aplicacion, para
+        // que se cacheen aparte y sobrevivan a cada despliegue.
+        //
+        // Recharts, ECharts, ExcelJS y pdfmake NO van aqui a proposito:
+        // declararlos como chunk fijo hacia que Vite les anadiera un
+        // <link rel="modulepreload"> en index.html, con lo que se descargaban
+        // en el arranque aunque solo los use el dashboard. Sin la entrada
+        // manual, Vite los agrupa con la ruta diferida que los importa, que es
+        // justo lo que pide el riesgo R6 de la arquitectura.
         manualChunks: {
           react: ['react', 'react-dom', 'react-router-dom'],
           supabase: ['@supabase/supabase-js'],
-          charts: ['recharts'],
-          echarts: ['echarts', 'echarts-for-react'],
-          export: ['exceljs', 'pdfmake'],
         },
       },
     },

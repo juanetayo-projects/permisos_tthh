@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
@@ -16,6 +17,13 @@ import MisSolicitudes from '@/presentation/pages/MisSolicitudes'
 import DetalleSolicitud from '@/presentation/pages/DetalleSolicitud'
 import Bandeja from '@/presentation/pages/Bandeja'
 import EnConstruccion from '@/presentation/pages/EnConstruccion'
+
+/**
+ * El dashboard arrastra Recharts y ECharts (~1,4 MB). Cargarlo bajo demanda
+ * evita que ese peso caiga sobre el colaborador que solo viene a pedir un
+ * permiso y nunca abre el panel.
+ */
+const Dashboard = lazy(() => import('@/presentation/pages/Dashboard'))
 import type { Rol } from '@/domain/estados'
 
 const queryClient = new QueryClient({
@@ -113,7 +121,9 @@ function Rutas() {
             path="/dashboard"
             element={
               <RutaPorRol roles={['coordinador', 'analista_th', 'gerente_th', 'administrador']}>
-                <EnConstruccion modulo="Dashboard ejecutivo" />
+                <Suspense fallback={<Cargando />}>
+                  <Dashboard />
+                </Suspense>
               </RutaPorRol>
             }
           />
