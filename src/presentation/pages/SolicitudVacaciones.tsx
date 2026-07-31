@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { AlertCircle, Save, Send } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
@@ -14,8 +13,12 @@ import {
 import { crearSolicitud, guardarDocumentoPropio } from '@/application/solicitudes/api'
 import { calcularVacaciones, evaluarAntelacion, validarSaldos } from '@/domain/reglas'
 import { aISO, fechaFinPorDiasHabiles } from '@/domain/festivos'
-import { formatearFechaLarga } from '@/lib/utils'
+import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
+import {
+  DialogoSolicitudEnviada,
+  type SolicitudEnviada,
+} from '@/presentation/components/DialogoSolicitudEnviada'
 import { Button } from '@/presentation/components/ui/button'
 import { Checkbox } from '@/presentation/components/ui/checkbox'
 import { Input } from '@/presentation/components/ui/input'
@@ -34,7 +37,6 @@ import {
 const HOY = new Date().toISOString().slice(0, 10)
 
 export default function SolicitudVacaciones() {
-  const navigate = useNavigate()
   const { perfil } = useAuth()
   const { data: tramite } = useTramite('vacaciones')
   const { data: empresas } = useEmpresas()
@@ -65,6 +67,7 @@ export default function SolicitudVacaciones() {
   })
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
 
   const empresaId = form.empresaId || (perfil?.empresa_id ? String(perfil.empresa_id) : '')
   const areaId = form.areaId || (perfil?.area_id ? String(perfil.area_id) : '')
@@ -218,7 +221,7 @@ export default function SolicitudVacaciones() {
         await guardarDocumentoPropio(perfil.user_id, documento)
       }
 
-      const { consecutivo } = await crearSolicitud({
+      const { id, consecutivo } = await crearSolicitud({
         base: {
           tramite_id: tramite.id,
           solicitante_id: perfil.user_id,
@@ -244,8 +247,21 @@ export default function SolicitudVacaciones() {
         },
       })
 
-      navigate('/mis-solicitudes', {
-        state: { mensaje: consecutivo ? `Solicitud ${consecutivo} enviada.` : 'Borrador guardado.' },
+      setEnviada({
+        id,
+        consecutivo,
+        siguiente: enviar
+          ? `Queda en la bandeja de ${coordinador?.nombre ?? 'tu jefe directo'} para su autorización.`
+          : 'Puedes retomarla cuando quieras desde Mis solicitudes.',
+        filas: [
+          {
+            etiqueta: 'Periodo',
+            valor: `${formatearFecha(form.fechaInicio)} → ${formatearFecha(fechaFin)}`,
+          },
+          { etiqueta: 'Días a disfrutar', valor: aDisfrutar },
+          { etiqueta: 'Se presenta a laborar', valor: formatearFecha(reintegro) },
+          { etiqueta: 'Jefe directo', valor: coordinador?.nombre ?? 'Sin asignar' },
+        ],
       })
     } catch (err) {
       setError(
@@ -560,6 +576,8 @@ export default function SolicitudVacaciones() {
           <Send /> Enviar solicitud
         </Button>
       </div>
+
+      <DialogoSolicitudEnviada datos={enviada} />
     </form>
   )
 }

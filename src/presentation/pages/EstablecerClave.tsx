@@ -110,10 +110,16 @@ export default function EstablecerClave() {
       <AvisoEnlace
         icono={<AlertCircle className="size-7 text-[var(--error)]" />}
         tinte="var(--error-suave)"
-        titulo="Enlace no válido"
+        titulo="Este enlace ya no sirve"
         onSolicitar={() => navigate('/recuperar')}
       >
-        El enlace caducó o ya se usó. Solicita uno nuevo desde la pantalla de recuperación.
+        {/* La causa real casi nunca es que haya caducado: es que se abrió un
+            correo viejo. Cada enlace nuevo anula el anterior, y quien acaba de
+            recibir la bienvenida más una recuperación tiene ya dos en la
+            bandeja. Decir «caducó» mandaba a pedir otro y repetir el error. */}
+        <strong>Revisa que sea el correo más reciente.</strong> Cada vez que se pide un enlace, el
+        anterior deja de funcionar, así que si tienes varios en la bandeja solo sirve el último. Si
+        ya es el último, pide uno nuevo y ábrelo sin volver a solicitarlo.
       </AvisoEnlace>
     )
   }

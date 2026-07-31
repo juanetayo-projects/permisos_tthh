@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AlertCircle, UserPlus } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
   useCrearUsuario,
@@ -126,17 +127,20 @@ export function DialogoNuevoUsuario({
 
   return (
     <Dialog open={abierto} onOpenChange={(v) => !v && !crear.isPending && cerrar()}>
-      <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+      {/* `p-0` + `gap-0` para que la banda llegue a los bordes, y el aspa se
+          pinta en blanco: sobre el azul institucional era invisible. */}
+      <DialogContent className="max-w-3xl gap-0 overflow-hidden p-0 [&>button]:text-white/80 [&>button]:hover:bg-white/20 [&>button]:hover:text-white">
         {listo ? (
           <>
-            <DialogHeader>
-              <DialogTitle>Cuenta creada</DialogTitle>
-              <DialogDescription>
-                <strong>{form.nombre}</strong> ya puede entrar y registrar solicitudes.
+            <DialogHeader className="franja-institucional gap-1 p-5">
+              <DialogTitle className="text-white">Cuenta creada</DialogTitle>
+              <DialogDescription className="text-white/80">
+                <strong className="text-white">{form.nombre}</strong> ya puede entrar y registrar
+                solicitudes.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-2 text-sm">
+            <div className="space-y-2 p-5 text-sm">
               <p className="rounded-md bg-[var(--exito-suave)] p-3 text-[var(--exito)]">
                 {listo.correo_enviado
                   ? `Le enviamos a ${form.correo} un enlace para que defina su contraseña.`
@@ -151,7 +155,7 @@ export function DialogoNuevoUsuario({
               )}
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="border-t border-border bg-muted/40 p-4">
               <Button variant="outline" onClick={() => setListo(null)}>
                 Crear otro
               </Button>
@@ -160,18 +164,20 @@ export function DialogoNuevoUsuario({
           </>
         ) : (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
+            <DialogHeader className="franja-institucional gap-1 p-5 pr-12">
+              <DialogTitle className="flex items-center gap-2 text-white">
                 <UserPlus className="size-5" /> Nuevo usuario
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-white/80">
                 La cuenta queda activa de inmediato. No hace falta que la persona se registre ni
                 esperar una validación posterior.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5 sm:col-span-2">
+            {/* Tres columnas: con dos, las diez casillas pedían scroll y el
+                formulario no cabía en un portátil. */}
+            <div className="grid gap-x-4 gap-y-3 p-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={cn('space-y-1.5', puedeElegirRol ? 'lg:col-span-2' : 'lg:col-span-3')}>
                 <Label htmlFor="n-nombre">Nombre y apellido *</Label>
                 <Input
                   id="n-nombre"
@@ -181,7 +187,25 @@ export function DialogoNuevoUsuario({
                 />
               </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
+              {puedeElegirRol && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="n-rol">Rol</Label>
+                  <Select value={form.rol} onValueChange={(v) => set('rol', v as Rol)}>
+                    <SelectTrigger id="n-rol">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ROLES.map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {ETIQUETA_ROL[r]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="space-y-1.5 lg:col-span-2">
                 <Label htmlFor="n-correo">Correo electrónico *</Label>
                 <Input
                   id="n-correo"
@@ -190,9 +214,16 @@ export function DialogoNuevoUsuario({
                   onChange={(e) => set('correo', e.target.value)}
                   placeholder="nombre.apellido@cacsantabarbara.co"
                 />
-                <p className="text-xs text-muted-foreground">
-                  A esta dirección llega el enlace para definir la contraseña. Puede ser personal.
-                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="n-telefono">Teléfono</Label>
+                <Input
+                  id="n-telefono"
+                  inputMode="tel"
+                  value={form.telefono}
+                  onChange={(e) => set('telefono', e.target.value)}
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -239,16 +270,6 @@ export function DialogoNuevoUsuario({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="n-telefono">Teléfono</Label>
-                <Input
-                  id="n-telefono"
-                  inputMode="tel"
-                  value={form.telefono}
-                  onChange={(e) => set('telefono', e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-1.5">
                 <Label htmlFor="n-area">Proceso o área</Label>
                 <Select value={form.areaId} onValueChange={(v) => set('areaId', v)}>
                   <SelectTrigger id="n-area">
@@ -282,7 +303,7 @@ export function DialogoNuevoUsuario({
                 </Select>
               </div>
 
-              <div className={puedeElegirRol ? 'space-y-1.5' : 'space-y-1.5 sm:col-span-2'}>
+              <div className="space-y-1.5">
                 <Label htmlFor="n-jefe">Jefe directo</Label>
                 <Select value={form.coordinadorId} onValueChange={(v) => set('coordinadorId', v)}>
                   <SelectTrigger id="n-jefe">
@@ -297,41 +318,25 @@ export function DialogoNuevoUsuario({
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Puede quedar sin asignar: se elige al crear cada solicitud.
-                </p>
               </div>
 
-              {puedeElegirRol && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="n-rol">Rol</Label>
-                  <Select value={form.rol} onValueChange={(v) => set('rol', v as Rol)}>
-                    <SelectTrigger id="n-rol">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ROLES.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {ETIQUETA_ROL[r]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
+                Al correo llega el enlace para definir la contraseña; puede ser personal. El jefe
+                directo puede quedar sin asignar: se elige al crear cada solicitud.
+              </p>
+
+              {error && (
+                <p
+                  role="alert"
+                  className="flex items-start gap-2 rounded-md bg-[var(--error-suave)] p-3 text-sm text-[var(--error)] sm:col-span-2 lg:col-span-3"
+                >
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  {error}
+                </p>
               )}
             </div>
 
-            {error && (
-              <p
-                role="alert"
-                className="flex items-start gap-2 rounded-md bg-[var(--error-suave)] p-3 text-sm text-[var(--error)]"
-              >
-                <AlertCircle className="mt-0.5 size-4 shrink-0" />
-                {error}
-              </p>
-            )}
-
-            <DialogFooter>
+            <DialogFooter className="border-t border-border bg-muted/40 p-4">
               <Button variant="ghost" onClick={cerrar} disabled={crear.isPending}>
                 Cancelar
               </Button>

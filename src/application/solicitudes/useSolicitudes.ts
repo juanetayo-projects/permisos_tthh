@@ -16,6 +16,7 @@ const SELECT_SOLICITUD = `
   solicitante:permisos_perfiles(user_id, nombre, correo, documento),
   area:areas(id, nombre),
   empresa:permisos_empresas(id, nombre),
+  coordinador:coordinadores(id, nombre, cargo, correo, area:areas(id, nombre)),
   detalle_permiso:permisos_detalle_permiso(
     horas_permiso, dias_permiso, remunerado, justificacion, plan_compensacion,
     requiere_compensacion, hora_salida, hora_regreso, requiere_soporte_posterior,
@@ -47,6 +48,14 @@ export interface SolicitudLista {
   solicitante: { user_id: string; nombre: string; correo: string; documento: string | null } | null
   area: { id: number; nombre: string } | null
   empresa: { id: number; nombre: string } | null
+  /** Jefe directo elegido al solicitar: es quien tiene que autorizar. */
+  coordinador: {
+    id: number
+    nombre: string | null
+    cargo: string | null
+    correo: string
+    area: { id: number; nombre: string } | null
+  } | null
   detalle_permiso: {
     horas_permiso: number | null
     dias_permiso: number | null

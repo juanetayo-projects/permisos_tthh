@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { AlertCircle, Save, Send } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
@@ -16,9 +15,13 @@ import {
 import { crearSolicitud, guardarDocumentoPropio, subirSoporte } from '@/application/solicitudes/api'
 import { calcularDuracion, evaluarAntelacion, evaluarSoporte } from '@/domain/reglas'
 import { aISO } from '@/domain/festivos'
-import { formatearFechaLarga } from '@/lib/utils'
+import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
+import {
+  DialogoSolicitudEnviada,
+  type SolicitudEnviada,
+} from '@/presentation/components/DialogoSolicitudEnviada'
 import { Button } from '@/presentation/components/ui/button'
 import { Checkbox } from '@/presentation/components/ui/checkbox'
 import { Input } from '@/presentation/components/ui/input'
@@ -37,7 +40,6 @@ import {
 const HOY = new Date().toISOString().slice(0, 10)
 
 export default function SolicitudPermiso() {
-  const navigate = useNavigate()
   const { perfil, session } = useAuth()
   const { data: tramite } = useTramite('permiso')
   const { data: empresas } = useEmpresas()
@@ -71,6 +73,7 @@ export default function SolicitudPermiso() {
   const [soporte, setSoporte] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
 
   // El perfil llena los campos que no debería tener que digitar el colaborador.
   const empresaId = form.empresaId || (perfil?.empresa_id ? String(perfil.empresa_id) : '')
@@ -274,8 +277,27 @@ export default function SolicitudPermiso() {
         })
       }
 
-      navigate('/mis-solicitudes', {
-        state: { mensaje: consecutivo ? `Solicitud ${consecutivo} enviada.` : 'Borrador guardado.' },
+      setEnviada({
+        id,
+        consecutivo,
+        siguiente: !enviar
+          ? 'Puedes retomarla cuando quieras desde Mis solicitudes.'
+          : tipo?.ruta_aprobacion === 'gerente_th_directo'
+            ? 'Queda en la bandeja de la Gerencia de Talento Humano.'
+            : `Queda en la bandeja de ${coordinador?.nombre ?? 'tu jefe directo'} para su autorización.`,
+        filas: [
+          { etiqueta: 'Motivo', valor: tipo?.nombre ?? '—' },
+          {
+            etiqueta: 'Periodo',
+            valor:
+              form.fechaInicio === form.fechaFin
+                ? formatearFecha(form.fechaInicio)
+                : `${formatearFecha(form.fechaInicio)} → ${formatearFecha(form.fechaFin)}`,
+          },
+          { etiqueta: 'Duración', valor: `${duracion.horas} h · ${duracion.dias} días` },
+          { etiqueta: 'Jefe directo', valor: coordinador?.nombre ?? 'Sin asignar' },
+          { etiqueta: 'Soporte adjunto', valor: soporte ? soporte.name : 'Ninguno' },
+        ],
       })
     } catch (err) {
       setError(
@@ -613,6 +635,8 @@ export default function SolicitudPermiso() {
           <Send /> Enviar solicitud
         </Button>
       </div>
+
+      <DialogoSolicitudEnviada datos={enviada} />
     </form>
   )
 }

@@ -2,6 +2,27 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.1.9] — 2026-07-31
+
+### Añadido
+
+- **Modal de confirmación al enviar una solicitud**, con el consecutivo en
+  grande y el resumen de lo guardado. Antes se navegaba a «Mis solicitudes»
+  con una línea de texto y el número —por el que se pregunta en Talento Humano
+  y que va impreso en el formato— pasaba desapercibido.
+- **Bloque «Autorización» en el detalle**: jefe directo, su cargo y su área.
+  Era el dato que responde «¿a quién le toca ahora?» y había que deducirlo del
+  historial.
+
+### Cambiado
+
+- El formulario de nuevo usuario pasa a tres columnas y cabe sin scroll, con
+  cabecera de color institucional.
+- El aviso de enlace de contraseña inválido explica la causa real: **cada
+  enlace nuevo anula el anterior**, así que con varios correos en la bandeja
+  solo sirve el último. Decir «caducó» llevaba a pedir otro y repetir el error.
+  El propio correo lo advierte ahora.
+
 ## [0.1.8] — 2026-07-31
 
 ### Añadido

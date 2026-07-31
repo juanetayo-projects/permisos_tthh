@@ -58,7 +58,8 @@ function plantilla(enlace: string): string {
             <span style="word-break:break-all;color:${AZUL2}">${enlace}</span>
           </p>
           <div style="margin-top:22px;padding:12px;background:#fdf9ef;border-left:4px solid #b45309;border-radius:6px;font-size:13px">
-            <b>El enlace caduca en una hora</b> y solo se puede usar una vez.
+            <b>Usa este correo si es el mas reciente.</b> Cada vez que se solicita un enlace nuevo,
+            el anterior deja de funcionar. El enlace caduca en una hora y solo sirve una vez.
           </div>
           <p style="font-size:13px;color:#64748b;margin-top:18px">
             Si no fuiste tu, ignora este mensaje: tu contrasena actual sigue siendo valida.

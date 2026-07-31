@@ -9,6 +9,7 @@ import {
   MessageSquareQuote,
   Palmtree,
   Stethoscope,
+  UserCheck,
   UserRound,
   XCircle,
 } from 'lucide-react'
@@ -353,6 +354,26 @@ export default function DetalleSolicitud() {
               {s.observaciones && <Parrafo etiqueta="Observaciones">{s.observaciones}</Parrafo>}
             </Bloque>
           )}
+
+          {/* Quién tiene que autorizar. Va en su propio bloque porque es el
+              dato que responde «¿a quién le toca ahora?», y estaba en ninguna
+              parte: había que abrir el historial para deducirlo. */}
+          <Bloque titulo="Autorización" icono={UserCheck} tinte="teal">
+            <dl className="grid gap-3 sm:grid-cols-3">
+              <Dato etiqueta="Jefe directo" valor={s.coordinador?.nombre} />
+              <Dato etiqueta="Cargo" valor={s.coordinador?.cargo} />
+              <Dato
+                etiqueta="Área del jefe"
+                valor={s.coordinador?.area?.nombre ?? s.area?.nombre}
+              />
+            </dl>
+            {!s.coordinador && (
+              <p className="mt-3 rounded-md border border-[var(--tinte-ambar-borde)] bg-[var(--tinte-ambar)] p-2.5 text-xs text-[var(--acento-ambar)]">
+                Esta solicitud no tiene jefe directo asignado. Si es un trámite que va a Gerencia de
+                Talento Humano es lo esperado; si no, hay que corregirla.
+              </p>
+            )}
+          </Bloque>
 
           {/* Los soportes están en el panel de la derecha: ahí se ven mientras
               se leen los datos, en vez de empujarlos fuera de la pantalla. */}
