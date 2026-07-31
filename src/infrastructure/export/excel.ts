@@ -92,7 +92,10 @@ async function encabezado<T>(
   try {
     const dataUrl = await logoInstitucional()
     const id = libro.addImage({ base64: soloBase64(dataUrl), extension: 'png' })
-    hoja.addImage(id, { tl: { col: 0.2, row: 0.3 }, ext: { width: 150, height: 48 } })
+    // Confinado al rango A1:A3 en vez de dimensionado en píxeles: con `ext`
+    // medía 150 px fijos, se salía de la columna A —que es tan ancha como pida
+    // el consecutivo— y se montaba encima del título.
+    hoja.addImage(id, 'A1:A3')
   } catch {
     // Sin logo el reporte sigue siendo válido: no se aborta la exportación.
   }
@@ -122,8 +125,11 @@ async function encabezado<T>(
   meta.font = { size: 9, italic: true, color: { argb: 'FF64748B' } }
   meta.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_CLARO } }
 
-  hoja.getRow(1).height = 20
-  hoja.getRow(2).height = 18
+  // Las tres primeras filas alojan el logo, así que necesitan alto suficiente
+  // para que no quede aplastado.
+  hoja.getRow(1).height = 22
+  hoja.getRow(2).height = 20
+  hoja.getRow(3).height = 16
   hoja.getRow(5).height = 6
 }
 

@@ -67,7 +67,13 @@ export async function exportarPdf<T>(opciones: OpcionesPdf<T>): Promise<void> {
     header: () => ({
       margin: [28, 20, 28, 0],
       columns: [
-        logo ? { image: logo, width: 120, margin: [0, 4, 12, 0] } : { text: '', width: 0 },
+        // `fit` en vez de `width`: con `width` la altura crece según la
+        // proporción del PNG, el bloque de cabecera se pasa del margen
+        // superior y el contenido acaba pisándolo. Con `fit` la imagen se
+        // acota por los dos lados y la cabecera nunca crece más de lo previsto.
+        logo
+          ? { image: logo, fit: [120, 44] as [number, number], width: 132, margin: [0, 2, 12, 0] }
+          : { text: '', width: 0 },
         {
           stack: [
             { text: 'Clínica de Alta Complejidad Santa Bárbara', style: 'marca' },

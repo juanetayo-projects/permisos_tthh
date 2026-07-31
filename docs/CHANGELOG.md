@@ -2,6 +2,49 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.2.0] — 2026-07-31
+
+### Añadido
+
+- **Línea de tiempo del periodo** en los dos formularios: hitos de inicio, fin
+  y reintegro, y una tira con cada día del permiso marcando los que no se
+  trabajan. Con dos campos de fecha sueltos, un permiso que se cruza con un
+  puente parecía más largo de lo que era.
+- **Confirmación del jefe directo antes de enviar.** La propuesta por área
+  acierta casi siempre, pero cuando falla el aviso le llega a alguien que no
+  tiene que ver, y el error se descubre con la solicitud parada varios días.
+- **Botón de limpiar filtros** en «Todas las solicitudes» (el Dashboard ya lo
+  tenía).
+- En la cabecera del detalle, **quién autorizó con fecha y hora** y, mientras
+  está en Talento Humano, qué falta para cerrar.
+
+### Cambiado
+
+- **Modo oscuro por defecto**, aplicado antes del primer render para que
+  alcance también al login, al registro y a la recuperación —el tema se
+  decidía dentro de la app, así que esas tres pantallas salían siempre claras—
+  y sin el parpadeo de un fondo que se oscurece.
+- **Bordes visibles en oscuro**: `--border` sube de `#1e2b45` a `#33436b`.
+  Estaba tan cerca del fondo de las tarjetas que la pantalla se leía como una
+  mancha.
+- **Login con el patrón de SIAU**: fondo azul a pantalla completa y una sola
+  tarjeta centrada con la banda de cabecera dentro.
+- El botón de cerrar sesión pasa a fondo blanco sobre la franja: en
+  translúcido se confundía con la propia barra lateral.
+- **Las fechas de solicitud rechazan sábados, domingos y festivos**
+  colombianos, corrigiendo al siguiente día hábil y explicando por qué. Los
+  motivos exentos de antelación —calamidad y luto— sí los admiten: ocurren
+  cuando ocurren.
+
+### Corregido
+
+- **El logo se montaba sobre el título en Excel**: iba dimensionado a 150 px
+  fijos y se salía de la columna A, que es tan ancha como pida el consecutivo.
+  Ahora se confina al rango `A1:A3`.
+- En el PDF, el logo se acota con `fit` en vez de `width`: con `width` la
+  altura crecía según la proporción del PNG, la cabecera se pasaba del margen
+  superior y el contenido acababa pisándola.
+
 ## [0.1.10] — 2026-07-31
 
 ### Corregido

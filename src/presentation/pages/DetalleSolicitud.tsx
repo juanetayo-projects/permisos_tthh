@@ -134,6 +134,9 @@ export default function DetalleSolicitud() {
   // El historial viene en orden ascendente, así que el último es el paso actual.
   const soporteDevuelto = esSoporteDevuelto((historial ?? []).at(-1))
 
+  /** El jefe ya firmó: la solicitud salió de su bandeja en algún momento. */
+  const yaAutorizoElJefe = Boolean(s.coord_fecha)
+
   /** Cierra el trámite cuando Talento Humano da por bueno el soporte. */
   async function validarSoporte() {
     if (!session || !s) return
@@ -218,10 +221,22 @@ export default function DetalleSolicitud() {
                 izquierda puede quedar por debajo del pliegue. */}
             <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
               <UserCheck className="size-4 shrink-0 text-[var(--acento-teal)]" />
-              <span className="text-muted-foreground">Autoriza:</span>
+              <span className="text-muted-foreground">
+                {yaAutorizoElJefe ? 'Autorizada por:' : 'Autoriza:'}
+              </span>
               <strong>{s.coordinador?.nombre ?? 'sin jefe directo asignado'}</strong>
               {s.coordinador?.cargo && (
                 <span className="text-muted-foreground">· {s.coordinador.cargo}</span>
+              )}
+              {/* Cuándo firmó: cierra el primer ciclo y da trazabilidad. */}
+              {yaAutorizoElJefe && s.coord_fecha && (
+                <span className="text-muted-foreground">
+                  ·{' '}
+                  {new Date(s.coord_fecha).toLocaleString('es-CO', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                </span>
               )}
               {s.coordinador?.area?.nombre && (
                 <span className="rounded-full bg-[var(--tinte-teal)] px-2 py-0.5 text-xs text-[var(--acento-teal)]">
@@ -230,6 +245,17 @@ export default function DetalleSolicitud() {
               )}
             </p>
           </div>
+
+          {/* Qué falta para cerrar, en la cabecera y en una sola frase: el
+              estado dice dónde está, pero no qué se espera de quién. */}
+          {s.estado === 'PENDIENTE_TH' && (
+            <p className="w-full rounded-md border border-[var(--tinte-ambar-borde)] bg-[var(--tinte-ambar)] px-3 py-2 text-sm text-[var(--acento-ambar)]">
+              El jefe directo ya autorizó. Falta el <strong>visto bueno de Talento Humano</strong>
+              {s.detalle_permiso?.requiere_soporte_posterior
+                ? ' y que el colaborador entregue después el soporte.'
+                : ' para cerrar el trámite.'}
+            </p>
+          )}
 
           <div className="flex flex-wrap gap-2">
             {(puedeAprobarCoord || puedeAprobarTh) && (

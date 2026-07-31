@@ -15,6 +15,9 @@ import { calcularVacaciones, evaluarAntelacion, validarSaldos } from '@/domain/r
 import { aISO, fechaFinPorDiasHabiles } from '@/domain/festivos'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
+import { CampoFecha } from '@/presentation/components/CampoFecha'
+import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
+import { DialogoConfirmarJefe } from '@/presentation/components/DialogoConfirmarJefe'
 import {
   DialogoSolicitudEnviada,
   type SolicitudEnviada,
@@ -68,6 +71,7 @@ export default function SolicitudVacaciones() {
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
+  const [confirmando, setConfirmando] = useState(false)
 
   const empresaId = form.empresaId || (perfil?.empresa_id ? String(perfil.empresa_id) : '')
   const areaId = form.areaId || (perfil?.area_id ? String(perfil.area_id) : '')
@@ -280,7 +284,9 @@ export default function SolicitudVacaciones() {
       className="mx-auto flex max-w-7xl flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault()
-        void guardar(true)
+        // Se confirma el jefe antes de grabar: el aviso sale por correo y
+        // corregirlo despues implica cancelar y rehacer la solicitud.
+        setConfirmando(true)
       }}
     >
       <header className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -450,13 +456,12 @@ export default function SolicitudVacaciones() {
             <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
               <div className="space-y-1">
                 <Label htmlFor="inicio">Fecha de inicio</Label>
-                <Input
+                <CampoFecha
                   id="inicio"
-                  type="date"
                   min={HOY}
-                  value={form.fechaInicio}
-                  onChange={(e) => {
-                    set('fechaInicio', e.target.value)
+                  valor={form.fechaInicio}
+                  onCambio={(f) => {
+                    set('fechaInicio', f)
                     set('fechaFinManual', '')
                     set('reintegroManual', '')
                   }}
@@ -491,15 +496,21 @@ export default function SolicitudVacaciones() {
 
               <div className="space-y-1">
                 <Label htmlFor="reintegro">Se presenta a laborar</Label>
-                <Input
+                <CampoFecha
                   id="reintegro"
-                  type="date"
-                  value={reintegro}
-                  onChange={(e) => set('reintegroManual', e.target.value)}
+                  valor={reintegro}
+                  onCambio={(f) => set('reintegroManual', f)}
                 />
                 <p className="text-xs text-muted-foreground">Calculada; puedes ajustarla.</p>
               </div>
             </div>
+
+            <LineaTiempoPeriodo
+              className="mt-3"
+              inicio={form.fechaInicio}
+              fin={fechaFin}
+              reintegro={reintegro}
+            />
           </section>
 
           {/* En paralelo y no apilados: es lo que permite que el formato quepa
@@ -576,6 +587,17 @@ export default function SolicitudVacaciones() {
           <Send /> Enviar solicitud
         </Button>
       </div>
+
+      <DialogoConfirmarJefe
+        abierto={confirmando}
+        jefe={coordinador}
+        enviando={enviando}
+        onCancelar={() => setConfirmando(false)}
+        onConfirmar={() => {
+          setConfirmando(false)
+          void guardar(true)
+        }}
+      />
 
       <DialogoSolicitudEnviada datos={enviada} />
     </form>

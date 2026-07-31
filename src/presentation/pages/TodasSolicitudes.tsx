@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileDown, FileSpreadsheet } from 'lucide-react'
+import { FileDown, FileSpreadsheet, FilterX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSolicitudes } from '@/application/solicitudes/useSolicitudes'
 import { useCatalogo } from '@/application/admin/useCatalogoCrud'
@@ -83,6 +83,8 @@ export default function TodasSolicitudes() {
     }
     return mapa
   }, [porFiltros])
+
+  const hayFiltros = pestana !== 'todas' || tramite !== TODOS || area !== TODOS
 
   const textoFiltros = [
     `Estado: ${PESTANAS.find((p) => p.clave === pestana)!.etiqueta}`,
@@ -168,6 +170,21 @@ export default function TodasSolicitudes() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* Solo cuando hay algo que limpiar: un botón muerto es ruido. */}
+        {hayFiltros && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setPestana('todas')
+              setTramite(TODOS)
+              setArea(TODOS)
+            }}
+          >
+            <FilterX /> Limpiar filtros
+          </Button>
+        )}
         </div>
       }
     >

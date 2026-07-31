@@ -18,6 +18,9 @@ import { aISO } from '@/domain/festivos'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
+import { CampoFecha } from '@/presentation/components/CampoFecha'
+import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
+import { DialogoConfirmarJefe } from '@/presentation/components/DialogoConfirmarJefe'
 import {
   DialogoSolicitudEnviada,
   type SolicitudEnviada,
@@ -74,6 +77,7 @@ export default function SolicitudPermiso() {
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
+  const [confirmando, setConfirmando] = useState(false)
 
   // El perfil llena los campos que no debería tener que digitar el colaborador.
   const empresaId = form.empresaId || (perfil?.empresa_id ? String(perfil.empresa_id) : '')
@@ -117,6 +121,13 @@ export default function SolicitudPermiso() {
    * registrar el caso real.
    */
   const fechaMinima = tipo?.exento_antelacion ? undefined : HOY
+
+  /**
+   * Los motivos exentos de antelación —calamidad, luto— sí pueden caer en
+   * sábado, domingo o festivo: ocurren cuando ocurren. Para el resto, un
+   * permiso laboral solo tiene sentido en un día que se trabaja.
+   */
+  const admiteNoHabiles = Boolean(tipo?.exento_antelacion)
 
   const coordinadoresDelArea = useMemo(
     () => coordinadores?.filter((c) => String(c.area_id) === areaId) ?? [],
@@ -316,7 +327,9 @@ export default function SolicitudPermiso() {
       className="mx-auto flex max-w-7xl flex-col gap-3"
       onSubmit={(e) => {
         e.preventDefault()
-        void guardar(true)
+        // Se confirma el jefe antes de grabar: el aviso sale por correo y
+        // corregirlo despues implica cancelar y rehacer la solicitud.
+        setConfirmando(true)
       }}
     >
       <header className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -441,25 +454,25 @@ export default function SolicitudPermiso() {
               <div className="grid gap-2.5 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor="desde">Desde</Label>
-                  <Input
+                  <CampoFecha
                     id="desde"
-                    type="date"
                     min={fechaMinima}
-                    value={form.fechaInicio}
-                    onChange={(e) => {
-                      set('fechaInicio', e.target.value)
-                      if (e.target.value > form.fechaFin) set('fechaFin', e.target.value)
+                    valor={form.fechaInicio}
+                    soloHabiles={!admiteNoHabiles}
+                    onCambio={(f) => {
+                      set('fechaInicio', f)
+                      if (f > form.fechaFin) set('fechaFin', f)
                     }}
                   />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="hasta">Hasta</Label>
-                  <Input
+                  <CampoFecha
                     id="hasta"
-                    type="date"
                     min={form.fechaInicio}
-                    value={form.fechaFin}
-                    onChange={(e) => set('fechaFin', e.target.value)}
+                    valor={form.fechaFin}
+                    soloHabiles={!admiteNoHabiles}
+                    onCambio={(f) => set('fechaFin', f)}
                   />
                 </div>
                 <div className="space-y-1">
@@ -481,6 +494,12 @@ export default function SolicitudPermiso() {
                   />
                 </div>
               </div>
+
+              <LineaTiempoPeriodo
+                className="mt-3"
+                inicio={form.fechaInicio}
+                fin={form.fechaFin}
+              />
 
               <div className="mt-2.5 flex flex-wrap items-center gap-4">
                 <label className="flex items-center gap-2 text-sm">
@@ -635,6 +654,17 @@ export default function SolicitudPermiso() {
           <Send /> Enviar solicitud
         </Button>
       </div>
+
+      <DialogoConfirmarJefe
+        abierto={confirmando}
+        jefe={coordinador}
+        enviando={enviando}
+        onCancelar={() => setConfirmando(false)}
+        onConfirmar={() => {
+          setConfirmando(false)
+          void guardar(true)
+        }}
+      />
 
       <DialogoSolicitudEnviada datos={enviada} />
     </form>

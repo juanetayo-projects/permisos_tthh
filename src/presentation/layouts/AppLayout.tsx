@@ -45,12 +45,16 @@ const ENLACES: Enlace[] = [
   { a: '/administracion', etiqueta: 'Administración', icono: Settings, roles: ['administrador'] },
 ]
 
+/**
+ * Tema de la aplicación.
+ *
+ * Arranca en **oscuro** por decisión del cliente. Solo se respeta la
+ * preferencia del sistema mientras la persona no haya elegido: en cuanto toca
+ * el interruptor, manda su elección y se recuerda.
+ */
 function useTemaOscuro() {
   const [oscuro, setOscuro] = useState(
-    () =>
-      localStorage.getItem('permisos-tema') === 'oscuro' ||
-      (!localStorage.getItem('permisos-tema') &&
-        window.matchMedia('(prefers-color-scheme: dark)').matches)
+    () => (localStorage.getItem('permisos-tema') ?? 'oscuro') === 'oscuro'
   )
 
   useEffect(() => {
@@ -100,10 +104,12 @@ function MenuUsuario() {
       </button>
 
       {abierto && (
-        <div className="mt-1 overflow-hidden rounded-lg bg-white/10 p-1">
+        // Fondo blanco y texto azul: sobre la franja institucional, un botón
+        // translúcido se confundía con la propia barra y no se veía.
+        <div className="mt-1.5 overflow-hidden rounded-lg">
           <button
             onClick={() => void salir()}
-            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-white transition-colors hover:bg-white/15"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm font-semibold text-[var(--cac-azul)] shadow-md transition-colors hover:bg-[var(--cac-azul-50)]"
           >
             <LogOut className="size-4" />
             Cerrar sesión

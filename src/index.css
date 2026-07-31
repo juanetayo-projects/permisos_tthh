@@ -110,8 +110,16 @@
   --muted-foreground: #94a3b8;
   --accent: #1a2740;
   --accent-foreground: #e2e8f0;
-  --border: #1e2b45;
-  --input: #1e2b45;
+  /*
+   * Bordes claramente visibles sobre el fondo oscuro.
+   *
+   * Con el borde casi del color de la superficie, las tarjetas y los gráficos
+   * se fundían con el fondo y la pantalla se leía como una mancha. Se sube el
+   * contraste hasta que el contorno separa sin llegar a competir con el
+   * contenido.
+   */
+  --border: #33436b;
+  --input: #3a4c78;
   --ring: #4b7bc8;
 
   --fila-par: #0f1a2c;
