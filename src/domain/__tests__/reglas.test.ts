@@ -116,9 +116,9 @@ describe('exigencia de soporte', () => {
       diasPermiso: 3,
       fechaFin: '2026-03-31',
     })
-    expect(r.obligatorio).toBe(true)
-    expect(r.momento).toBe('posterior')
-    expect(r.fechaLimite).not.toBeNull()
+    expect(r.previo).toBeNull()
+    expect(r.posterior?.obligatorio).toBe(true)
+    expect(r.posterior?.fechaLimite).not.toBeNull()
   })
 
   it('no lo obliga cuando el ausentismo no supera el umbral', () => {
@@ -129,8 +129,19 @@ describe('exigencia de soporte', () => {
       diasPermiso: 1,
       fechaFin: '2026-03-31',
     })
-    expect(r.obligatorio).toBe(false)
-    expect(r.fechaLimite).toBeNull()
+    expect(r.posterior?.obligatorio).toBe(false)
+    expect(r.posterior?.fechaLimite).toBeNull()
+  })
+
+  it('lo obliga siempre cuando el motivo no tiene umbral', () => {
+    const r = evaluarSoporte({
+      requiereSoportePrevio: false,
+      requiereSoportePosterior: true,
+      umbralDias: null,
+      diasPermiso: 0.5,
+      fechaFin: '2026-03-31',
+    })
+    expect(r.posterior?.obligatorio).toBe(true)
   })
 
   it('exige soporte previo cuando el tipo lo requiere', () => {
@@ -140,8 +151,34 @@ describe('exigencia de soporte', () => {
       diasPermiso: 1,
       fechaFin: '2026-03-31',
     })
-    expect(r.momento).toBe('previo')
-    expect(r.obligatorio).toBe(true)
+    expect(r.previo?.obligatorio).toBe(true)
+    expect(r.posterior).toBeNull()
+  })
+
+  it('exige los dos soportes cuando el motivo pide ambos', () => {
+    // La combinación que antes era imposible: la función salía en el previo y
+    // el posterior se perdía, por mucho que se configurara en Administración.
+    const r = evaluarSoporte({
+      requiereSoportePrevio: true,
+      requiereSoportePosterior: true,
+      umbralDias: null,
+      diasPermiso: 0.5,
+      fechaFin: '2026-03-31',
+    })
+    expect(r.previo?.obligatorio).toBe(true)
+    expect(r.posterior?.obligatorio).toBe(true)
+    expect(r.posterior?.fechaLimite).not.toBeNull()
+  })
+
+  it('no exige nada cuando el motivo no pide soporte', () => {
+    const r = evaluarSoporte({
+      requiereSoportePrevio: false,
+      requiereSoportePosterior: false,
+      diasPermiso: 1,
+      fechaFin: '2026-03-31',
+    })
+    expect(r.previo).toBeNull()
+    expect(r.posterior).toBeNull()
   })
 })
 

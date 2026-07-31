@@ -161,19 +161,23 @@ function mensajeExtemporanea(
 // -----------------------------------------------------------------------------
 
 export interface ExigenciaSoporte {
-  requerido: boolean
-  momento: 'previo' | 'posterior' | null
-  obligatorio: boolean
-  fechaLimite: FechaISO | null
-  mensaje: string | null
+  /** Documento que se adjunta al enviar la solicitud; `null` si no aplica. */
+  previo: { obligatorio: boolean; mensaje: string } | null
+  /** Documento que se entrega al regresar; `null` si no aplica. */
+  posterior: { obligatorio: boolean; fechaLimite: FechaISO | null; mensaje: string } | null
 }
 
 /**
- * Decide si una solicitud exige soporte y cuándo.
+ * Decide qué soportes exige una solicitud y en qué momento.
  *
- * El caso que motivó el estado `PENDIENTE_SOPORTE`: una cita médica autorizada
- * cuyo ausentismo supera los 2 días obliga al colaborador a entregar después
- * copia de la asistencia, la incapacidad o la historia clínica.
+ * Los dos momentos son independientes y **pueden coincidir**: una cita médica
+ * puede pedir la orden al solicitar y la constancia de asistencia al regresar.
+ * Antes esta función devolvía un único `momento` y salía en cuanto encontraba
+ * el previo, así que el posterior quedaba ignorado en silencio y esa
+ * combinación era imposible por mucho que se configurara en Administración.
+ *
+ * El umbral de días solo afecta al soporte posterior: es lo que permite pedir
+ * la constancia únicamente cuando el ausentismo pasa de cierta duración.
  */
 export function evaluarSoporte(params: {
   requiereSoportePrevio: boolean
@@ -183,34 +187,30 @@ export function evaluarSoporte(params: {
   fechaFin: FechaISO
   plazoDiasHabiles?: number
 }): ExigenciaSoporte {
-  if (params.requiereSoportePrevio) {
-    return {
-      requerido: true,
-      momento: 'previo',
-      obligatorio: true,
-      fechaLimite: null,
-      mensaje: 'Este motivo exige adjuntar el soporte al momento de solicitar.',
-    }
-  }
+  const previo = params.requiereSoportePrevio
+    ? {
+        obligatorio: true,
+        mensaje: 'Este motivo exige adjuntar el soporte al momento de solicitar.',
+      }
+    : null
 
-  if (!params.requiereSoportePosterior) {
-    return { requerido: false, momento: null, obligatorio: false, fechaLimite: null, mensaje: null }
-  }
+  if (!params.requiereSoportePosterior) return { previo, posterior: null }
 
   const umbral = params.umbralDias ?? null
   const superaUmbral = umbral === null || params.diasPermiso > umbral
   const plazo = params.plazoDiasHabiles ?? 5
 
   return {
-    requerido: true,
-    momento: 'posterior',
-    obligatorio: superaUmbral,
-    fechaLimite: superaUmbral ? sumarDiasHabiles(params.fechaFin, plazo) : null,
-    mensaje: superaUmbral
-      ? umbral === null
-        ? 'Al regresar deberás adjuntar el soporte correspondiente.'
-        : `El ausentismo supera ${umbral} días: al regresar deberás adjuntar copia de la asistencia médica, la incapacidad o la historia clínica.`
-      : `Si el ausentismo llega a superar ${umbral} días, deberás adjuntar el soporte al regresar.`,
+    previo,
+    posterior: {
+      obligatorio: superaUmbral,
+      fechaLimite: superaUmbral ? sumarDiasHabiles(params.fechaFin, plazo) : null,
+      mensaje: superaUmbral
+        ? umbral === null
+          ? 'Al regresar deberás adjuntar el soporte correspondiente.'
+          : `El ausentismo supera ${umbral} días: al regresar deberás adjuntar copia de la asistencia médica, la incapacidad o la historia clínica.`
+        : `Si el ausentismo llega a superar ${umbral} días, deberás adjuntar el soporte al regresar.`,
+    },
   }
 }
 

@@ -169,8 +169,15 @@ export default function SolicitudPermiso() {
     if (antelacion?.mensaje) {
       lista.push({ tono: antelacion.exenta ? 'info' : 'advertencia', texto: antelacion.mensaje })
     }
-    if (soporteExigido?.mensaje) {
-      lista.push({ tono: soporteExigido.obligatorio ? 'advertencia' : 'info', texto: soporteExigido.mensaje })
+    // Los dos momentos pueden coincidir, así que se avisa de cada uno.
+    if (soporteExigido?.previo) {
+      lista.push({ tono: 'advertencia', texto: soporteExigido.previo.mensaje })
+    }
+    if (soporteExigido?.posterior) {
+      lista.push({
+        tono: soporteExigido.posterior.obligatorio ? 'advertencia' : 'info',
+        texto: soporteExigido.posterior.mensaje,
+      })
     }
     if (tipo?.ruta_aprobacion === 'gerente_th_directo') {
       lista.push({
@@ -206,7 +213,7 @@ export default function SolicitudPermiso() {
       setError('Describe la justificación del permiso.')
       return
     }
-    if (enviar && soporteExigido?.momento === 'previo' && !soporte) {
+    if (enviar && soporteExigido?.previo?.obligatorio && !soporte) {
       setError('Este motivo exige adjuntar el soporte al momento de solicitar.')
       return
     }
@@ -252,8 +259,8 @@ export default function SolicitudPermiso() {
           requiere_compensacion: form.requiereCompensacion,
           plan_compensacion: form.planCompensacion.trim() || null,
           justificacion: form.justificacion.trim() || null,
-          requiere_soporte_posterior: soporteExigido?.momento === 'posterior' && soporteExigido.obligatorio,
-          fecha_limite_soporte: soporteExigido?.fechaLimite ?? null,
+          requiere_soporte_posterior: Boolean(soporteExigido?.posterior?.obligatorio),
+          fecha_limite_soporte: soporteExigido?.posterior?.fechaLimite ?? null,
         },
       })
 
@@ -524,7 +531,7 @@ export default function SolicitudPermiso() {
                   archivo={soporte}
                   onCambio={setSoporte}
                   maxMB={Number(config?.max_mb_adjunto ?? 10)}
-                  obligatorio={soporteExigido?.momento === 'previo'}
+                  obligatorio={Boolean(soporteExigido?.previo?.obligatorio)}
                 />
               </div>
             </section>

@@ -2,6 +2,24 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.1.5] — 2026-07-31
+
+### Corregido
+
+- **Un motivo no podía exigir soporte al solicitar *y* al regresar.**
+  `evaluarSoporte` devolvía un único `momento` y salía en cuanto encontraba el
+  previo, así que el posterior se perdía en silencio por mucho que se
+  configurara en Administración. Ahora los dos momentos son independientes y
+  el formulario avisa de cada uno.
+
+### Cambiado
+
+- **Cita médica** pasa a exigir soporte en los dos momentos y sin umbral de
+  días: la orden al solicitar y la constancia de asistencia al regresar. Antes
+  solo lo pedía cuando el ausentismo superaba 2 días, así que una cita de
+  cuatro horas se cerraba sin ningún documento. Es configuración, editable en
+  Administración → Motivos de permiso.
+
 ## [0.1.4] — 2026-07-31
 
 ### Añadido
