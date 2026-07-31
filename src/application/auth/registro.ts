@@ -75,9 +75,22 @@ export async function registrar(datos: DatosRegistro, dominios: string[] = []): 
   }
 }
 
+/**
+ * Pide el correo de recuperación.
+ *
+ * No usa `resetPasswordForEmail` por dos razones. La primera es que con PKCE
+ * ese enlace vuelve con un `?code=` que **solo se puede canjear en el mismo
+ * navegador** que lo pidió, y la mitad de la gente abre el correo en el
+ * celular. La segunda es que su plantilla la comparten Permisos y Cambio de
+ * Turnos, así que arreglarla aquí rompería la otra aplicación.
+ *
+ * La Edge Function genera un enlace con `token_hash` —que sirve en cualquier
+ * dispositivo— y lo manda por Resend, como el resto de correos de la app.
+ * Responde siempre `ok`, exista o no la cuenta.
+ */
 export async function enviarRecuperacion(correo: string): Promise<void> {
-  const { error } = await supabase.auth.resetPasswordForEmail(correo.trim().toLowerCase(), {
-    redirectTo: `${URL_APP}#/establecer-clave`,
+  const { error } = await supabase.functions.invoke('permisos-recuperar-clave', {
+    body: { correo: correo.trim().toLowerCase() },
   })
   if (error) throw error
 }

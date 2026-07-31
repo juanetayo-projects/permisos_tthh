@@ -2,6 +2,30 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.1.2] — 2026-07-31
+
+### Corregido
+
+- **El enlace de recuperación de contraseña daba «enlace no válido».** Con el
+  flujo PKCE, el enlace vuelve con un `?code=` que solo se puede canjear en el
+  mismo navegador que pidió el cambio, porque el `code_verifier` vive en su
+  `localStorage`. Si no está, `auth-js` ni siquiera intenta el canje. Ahora el
+  correo lo envía la Edge Function `permisos-recuperar-clave` por Resend, con
+  un enlace de `token_hash` que la app canjea con `verifyOtp` y que **funciona
+  en cualquier dispositivo**. No se tocó la plantilla de Auth porque la
+  comparte Cambio de Turnos.
+- La pantalla de establecer contraseña canjea el enlace antes de decidir, en
+  vez de dar por inválido todo lo que no traiga ya una sesión abierta. Si aun
+  así llega un código PKCE sin verificador, lo explica en vez de decir que el
+  enlace caducó.
+
+### Añadido
+
+- Edge Function `permisos-recuperar-clave`, con freno de un correo por minuto
+  y por destinatario, y respuesta idéntica exista o no la cuenta.
+- Medidor de fortaleza también al establecer la contraseña nueva, y mensaje
+  propio cuando Supabase rechaza una contraseña por aparecer en filtraciones.
+
 ## [0.1.1] — 2026-07-30
 
 ### Añadido

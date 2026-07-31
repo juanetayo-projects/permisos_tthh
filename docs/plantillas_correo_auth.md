@@ -69,6 +69,17 @@ y guarda.
 
 ## 2. Reset password — recuperación de contraseña
 
+> ℹ️ **Permisos ya no usa esta plantilla.** Desde el 2026-07-31 su correo de
+> recuperación lo envía la Edge Function `permisos-recuperar-clave` por Resend,
+> porque el enlace de esta plantilla **solo funciona en el mismo navegador** que
+> pidió el cambio (flujo PKCE), y quien pide el cambio en el computador suele
+> abrir el correo en el celular. Como la plantilla la comparte Cambio de Turnos,
+> no se podía arreglar aquí sin romper esa aplicación.
+>
+> Sigue haciendo falta pegarla **para Cambio de Turnos**, que sí la usa. Y esa
+> aplicación arrastra la misma limitación del mismo navegador: si algún día se
+> quiere corregir, el camino es el mismo que se siguió en Permisos.
+
 **Subject:** `Restablece tu contraseña · Clínica CAC Santa Bárbara`
 
 ```html

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertCircle, KeyRound } from 'lucide-react'
+import { AlertCircle, KeyRound, Loader2, MailWarning } from 'lucide-react'
 import { AuthLayout } from '@/presentation/layouts/AuthLayout'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
@@ -8,20 +8,37 @@ import { Label } from '@/presentation/components/ui/label'
 import { MedidorClave } from '@/presentation/components/MedidorClave'
 import { LONGITUD_MINIMA_CLAVE } from '@/domain/clave'
 import { establecerClave } from '@/application/auth/registro'
+import { completarEnlaceDeCorreo, type ResultadoEnlace } from '@/application/auth/enlaceCorreo'
 import { useAuth } from '@/application/auth/AuthProvider'
 
 /**
  * Pantalla de destino del enlace de recuperación y del que recibe el
- * administrador inicial. Supabase deja la sesión abierta al abrir el enlace,
- * así que aquí basta con actualizar la contraseña.
+ * administrador inicial.
+ *
+ * El enlace se canjea **aquí**, y hasta que ese canje termina no se decide
+ * nada: antes se daba por inválido cualquier enlace que no hubiera dejado ya
+ * una sesión abierta, y eso tapaba la causa real —un código PKCE abierto en
+ * otro navegador— con un mensaje genérico.
  */
 export default function EstablecerClave() {
   const navigate = useNavigate()
   const { session, cargandoSesion } = useAuth()
+
+  const [enlace, setEnlace] = useState<ResultadoEnlace | null>(null)
   const [clave, setClave] = useState('')
   const [confirmacion, setConfirmacion] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
+
+  useEffect(() => {
+    let vigente = true
+    void completarEnlaceDeCorreo().then((r) => {
+      if (vigente) setEnlace(r)
+    })
+    return () => {
+      vigente = false
+    }
+  }, [])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -41,32 +58,63 @@ export default function EstablecerClave() {
       await establecerClave(clave)
       navigate('/', { replace: true })
     } catch (err) {
-      setError(
-        err instanceof Error && err.message.toLowerCase().includes('should be different')
-          ? 'La nueva contraseña debe ser distinta de la anterior.'
-          : 'No fue posible actualizar la contraseña. Solicita un enlace nuevo.'
-      )
+      const mensaje = err instanceof Error ? err.message.toLowerCase() : ''
+
+      if (mensaje.includes('should be different')) {
+        setError('La nueva contraseña debe ser distinta de la anterior.')
+      } else if (mensaje.includes('pwned') || mensaje.includes('weak password')) {
+        setError(
+          'Esa contraseña aparece en filtraciones públicas y no se puede usar. Elige otra: la barra de color te indica cuándo es lo bastante fuerte.'
+        )
+      } else {
+        setError('No fue posible actualizar la contraseña. Solicita un enlace nuevo.')
+      }
     } finally {
       setEnviando(false)
     }
   }
 
-  if (!cargandoSesion && !session) {
+  // El canje es correcto pero `session` llega por el evento de Supabase, un
+  // instante después: sin esperarlo se vería «enlace no válido» parpadeando
+  // justo cuando todo ha ido bien.
+  if (enlace === null || cargandoSesion || (enlace === 'listo' && !session)) {
     return (
       <AuthLayout>
-        <div className="space-y-4 text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-[var(--error-suave)]">
-            <AlertCircle className="size-7 text-[var(--error)]" />
-          </div>
-          <h1 className="text-xl font-semibold">Enlace no válido</h1>
-          <p className="text-sm text-muted-foreground">
-            El enlace caducó o ya se usó. Solicita uno nuevo desde la pantalla de recuperación.
-          </p>
-          <Button variant="outline" className="w-full" onClick={() => navigate('/recuperar')}>
-            Solicitar un enlace nuevo
-          </Button>
+        <div className="flex flex-col items-center gap-3 py-6 text-muted-foreground">
+          <Loader2 className="size-6 animate-spin" />
+          <p className="text-sm">Validando el enlace…</p>
         </div>
       </AuthLayout>
+    )
+  }
+
+  // El enlace se abrió donde no está el verificador del flujo PKCE. Merece un
+  // mensaje propio: no caducó, y reintentar en el mismo sitio no lo arregla.
+  if (!session && enlace === 'otro-navegador') {
+    return (
+      <AvisoEnlace
+        icono={<MailWarning className="size-7 text-[var(--acento-ambar)]" />}
+        tinte="var(--tinte-ambar)"
+        titulo="Abre el enlace en el mismo navegador"
+        onSolicitar={() => navigate('/recuperar')}
+      >
+        Por seguridad, este enlace solo funciona en el navegador desde el que pediste el cambio. Si
+        lo abriste en el celular y lo solicitaste en el computador —o al revés—, pide uno nuevo
+        desde el equipo en el que vayas a entrar.
+      </AvisoEnlace>
+    )
+  }
+
+  if (!session) {
+    return (
+      <AvisoEnlace
+        icono={<AlertCircle className="size-7 text-[var(--error)]" />}
+        tinte="var(--error-suave)"
+        titulo="Enlace no válido"
+        onSolicitar={() => navigate('/recuperar')}
+      >
+        El enlace caducó o ya se usó. Solicita uno nuevo desde la pantalla de recuperación.
+      </AvisoEnlace>
     )
   }
 
@@ -89,7 +137,7 @@ export default function EstablecerClave() {
             value={clave}
             onChange={(e) => setClave(e.target.value)}
           />
-          <MedidorClave clave={clave} contexto={[session?.user.email ?? '']} />
+          <MedidorClave clave={clave} contexto={[session.user.email ?? '']} />
         </div>
 
         <div className="space-y-2">
@@ -116,6 +164,38 @@ export default function EstablecerClave() {
           {enviando ? 'Guardando…' : 'Guardar contraseña'}
         </Button>
       </form>
+    </AuthLayout>
+  )
+}
+
+function AvisoEnlace({
+  icono,
+  tinte,
+  titulo,
+  children,
+  onSolicitar,
+}: {
+  icono: React.ReactNode
+  tinte: string
+  titulo: string
+  children: React.ReactNode
+  onSolicitar: () => void
+}) {
+  return (
+    <AuthLayout>
+      <div className="space-y-4 text-center">
+        <div
+          className="mx-auto flex size-14 items-center justify-center rounded-full"
+          style={{ backgroundColor: tinte }}
+        >
+          {icono}
+        </div>
+        <h1 className="text-xl font-semibold">{titulo}</h1>
+        <p className="text-sm text-muted-foreground">{children}</p>
+        <Button variant="outline" className="w-full" onClick={onSolicitar}>
+          Solicitar un enlace nuevo
+        </Button>
+      </div>
     </AuthLayout>
   )
 }
