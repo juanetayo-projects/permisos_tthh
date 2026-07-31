@@ -2,6 +2,29 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.1.7] — 2026-07-31
+
+### Cambiado
+
+- **La ventana ya no hace scroll.** El armazón pasa a tener altura fija y cada
+  pantalla decide qué zona suya se desplaza: encabezados, filtros y botones de
+  decisión quedan siempre a la vista. Antes las barras eran `sticky`, que
+  necesita justo lo contrario —que la página entera scrollee—, así que al
+  crecer la lista se iban hacia arriba.
+- **El detalle de la solicitud cabe en una pantalla.** Los soportes se
+  fusionan con el panel de documentos de la derecha: eran dos piezas listando
+  los mismos archivos, y entre las dos empujaban el detalle por debajo del
+  pliegue. Espaciados más compactos y el historial acotado en alto.
+
+### Añadido
+
+- **Panel de documentos con vista previa**, al costado y con el mismo peso
+  visual que el resumen del formulario: miniatura del archivo real —PDF
+  incrustado o imagen—, ampliación en modal y acceso a la gestión del soporte
+  sin salir de la solicitud.
+- `Pantalla`, armazón común de las pantallas de listado, para no repetir la
+  estructura de alto fijo en cada una.
+
 ## [0.1.6] — 2026-07-31
 
 ### Añadido

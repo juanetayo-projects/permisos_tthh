@@ -192,7 +192,7 @@ export default function Administracion() {
   ]
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
+    <div className="mx-auto max-w-7xl space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
       <header>
         <h1 className="text-xl font-semibold tracking-tight">Administración</h1>
         <p className="mt-1 text-sm text-muted-foreground">

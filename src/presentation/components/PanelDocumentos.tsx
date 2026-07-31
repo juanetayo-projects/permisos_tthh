@@ -1,0 +1,266 @@
+import { useState } from 'react'
+import {
+  AlertCircle,
+  ExternalLink,
+  FileCheck2,
+  FileText,
+  Files,
+  Hourglass,
+  Maximize2,
+  Undo2,
+  Upload,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useAuth } from '@/application/auth/AuthProvider'
+import {
+  abrirSoporte,
+  useAdjuntos,
+  useEntregarSoporte,
+  useUrlsAdjuntos,
+  type Adjunto,
+} from '@/application/solicitudes/useAdjuntos'
+import type { SolicitudLista } from '@/application/solicitudes/useSolicitudes'
+import { Button } from '@/presentation/components/ui/button'
+import { CampoArchivo } from '@/presentation/components/CampoArchivo'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/presentation/components/ui/dialog'
+
+const ETIQUETA_MOMENTO = {
+  previo: 'Al solicitar',
+  posterior: 'Al regresar',
+} as const
+
+const esImagen = (a: Adjunto) => (a.mime ?? '').startsWith('image/')
+
+/**
+ * Documentos de la solicitud: vista previa y gestión, en un solo sitio.
+ *
+ * Antes había dos piezas —una lista de soportes en la columna principal y este
+ * panel— que mostraban los mismos archivos, y entre las dos empujaban el
+ * detalle por debajo del pliegue. Aquí se unen: el documento se ve mientras se
+ * leen los datos de la solicitud, que es lo que necesita quien decide.
+ *
+ * Las miniaturas son el archivo real —un PDF incrustado sin barras, una imagen
+ * recortada—, no un icono genérico, y se amplían en modal para no perder el
+ * contexto de la solicitud.
+ */
+export function PanelDocumentos({
+  solicitud,
+  puedeValidar,
+  onValidar,
+  onDevolver,
+  procesando,
+}: {
+  solicitud: SolicitudLista
+  puedeValidar: boolean
+  onValidar: () => void
+  onDevolver: () => void
+  procesando: boolean
+}) {
+  const { perfil, session } = useAuth()
+  const { data: adjuntos, isLoading } = useAdjuntos(solicitud.id)
+  const { data: urls } = useUrlsAdjuntos(adjuntos)
+  const entregar = useEntregarSoporte()
+
+  const [ampliado, setAmpliado] = useState<Adjunto | null>(null)
+  const [archivo, setArchivo] = useState<File | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const lista = adjuntos ?? []
+  const urlAmpliada = ampliado ? urls?.[ampliado.ruta_storage] : undefined
+
+  const esSolicitante = solicitud.solicitante?.user_id === perfil?.user_id
+  const faltaEntregar = solicitud.estado === 'PENDIENTE_SOPORTE'
+  const enRevision = solicitud.estado === 'SOPORTE_EN_VALIDACION'
+  // Solo el solicitante sube: así lo exige la policy de Storage.
+  const puedeEntregar = faltaEntregar && esSolicitante
+  const motivoDevolucion = faltaEntregar ? solicitud.observacion_decision : null
+
+  async function entregarSoporte() {
+    if (!archivo || !session) return
+    setError(null)
+
+    try {
+      await entregar.mutateAsync({ solicitudId: solicitud.id, archivo, usuarioId: session.user.id })
+      setArchivo(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No fue posible subir el soporte.')
+    }
+  }
+
+  return (
+    <>
+      <aside
+        className="panel-relieve flex min-h-0 flex-col overflow-hidden border border-[var(--tinte-azul-borde)]"
+        aria-label="Documentos adjuntos"
+      >
+        <header className="franja-institucional flex shrink-0 items-center gap-2 px-3 py-2">
+          <Files className="size-4 shrink-0 text-white/90" />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-white">Documentos</h2>
+          {lista.length > 0 && (
+            <span className="ml-auto rounded-full bg-white/20 px-2 text-[11px] font-semibold tabular text-white">
+              {lista.length}
+            </span>
+          )}
+        </header>
+
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2.5">
+          {isLoading ? (
+            <p className="text-xs text-muted-foreground">Cargando documentos…</p>
+          ) : lista.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+              Todavía no hay documentos adjuntos.
+            </p>
+          ) : (
+            lista.map((a) => {
+              const url = urls?.[a.ruta_storage]
+
+              return (
+                <figure key={a.id} className="overflow-hidden rounded-lg border border-border bg-card">
+                  <button
+                    type="button"
+                    onClick={() => setAmpliado(a)}
+                    disabled={!url}
+                    className={cn(
+                      'group relative block h-28 w-full overflow-hidden bg-muted',
+                      url ? 'cursor-zoom-in' : 'cursor-wait'
+                    )}
+                    aria-label={`Ampliar ${a.nombre_archivo}`}
+                  >
+                    {!url ? (
+                      <span className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                        Preparando vista previa…
+                      </span>
+                    ) : esImagen(a) ? (
+                      <img src={url} alt={a.nombre_archivo} className="size-full object-cover object-top" />
+                    ) : (
+                      // `pointer-events-none` deja que el clic llegue al botón
+                      // en vez de quedarse dentro del visor de PDF.
+                      <iframe
+                        src={`${url}#toolbar=0&navpanes=0&view=FitH`}
+                        title={a.nombre_archivo}
+                        className="pointer-events-none size-full border-0 bg-white"
+                      />
+                    )}
+
+                    <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:bg-[var(--cac-azul)]/45 group-hover:opacity-100">
+                      <Maximize2 className="size-5 text-white drop-shadow" />
+                    </span>
+                  </button>
+
+                  <figcaption className="flex items-center gap-1.5 border-t border-border px-2 py-1">
+                    <FileText className="size-3 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 truncate text-[11px]" title={a.nombre_archivo}>
+                      {a.nombre_archivo}
+                    </span>
+                    <span className="shrink-0 rounded bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
+                      {ETIQUETA_MOMENTO[a.momento]}
+                    </span>
+                  </figcaption>
+                </figure>
+              )
+            })
+          )}
+        </div>
+
+        {/* ------------------------------------------------ Gestión del soporte */}
+        {(motivoDevolucion || puedeEntregar || enRevision || puedeValidar || error) && (
+          <div className="shrink-0 space-y-2 border-t border-[var(--tinte-azul-borde)] p-2.5">
+            {motivoDevolucion && (
+              <div className="rounded-md border border-[var(--tinte-rojo-borde)] bg-[var(--tinte-rojo)] p-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--error)]">
+                  Talento Humano devolvió el soporte
+                </p>
+                <p className="mt-0.5 whitespace-pre-wrap text-xs">{motivoDevolucion}</p>
+              </div>
+            )}
+
+            {enRevision && !puedeValidar && (
+              <p className="flex items-start gap-1.5 rounded-md border border-[var(--tinte-violeta-borde)] bg-[var(--tinte-violeta)] p-2 text-xs text-[var(--acento-violeta)]">
+                <Hourglass className="mt-0.5 size-3.5 shrink-0" />
+                Talento Humano está revisando tu soporte.
+              </p>
+            )}
+
+            {puedeEntregar && (
+              <>
+                <CampoArchivo id="soporte-posterior" archivo={archivo} onCambio={setArchivo} obligatorio />
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={!archivo}
+                  cargando={entregar.isPending}
+                  onClick={() => void entregarSoporte()}
+                >
+                  {!entregar.isPending && <Upload />} Entregar soporte
+                </Button>
+              </>
+            )}
+
+            {puedeValidar && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button variant="exito" size="sm" cargando={procesando} onClick={onValidar}>
+                  {!procesando && <FileCheck2 />} Validar
+                </Button>
+                <Button variant="outline" size="sm" disabled={procesando} onClick={onDevolver}>
+                  <Undo2 /> Devolver
+                </Button>
+              </div>
+            )}
+
+            {error && (
+              <p role="alert" className="flex items-start gap-1.5 rounded-md bg-[var(--error-suave)] p-2 text-xs text-[var(--error)]">
+                <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
+                {error}
+              </p>
+            )}
+          </div>
+        )}
+
+      </aside>
+
+      <Dialog open={Boolean(ampliado)} onOpenChange={(v) => !v && setAmpliado(null)}>
+        <DialogContent className="flex h-[85vh] max-w-5xl flex-col gap-3">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="flex flex-wrap items-center gap-2 pr-8">
+              <FileText className="size-4 shrink-0" />
+              <span className="min-w-0 truncate">{ampliado?.nombre_archivo}</span>
+              {ampliado && (
+                <span className="rounded bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
+                  {ETIQUETA_MOMENTO[ampliado.momento]}
+                </span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted">
+            {!urlAmpliada ? (
+              <p className="p-8 text-center text-sm text-muted-foreground">Cargando documento…</p>
+            ) : ampliado && esImagen(ampliado) ? (
+              <img src={urlAmpliada} alt={ampliado.nombre_archivo} className="mx-auto max-w-full" />
+            ) : (
+              <iframe
+                src={urlAmpliada}
+                title={ampliado?.nombre_archivo ?? 'Documento'}
+                className="size-full border-0 bg-white"
+              />
+            )}
+          </div>
+
+          {ampliado && (
+            <div className="flex shrink-0 justify-end">
+              {/* Descargar o imprimir necesita el archivo fuera del modal. */}
+              <Button variant="outline" size="sm" onClick={() => void abrirSoporte(ampliado.ruta_storage)}>
+                <ExternalLink /> Abrir en una pestaña
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}

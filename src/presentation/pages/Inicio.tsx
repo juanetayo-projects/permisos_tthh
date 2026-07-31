@@ -42,7 +42,7 @@ export default function Inicio() {
   const primerNombre = perfil?.nombre.split(' ')[0] ?? ''
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6 lg:h-full lg:overflow-y-auto lg:pr-1">
       <header>
         <h1 className="text-2xl font-semibold tracking-tight">
           {saludo()}

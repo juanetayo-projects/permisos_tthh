@@ -38,7 +38,7 @@ export default function Validaciones() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-4">
+      <div className="mx-auto max-w-5xl space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-48 w-full" />
       </div>
@@ -46,7 +46,7 @@ export default function Validaciones() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
       <header>
         <h1 className="text-xl font-semibold tracking-tight">Validar colaboradores</h1>
         <p className="mt-1 text-sm text-muted-foreground">

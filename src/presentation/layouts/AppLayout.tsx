@@ -127,7 +127,13 @@ export function AppLayout() {
   useEffect(() => setMenuAbierto(false), [ubicacion.pathname])
 
   return (
-    <div className="min-h-dvh bg-background lg:flex">
+    // Altura fija y sin scroll de página en escritorio: la ventana no se mueve
+    // y cada pantalla decide qué zona suya se desplaza. Así las barras de
+    // filtros y las acciones quedan siempre a la vista sin depender de
+    // `sticky`, que exige justo lo contrario —que la página sí scrollee—.
+    // En móvil se deja el desplazamiento normal: en 400 px de alto no cabe
+    // nada y bloquearlo solo esconde contenido.
+    <div className="min-h-dvh bg-background lg:flex lg:h-dvh lg:overflow-hidden">
       {/* En escritorio va fija a la izquierda y no `sticky`: con `sticky` la
           franja azul solo medía una pantalla y, al bajar en el dashboard,
           debajo asomaba el fondo de la página. */}
@@ -193,7 +199,7 @@ export function AppLayout() {
       {/* El padding izquierdo deja el hueco de la barra fija (18rem + 1.5rem).
           Se declara `pl` y `pr` por separado, y no `px` más un `pl`, para no
           depender del orden en que Tailwind emita las utilidades. */}
-      <main className="min-w-0 flex-1 p-4 sm:p-5 lg:py-5 lg:pr-6 lg:pl-[19.5rem]">
+      <main className="min-w-0 flex-1 p-4 sm:p-5 lg:h-dvh lg:overflow-hidden lg:py-5 lg:pr-6 lg:pl-[19.5rem]">
         <Outlet />
       </main>
     </div>

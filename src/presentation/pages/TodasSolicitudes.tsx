@@ -6,6 +6,7 @@ import { useSolicitudes } from '@/application/solicitudes/useSolicitudes'
 import { useCatalogo } from '@/application/admin/useCatalogoCrud'
 import { ESTADOS, type Estado } from '@/domain/estados'
 import { exportarSolicitudesExcel, exportarSolicitudesPdf } from '@/infrastructure/export/solicitudes'
+import { Pantalla } from '@/presentation/layouts/Pantalla'
 import { TablaSolicitudes } from '@/presentation/components/TablaSolicitudes'
 import { Button } from '@/presentation/components/ui/button'
 import {
@@ -100,15 +101,11 @@ export default function TodasSolicitudes() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Todas las solicitudes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Histórico completo, incluidas las que ya se decidieron y salieron de las bandejas.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <Pantalla
+      titulo="Todas las solicitudes"
+      descripcion="Histórico completo, incluidas las que ya se decidieron y salieron de las bandejas."
+      acciones={
+        <>
           <Button
             variant="outline"
             size="sm"
@@ -125,10 +122,10 @@ export default function TodasSolicitudes() {
           >
             <FileDown /> PDF
           </Button>
-        </div>
-      </header>
-
-      <div className="flex flex-wrap items-center gap-3">
+        </>
+      }
+      barra={
+        <div className="flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1">
           {PESTANAS.map((p) => (
             <button
@@ -171,8 +168,9 @@ export default function TodasSolicitudes() {
             ))}
           </SelectContent>
         </Select>
-      </div>
-
+        </div>
+      }
+    >
       <TablaSolicitudes
         solicitudes={filtradas}
         cargando={isLoading}
@@ -182,6 +180,6 @@ export default function TodasSolicitudes() {
           descripcion: 'Prueba con otra pestaña, otro trámite u otra área.',
         }}
       />
-    </div>
+    </Pantalla>
   )
 }

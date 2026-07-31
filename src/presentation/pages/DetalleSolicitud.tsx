@@ -29,7 +29,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { Card } from '@/presentation/components/ui/card'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { DialogoDecision, type TipoDecision } from '@/presentation/components/DialogoDecision'
-import { BloqueSoportes } from '@/presentation/components/BloqueSoportes'
+import { PanelDocumentos } from '@/presentation/components/PanelDocumentos'
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: React.ReactNode }) {
   const vacio = valor === null || valor === undefined || valor === ''
@@ -65,8 +65,8 @@ function Bloque({
   children: React.ReactNode
 }) {
   return (
-    <section className={cn('bloque-datos p-5', `bloque-${tinte}`)}>
-      <h2 className="bloque-titulo mb-4 flex items-center gap-2">
+    <section className={cn('bloque-datos p-4', `bloque-${tinte}`)}>
+      <h2 className="bloque-titulo mb-3 flex items-center gap-2">
         <Icono className="size-4" />
         {titulo}
       </h2>
@@ -103,7 +103,7 @@ export default function DetalleSolicitud() {
 
   if (isLoading || !s) {
     return (
-      <div className="mx-auto max-w-5xl space-y-4">
+      <div className="mx-auto max-w-5xl space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -166,13 +166,21 @@ export default function DetalleSolicitud() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
+    // Altura fija: la ventana no scrollea. La cabecera y las acciones quedan
+    // siempre visibles y, si el contenido no cabe, se desplaza dentro de su
+    // columna. Con una solicitud normal cabe entero en un portátil de 720 px.
+    <div className="mx-auto flex max-w-6xl flex-col gap-3 lg:h-full lg:overflow-hidden">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(-1)}
+        className="-ml-2 shrink-0 self-start"
+      >
         <ArrowLeft /> Volver
       </Button>
 
       {/* Cabecera con relieve: es el ancla de la pantalla, no una fila de texto. */}
-      <header className="panel-relieve overflow-hidden">
+      <header className="panel-relieve shrink-0 overflow-hidden">
         <div
           className={cn(
             'h-1 w-full',
@@ -183,7 +191,7 @@ export default function DetalleSolicitud() {
             tono === 'neutro' && 'bg-border'
           )}
         />
-        <div className="flex flex-wrap items-start justify-between gap-3 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 p-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight tabular text-[var(--cac-azul)] dark:text-[var(--cac-azul-300)]">
@@ -249,10 +257,13 @@ export default function DetalleSolicitud() {
         </div>
       </header>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
-        <div className="space-y-4">
+      {/* La fila implícita se estira sola al alto de la rejilla —`align-content`
+          vale `stretch` por defecto—, así que cada columna hereda la altura
+          disponible y se desplaza por dentro. */}
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1fr_20rem]">
+        <div className="min-h-0 space-y-3 lg:overflow-y-auto lg:pr-1">
           <Bloque titulo="Información general" icono={UserRound} tinte="azul">
-            <dl className="grid gap-4 sm:grid-cols-3">
+            <dl className="grid gap-3 sm:grid-cols-3">
               <Dato etiqueta="Solicitante" valor={s.solicitante?.nombre} />
               <Dato etiqueta="Identificación" valor={s.solicitante?.documento} />
               <Dato etiqueta="Empresa" valor={s.empresa?.nombre} />
@@ -273,7 +284,7 @@ export default function DetalleSolicitud() {
 
           {!esVacaciones && s.detalle_permiso && (
             <Bloque titulo="Motivo del permiso" icono={Stethoscope} tinte="violeta">
-              <dl className="grid gap-4 sm:grid-cols-3">
+              <dl className="grid gap-3 sm:grid-cols-3">
                 <Dato etiqueta="Categoría" valor={s.detalle_permiso.categoria?.nombre} />
                 <Dato etiqueta="Motivo" valor={s.detalle_permiso.tipo?.nombre} />
                 <Dato
@@ -320,7 +331,7 @@ export default function DetalleSolicitud() {
 
           {esVacaciones && s.detalle_vacaciones && (
             <Bloque titulo="Periodo a disfrutar" icono={Palmtree} tinte="teal">
-              <dl className="grid gap-4 sm:grid-cols-3">
+              <dl className="grid gap-3 sm:grid-cols-3">
                 <Dato etiqueta="Días que corresponden" valor={s.detalle_vacaciones.dias_corresponden} />
                 <Dato etiqueta="Días a disfrutar" valor={s.detalle_vacaciones.dias_a_disfrutar} />
                 <Dato etiqueta="Días pendientes" valor={s.detalle_vacaciones.dias_pendientes} />
@@ -343,21 +354,8 @@ export default function DetalleSolicitud() {
             </Bloque>
           )}
 
-          {!esVacaciones && (
-            <BloqueSoportes
-              solicitud={s}
-              puedeValidar={puedeValidarSoporte}
-              onValidar={() => void validarSoporte()}
-              onDevolver={() =>
-                setDialogo({
-                  tipo: 'rechazar',
-                  destino: 'PENDIENTE_SOPORTE',
-                  etiqueta: 'Devolver soporte',
-                })
-              }
-              procesando={decidir.isPending}
-            />
-          )}
+          {/* Los soportes están en el panel de la derecha: ahí se ven mientras
+              se leen los datos, en vez de empujarlos fuera de la pantalla. */}
 
           {/* La causa del rechazo y la observación de quien autoriza son cosas
               opuestas: nunca deben compartir color ni título. */}
@@ -374,12 +372,31 @@ export default function DetalleSolicitud() {
           )}
         </div>
 
-        {/* --------------------------------------------------------- Trazabilidad */}
-        <Card relieve className="h-fit p-4">
-          <h2 className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
+        {/* ------------------------------------------- Documentos y trazabilidad */}
+        {/* Los documentos se llevan el espacio sobrante y el historial se queda
+            con lo justo: al decidir se mira el soporte, no la cronología. */}
+        <div className="flex min-h-0 flex-col gap-3">
+          {!esVacaciones && (
+            <PanelDocumentos
+              solicitud={s}
+              puedeValidar={puedeValidarSoporte}
+              onValidar={() => void validarSoporte()}
+              onDevolver={() =>
+                setDialogo({
+                  tipo: 'rechazar',
+                  destino: 'PENDIENTE_SOPORTE',
+                  etiqueta: 'Devolver soporte',
+                })
+              }
+              procesando={decidir.isPending}
+            />
+          )}
+
+          <Card relieve className="flex max-h-64 shrink-0 flex-col overflow-hidden p-3">
+          <h2 className="mb-2 shrink-0 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
             Historial
           </h2>
-          <ol className="space-y-3">
+          <ol className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
             {(historial ?? []).map((h, i, todos) => {
               const tonoPaso = TONO_ESTADO[h.estado_nuevo as Estado] ?? 'neutro'
 
@@ -425,7 +442,8 @@ export default function DetalleSolicitud() {
               </li>
             )}
           </ol>
-        </Card>
+          </Card>
+        </div>
       </div>
 
       <DialogoDecision

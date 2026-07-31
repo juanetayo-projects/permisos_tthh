@@ -5,6 +5,7 @@ import { useAuth } from '@/application/auth/AuthProvider'
 import { useDecidir, useSolicitudes, type SolicitudLista } from '@/application/solicitudes/useSolicitudes'
 import { notificar, tipoNotificacionPara } from '@/application/solicitudes/api'
 import { ESTADOS_BANDEJA, estadoTrasVistoBueno, type Estado } from '@/domain/estados'
+import { Pantalla } from '@/presentation/layouts/Pantalla'
 import { TablaSolicitudes } from '@/presentation/components/TablaSolicitudes'
 import { DialogoDecision, type TipoDecision } from '@/presentation/components/DialogoDecision'
 import { Button } from '@/presentation/components/ui/button'
@@ -126,12 +127,7 @@ export default function Bandeja({ vista }: { vista: Vista }) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">{config.titulo}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{config.descripcion}</p>
-      </header>
-
+    <Pantalla titulo={config.titulo} descripcion={config.descripcion}>
       <TablaSolicitudes
         solicitudes={solicitudes ?? []}
         cargando={isLoading}
@@ -166,6 +162,6 @@ export default function Bandeja({ vista }: { vista: Vista }) {
         etiquetaAprobar={config.etiquetaAprobar}
         onConfirmar={aplicar}
       />
-    </div>
+    </Pantalla>
   )
 }

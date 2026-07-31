@@ -5,6 +5,7 @@ import { useAuth } from '@/application/auth/AuthProvider'
 import { useSolicitudes } from '@/application/solicitudes/useSolicitudes'
 import { ESTADOS, type Estado } from '@/domain/estados'
 import { cn } from '@/lib/utils'
+import { Pantalla } from '@/presentation/layouts/Pantalla'
 import { TablaSolicitudes } from '@/presentation/components/TablaSolicitudes'
 import { Button } from '@/presentation/components/ui/button'
 
@@ -56,49 +57,48 @@ export default function MisSolicitudes() {
   }, [solicitudes])
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Mis solicitudes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Seguimiento de tus permisos y vacaciones.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <Pantalla
+      titulo="Mis solicitudes"
+      descripcion="Seguimiento de tus permisos y vacaciones."
+      acciones={
+        <>
           <Button variant="outline" size="sm" onClick={() => navigate('/solicitar/permiso')}>
             <FileText /> Nuevo permiso
           </Button>
           <Button size="sm" onClick={() => navigate('/solicitar/vacaciones')}>
             <CalendarDays /> Nuevas vacaciones
           </Button>
+        </>
+      }
+      barra={
+        <div className="space-y-3">
+          {mensaje && (
+            <p className="flex items-center gap-2 rounded-md bg-[var(--exito-suave)] p-3 text-sm text-[var(--exito)]">
+              <CheckCircle2 className="size-4 shrink-0" />
+              {mensaje}
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1">
+            {PESTANAS.map((p) => (
+              <button
+                key={p.clave}
+                onClick={() => setPestana(p.clave)}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  pestana === p.clave
+                    ? 'bg-[var(--cac-azul)] text-white shadow-sm'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                )}
+              >
+                {p.etiqueta}
+                <span className="ml-1.5 tabular opacity-70">{conteo[p.clave] ?? 0}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      </header>
-
-      {mensaje && (
-        <p className="flex items-center gap-2 rounded-md bg-[var(--exito-suave)] p-3 text-sm text-[var(--exito)]">
-          <CheckCircle2 className="size-4 shrink-0" />
-          {mensaje}
-        </p>
-      )}
-
-      <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1">
-        {PESTANAS.map((p) => (
-          <button
-            key={p.clave}
-            onClick={() => setPestana(p.clave)}
-            className={cn(
-              'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              pestana === p.clave
-                ? 'bg-[var(--cac-azul)] text-white shadow-sm'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-            )}
-          >
-            {p.etiqueta}
-            <span className="ml-1.5 tabular opacity-70">{conteo[p.clave] ?? 0}</span>
-          </button>
-        ))}
-      </div>
-
+      }
+    >
       <TablaSolicitudes
         solicitudes={filtradas}
         cargando={isLoading}
@@ -111,12 +111,12 @@ export default function MisSolicitudes() {
       />
 
       {!isLoading && (solicitudes ?? []).length === 0 && (
-        <div className="flex justify-center">
+        <div className="mt-3 flex shrink-0 justify-center">
           <Button onClick={() => navigate('/solicitar/permiso')}>
             <Plus /> Crear mi primera solicitud
           </Button>
         </div>
       )}
-    </div>
+    </Pantalla>
   )
 }

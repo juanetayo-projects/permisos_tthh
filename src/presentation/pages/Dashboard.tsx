@@ -146,7 +146,7 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-4">
+      <div className="mx-auto max-w-7xl space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
         <Skeleton className="h-9 w-56" />
         <Skeleton className="h-16 w-full" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -160,7 +160,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
+    <div className="mx-auto max-w-7xl space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Panel ejecutivo</h1>

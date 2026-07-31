@@ -28,6 +28,33 @@ export function useAdjuntos(solicitudId: string | undefined) {
   })
 }
 
+/** Ventana de la firma para lo que se queda en pantalla, en segundos. */
+const VIGENCIA_PREVIEW = 600
+
+/**
+ * URLs firmadas de los adjuntos, para pintarlos incrustados.
+ *
+ * Se refrescan antes de caducar: una vista previa que lleva diez minutos
+ * abierta seguiría mostrando la imagen ya cargada, pero al abrir el modal el
+ * navegador vuelve a pedir el archivo y recibiría un 400.
+ */
+export function useUrlsAdjuntos(adjuntos: Adjunto[] | undefined) {
+  const rutas = (adjuntos ?? []).map((a) => a.ruta_storage)
+
+  return useQuery({
+    queryKey: ['urls-adjuntos', rutas],
+    enabled: rutas.length > 0,
+    staleTime: (VIGENCIA_PREVIEW - 60) * 1000,
+    refetchInterval: (VIGENCIA_PREVIEW - 60) * 1000,
+    queryFn: async (): Promise<Record<string, string>> => {
+      const firmadas = await Promise.all(
+        rutas.map(async (r) => [r, await urlFirmadaSoporte(r, VIGENCIA_PREVIEW)] as const)
+      )
+      return Object.fromEntries(firmadas)
+    },
+  })
+}
+
 /**
  * Abre un soporte en una pestaña nueva.
  *

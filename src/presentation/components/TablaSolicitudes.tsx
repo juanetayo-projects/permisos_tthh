@@ -238,9 +238,11 @@ export function TablaSolicitudes({
   const limpiarSeleccion = () => setSeleccion(new Set())
 
   return (
-    <div className="space-y-3">
+    // Columna de altura completa: la barra de filtros y la de acciones no se
+    // mueven, y el desplazamiento ocurre dentro del contenedor de la tabla.
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       {/* ------------------------------------------------------ Barra de filtros */}
-      <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/95 p-2 backdrop-blur">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2">
         <div className="relative min-w-52 flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -325,9 +327,13 @@ export function TablaSolicitudes({
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          {/* El scroll vive aquí, no en la página. `min-h-0` deja que este hijo
+              se encoja; sin él el contenedor crece con la tabla y arrastra a
+              la ventana entera. El encabezado sigue `sticky`, pero ahora
+              respecto a esta caja, que es lo que se desplaza. */}
+          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-card">
             <table className="tabla-cac w-full min-w-[52rem] border-collapse text-sm">
-              <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur">
+              <thead className="sticky top-0 z-10 bg-muted shadow-[0_1px_0_var(--border)]">
                 <tr>
                   {seleccionables && (
                     <th className="w-10 px-3 py-2.5">
@@ -405,7 +411,7 @@ export function TablaSolicitudes({
           </div>
 
           {/* ------------------------------------------------------- Pie de tabla */}
-          <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
             <p className="tabular">
               {filtradas.length} solicitud{filtradas.length === 1 ? '' : 'es'}
               {busqueda && ` de ${solicitudes.length}`}
@@ -440,7 +446,7 @@ export function TablaSolicitudes({
 
       {/* --------------------------------------------------- Acciones en lote */}
       {seleccionables && seleccion.size > 0 && accionesMasivas && (
-        <div className="sticky bottom-4 z-30 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 shadow-lg">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 shadow-lg">
           <p className="text-sm font-medium">
             {seleccion.size} seleccionada{seleccion.size === 1 ? '' : 's'}
           </p>

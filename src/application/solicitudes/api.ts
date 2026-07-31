@@ -258,11 +258,18 @@ export async function subirSoporte(params: {
   if (error) throw error
 }
 
-/** URL temporal para ver un soporte. Caduca en 60 s (dato de salud, Ley 1581). */
-export async function urlFirmadaSoporte(ruta: string): Promise<string> {
+/**
+ * URL temporal para ver un soporte.
+ *
+ * Caduca pronto a propósito: son datos de salud (Ley 1581), y una URL de
+ * Storage sin caducar es un enlace público a la historia clínica de alguien.
+ * Sesenta segundos bastan para abrirla en otra pestaña; las vistas previas,
+ * que se quedan en pantalla, piden una ventana algo mayor.
+ */
+export async function urlFirmadaSoporte(ruta: string, segundos = 60): Promise<string> {
   const { data, error } = await supabase.storage
     .from('soportes-permisos')
-    .createSignedUrl(ruta, 60)
+    .createSignedUrl(ruta, segundos)
 
   if (error) throw error
   return data.signedUrl
