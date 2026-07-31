@@ -243,6 +243,24 @@ export function esDecisionNegativa(estado: Estado): boolean {
   return estado.startsWith('RECHAZADA') || estado === 'CANCELADA'
 }
 
+/**
+ * ¿La solicitud está esperando soporte porque se lo devolvieron?
+ *
+ * Dar el visto bueno con una nota y devolver un soporte dejan la solicitud en
+ * el mismo estado y con texto en la misma columna, así que la pantalla los
+ * pintaba igual: una autorización normal aparecía como «Talento Humano
+ * devolvió el soporte», que es lo contrario de lo que pasó. Lo único que los
+ * distingue es de dónde viene el último paso.
+ */
+export function esSoporteDevuelto(
+  ultimoPaso: { estado_anterior: string | null; estado_nuevo: string } | undefined
+): boolean {
+  return (
+    ultimoPaso?.estado_nuevo === 'PENDIENTE_SOPORTE' &&
+    ultimoPaso?.estado_anterior === 'SOPORTE_EN_VALIDACION'
+  )
+}
+
 /** Estados que ocupan una bandeja: lo que está esperando una decisión. */
 export const ESTADOS_BANDEJA: Record<'coordinador' | 'th' | 'gerencia', Estado[]> = {
   coordinador: ['PENDIENTE_COORDINADOR'],

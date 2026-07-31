@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   ESTADOS_BANDEJA,
+  esSoporteDevuelto,
   TRANSICIONES,
   estadoTrasVistoBueno,
   puedeEjecutar,
@@ -67,6 +68,33 @@ describe('cierre del trámite con soporte posterior', () => {
     expect(puedeEjecutar('validar_soporte', { ...base, rol: 'analista_th' })).toBe(false)
     expect(puedeEjecutar('validar_soporte', { ...base, estado: 'PENDIENTE_TH', rol: 'analista_th' })).toBe(false)
     expect(puedeEjecutar('validar_soporte', { ...base, estado: 'FINALIZADA', rol: 'analista_th' })).toBe(false)
+  })
+})
+
+describe('devolución frente a nota del visto bueno', () => {
+  it('reconoce la devolución por el estado del que viene', () => {
+    expect(
+      esSoporteDevuelto({ estado_anterior: 'SOPORTE_EN_VALIDACION', estado_nuevo: 'PENDIENTE_SOPORTE' })
+    ).toBe(true)
+  })
+
+  it('no llama devolución al visto bueno con observación', () => {
+    // El caso real que se vio en PL-2026-00001: Talento Humano autorizó con una
+    // nota y la pantalla decía «Talento Humano devolvió el soporte».
+    expect(
+      esSoporteDevuelto({ estado_anterior: 'PENDIENTE_TH', estado_nuevo: 'PENDIENTE_SOPORTE' })
+    ).toBe(false)
+  })
+
+  it('tampoco lo hace en la creación ni sin historial', () => {
+    expect(esSoporteDevuelto({ estado_anterior: null, estado_nuevo: 'PENDIENTE_SOPORTE' })).toBe(false)
+    expect(esSoporteDevuelto(undefined)).toBe(false)
+  })
+
+  it('deja de señalarla en cuanto el soporte vuelve a entregarse', () => {
+    expect(
+      esSoporteDevuelto({ estado_anterior: 'PENDIENTE_SOPORTE', estado_nuevo: 'SOPORTE_EN_VALIDACION' })
+    ).toBe(false)
   })
 })
 

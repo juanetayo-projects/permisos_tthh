@@ -50,12 +50,15 @@ const esImagen = (a: Adjunto) => (a.mime ?? '').startsWith('image/')
  */
 export function PanelDocumentos({
   solicitud,
+  soporteDevuelto,
   puedeValidar,
   onValidar,
   onDevolver,
   procesando,
 }: {
   solicitud: SolicitudLista
+  /** El soporte volvió de Talento Humano, en vez de ser la primera entrega. */
+  soporteDevuelto: boolean
   puedeValidar: boolean
   onValidar: () => void
   onDevolver: () => void
@@ -78,7 +81,9 @@ export function PanelDocumentos({
   const enRevision = solicitud.estado === 'SOPORTE_EN_VALIDACION'
   // Solo el solicitante sube: así lo exige la policy de Storage.
   const puedeEntregar = faltaEntregar && esSolicitante
-  const motivoDevolucion = faltaEntregar ? solicitud.observacion_decision : null
+  // El mismo texto significa cosas distintas segun de donde venga el paso: al
+  // dar el visto bueno es una nota, al devolver es lo que hay que corregir.
+  const nota = faltaEntregar ? solicitud.observacion_decision : null
 
   async function entregarSoporte() {
     if (!archivo || !session) return
@@ -168,14 +173,28 @@ export function PanelDocumentos({
         </div>
 
         {/* ------------------------------------------------ Gestión del soporte */}
-        {(motivoDevolucion || puedeEntregar || enRevision || puedeValidar || error) && (
+        {(nota || puedeEntregar || enRevision || puedeValidar || error) && (
           <div className="shrink-0 space-y-2 border-t border-[var(--tinte-azul-borde)] p-2.5">
-            {motivoDevolucion && (
-              <div className="rounded-md border border-[var(--tinte-rojo-borde)] bg-[var(--tinte-rojo)] p-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--error)]">
-                  Talento Humano devolvió el soporte
+            {nota && (
+              <div
+                className={cn(
+                  'rounded-md border p-2',
+                  soporteDevuelto
+                    ? 'border-[var(--tinte-rojo-borde)] bg-[var(--tinte-rojo)]'
+                    : 'border-[var(--tinte-azul-borde)] bg-[var(--tinte-azul)]'
+                )}
+              >
+                <p
+                  className={cn(
+                    'text-[10px] font-semibold uppercase tracking-wide',
+                    soporteDevuelto ? 'text-[var(--error)]' : 'text-[var(--info)] dark:text-[var(--cac-azul-300)]'
+                  )}
+                >
+                  {soporteDevuelto
+                    ? 'Talento Humano devolvió el soporte'
+                    : 'Nota de Talento Humano'}
                 </p>
-                <p className="mt-0.5 whitespace-pre-wrap text-xs">{motivoDevolucion}</p>
+                <p className="mt-0.5 whitespace-pre-wrap text-xs">{nota}</p>
               </div>
             )}
 
@@ -196,8 +215,15 @@ export function PanelDocumentos({
                   cargando={entregar.isPending}
                   onClick={() => void entregarSoporte()}
                 >
-                  {!entregar.isPending && <Upload />} Entregar soporte
+                  {!entregar.isPending && <Upload />} Guardar y enviar a Talento Humano
                 </Button>
+                {/* Decir qué pasa después evita que se quede esperando un
+                    cierre que no depende de él. */}
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  {archivo
+                    ? 'Al guardarlo, Talento Humano lo revisa y cierra la solicitud.'
+                    : 'Adjunta la constancia de asistencia para poder cerrar la solicitud.'}
+                </p>
               </>
             )}
 

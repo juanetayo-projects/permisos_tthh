@@ -2,6 +2,27 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.1.10] — 2026-07-31
+
+### Corregido
+
+- **Una nota del visto bueno se mostraba como «Talento Humano devolvió el
+  soporte».** Autorizar con observación y devolver un soporte dejan la
+  solicitud en el mismo estado y con el texto en la misma columna, así que el
+  panel los pintaba igual. Se distinguen por el estado del que viene el último
+  paso (`esSoporteDevuelto`), con pruebas.
+
+### Cambiado
+
+- **Quién autoriza va en la cabecera del detalle**, siempre visible: nombre,
+  cargo y área del jefe directo. Estaba solo en un bloque de la columna
+  izquierda, que podía quedar por debajo del pliegue justo cuando el
+  solicitante quiere confirmarlo. Al quitar ese bloque, la columna deja además
+  de necesitar scroll.
+- El botón de entrega del soporte pasa a llamarse **«Guardar y enviar a
+  Talento Humano»** y dice qué ocurre después, para no dejar al colaborador
+  esperando un cierre que no depende de él.
+
 ## [0.1.9] — 2026-07-31
 
 ### Añadido

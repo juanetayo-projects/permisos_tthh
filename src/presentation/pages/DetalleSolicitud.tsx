@@ -20,6 +20,7 @@ import { notificar, tipoNotificacionPara } from '@/application/solicitudes/api'
 import {
   ETIQUETA_ESTADO,
   TONO_ESTADO,
+  esSoporteDevuelto,
   estadoTrasVistoBueno,
   puedeEjecutar,
   type Estado,
@@ -130,6 +131,9 @@ export default function DetalleSolicitud() {
   const tono = TONO_ESTADO[s.estado]
   const esDevolucion = dialogo?.destino === 'PENDIENTE_SOPORTE'
 
+  // El historial viene en orden ascendente, así que el último es el paso actual.
+  const soporteDevuelto = esSoporteDevuelto((historial ?? []).at(-1))
+
   /** Cierra el trámite cuando Talento Humano da por bueno el soporte. */
   async function validarSoporte() {
     if (!session || !s) return
@@ -207,6 +211,23 @@ export default function DetalleSolicitud() {
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               {s.tramite?.nombre} · formato {s.tramite?.codigo_formato} v{s.tramite?.version_formato}
+            </p>
+
+            {/* Quién autoriza, en la cabecera y no solo en su bloque: es lo
+                primero que quiere confirmar el solicitante, y en la columna
+                izquierda puede quedar por debajo del pliegue. */}
+            <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm">
+              <UserCheck className="size-4 shrink-0 text-[var(--acento-teal)]" />
+              <span className="text-muted-foreground">Autoriza:</span>
+              <strong>{s.coordinador?.nombre ?? 'sin jefe directo asignado'}</strong>
+              {s.coordinador?.cargo && (
+                <span className="text-muted-foreground">· {s.coordinador.cargo}</span>
+              )}
+              {s.coordinador?.area?.nombre && (
+                <span className="rounded-full bg-[var(--tinte-teal)] px-2 py-0.5 text-xs text-[var(--acento-teal)]">
+                  {s.coordinador.area.nombre}
+                </span>
+              )}
             </p>
           </div>
 
@@ -355,25 +376,8 @@ export default function DetalleSolicitud() {
             </Bloque>
           )}
 
-          {/* Quién tiene que autorizar. Va en su propio bloque porque es el
-              dato que responde «¿a quién le toca ahora?», y estaba en ninguna
-              parte: había que abrir el historial para deducirlo. */}
-          <Bloque titulo="Autorización" icono={UserCheck} tinte="teal">
-            <dl className="grid gap-3 sm:grid-cols-3">
-              <Dato etiqueta="Jefe directo" valor={s.coordinador?.nombre} />
-              <Dato etiqueta="Cargo" valor={s.coordinador?.cargo} />
-              <Dato
-                etiqueta="Área del jefe"
-                valor={s.coordinador?.area?.nombre ?? s.area?.nombre}
-              />
-            </dl>
-            {!s.coordinador && (
-              <p className="mt-3 rounded-md border border-[var(--tinte-ambar-borde)] bg-[var(--tinte-ambar)] p-2.5 text-xs text-[var(--acento-ambar)]">
-                Esta solicitud no tiene jefe directo asignado. Si es un trámite que va a Gerencia de
-                Talento Humano es lo esperado; si no, hay que corregirla.
-              </p>
-            )}
-          </Bloque>
+          {/* Quién autoriza vive en la cabecera, siempre visible. Tenerlo
+              además aquí lo repetía y empujaba el resto fuera de pantalla. */}
 
           {/* Los soportes están en el panel de la derecha: ahí se ven mientras
               se leen los datos, en vez de empujarlos fuera de la pantalla. */}
@@ -400,6 +404,7 @@ export default function DetalleSolicitud() {
           {!esVacaciones && (
             <PanelDocumentos
               solicitud={s}
+              soporteDevuelto={soporteDevuelto}
               puedeValidar={puedeValidarSoporte}
               onValidar={() => void validarSoporte()}
               onDevolver={() =>
