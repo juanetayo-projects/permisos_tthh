@@ -11,6 +11,7 @@ import {
   type PerfilAdmin,
 } from '@/application/admin/usePerfiles'
 import { Button } from '@/presentation/components/ui/button'
+import { DialogoNuevoUsuario } from '@/presentation/components/admin/DialogoNuevoUsuario'
 import { ROLES, ETIQUETA_ROL, type Rol } from '@/domain/estados'
 import { cn, formatearFecha } from '@/lib/utils'
 import { Badge } from '@/presentation/components/ui/badge'
@@ -42,6 +43,7 @@ export function PanelUsuarios() {
   const [busqueda, setBusqueda] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [mostrarHeredados, setMostrarHeredados] = useState(false)
+  const [creando, setCreando] = useState(false)
 
   const filtrados = useMemo(() => {
     const t = busqueda.trim().toLowerCase()
@@ -86,17 +88,24 @@ export function PanelUsuarios() {
           </p>
         </div>
 
-        <div className="relative min-w-56">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre, correo o área…"
-            className="pl-9"
-            aria-label="Buscar usuarios"
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-56">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre, correo o área…"
+              className="pl-9"
+              aria-label="Buscar usuarios"
+            />
+          </div>
+          <Button onClick={() => setCreando(true)}>
+            <UserPlus /> Nuevo usuario
+          </Button>
         </div>
       </div>
+
+      <DialogoNuevoUsuario abierto={creando} onCerrar={() => setCreando(false)} />
 
       {error && (
         <p role="alert" className="flex items-start gap-2 rounded-md bg-[var(--error-suave)] p-3 text-sm text-[var(--error)]">

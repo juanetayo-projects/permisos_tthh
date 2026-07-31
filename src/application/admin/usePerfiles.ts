@@ -178,6 +178,61 @@ export function useImportarUsuarios() {
   })
 }
 
+export interface DatosNuevoUsuario {
+  nombre: string
+  correo: string
+  tipo_documento: string
+  documento: string | null
+  telefono: string | null
+  empresa_id: number | null
+  area_id: number | null
+  cargo_id: number | null
+  coordinador_id: number | null
+  rol: Rol
+}
+
+export interface ResultadoAlta {
+  ya_existia: boolean
+  correo_enviado: boolean
+}
+
+/**
+ * Alta de un colaborador desde la consola.
+ *
+ * Va por Edge Function porque crear la cuenta exige la Admin API, y esa clave
+ * no puede vivir en el navegador. Quién tiene permiso se comprueba allí, no
+ * aquí: esconder el botón no es una medida de seguridad.
+ *
+ * La cuenta nace **activa** —la creó quien valida— y la contraseña la define
+ * la propia persona con el enlace que recibe por correo.
+ */
+export function useCrearUsuario() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (datos: DatosNuevoUsuario): Promise<ResultadoAlta> => {
+      const { data, error } = await supabase.functions.invoke('permisos-crear-usuario', {
+        body: datos,
+      })
+
+      // La función responde con un mensaje propio en el cuerpo; sin leerlo, el
+      // usuario solo vería «Edge Function returned a non-2xx status code».
+      if (error) {
+        const detalle = await (error as { context?: Response }).context
+          ?.json()
+          .catch(() => null)
+        throw new Error(detalle?.error ?? 'No fue posible crear el usuario.')
+      }
+
+      return data as ResultadoAlta
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['perfiles'] })
+      void qc.invalidateQueries({ queryKey: ['usuarios-heredados'] })
+    },
+  })
+}
+
 export function useCambiarEstadoPerfil() {
   const qc = useQueryClient()
 

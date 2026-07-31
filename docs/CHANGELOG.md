@@ -2,6 +2,30 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.1.8] — 2026-07-31
+
+### Añadido
+
+- **Alta de usuarios desde Administración → Usuarios y roles.** Hasta ahora la
+  única vía era el autorregistro, que exige un segundo paso de validación:
+  hasta que Talento Humano lo hacía, la persona no podía solicitar nada. Al
+  crearla desde la consola, quien da de alta es quien valida, así que la cuenta
+  nace **activa** y lista para usarse.
+- La contraseña no la escribe quien crea la cuenta: la persona recibe un correo
+  de bienvenida con un enlace para definirla. Si el correo falla, el alta sigue
+  siendo válida y basta con usar «¿Olvidaste tu contraseña?».
+- Si el correo ya tiene cuenta en Cambio de Turnos, se reutiliza en vez de
+  fallar, y se avisa de que entrará con la contraseña que ya usa allí.
+
+### Seguridad
+
+- Quién puede dar de alta se comprueba **en la Edge Function**, no en la
+  interfaz: Talento Humano y administración pueden crear colaboradores, pero
+  solo el administrador puede asignar otro rol. Sin esa línea, un analista
+  podría fabricarse un administrador y saltarse la separación de funciones que
+  sostiene el flujo de aprobaciones. Verificado: una llamada sin sesión válida
+  responde 401 y no crea nada.
+
 ## [0.1.7] — 2026-07-31
 
 ### Cambiado
