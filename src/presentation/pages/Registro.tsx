@@ -12,8 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/presentation/components/ui/select'
+import { MedidorClave } from '@/presentation/components/MedidorClave'
 import { useCatalogosRegistro } from '@/application/catalogos/useCatalogosRegistro'
-import { ErrorDominioNoPermitido, registrar } from '@/application/auth/registro'
+import { LONGITUD_MINIMA_CLAVE } from '@/domain/clave'
+import {
+  ErrorCorreoYaRegistrado,
+  ErrorDominioNoPermitido,
+  registrar,
+} from '@/application/auth/registro'
 
 const TIPOS_DOCUMENTO = [
   { valor: 'CC', etiqueta: 'Cédula de ciudadanía' },
@@ -21,6 +27,31 @@ const TIPOS_DOCUMENTO = [
   { valor: 'PA', etiqueta: 'Pasaporte' },
   { valor: 'PEP', etiqueta: 'Permiso especial de permanencia' },
 ]
+
+/**
+ * Qué hacer cuando el correo ya tiene cuenta.
+ *
+ * No basta con «ya existe»: la cuenta puede venir de Cambio de Turnos, que
+ * comparte el mismo proyecto de Supabase, así que la persona quizá no recuerde
+ * haberse registrado nunca aquí. La salida es iniciar sesión con esa misma
+ * contraseña o recuperarla.
+ */
+function AvisoCorreoExistente() {
+  return (
+    <span>
+      Ese correo ya tiene una cuenta. Si te registraste en <strong>Cambio de Turnos</strong>, el
+      acceso es el mismo:{' '}
+      <Link to="/login" className="font-medium underline underline-offset-2">
+        inicia sesión
+      </Link>{' '}
+      con esa contraseña o{' '}
+      <Link to="/recuperar" className="font-medium underline underline-offset-2">
+        recupérala
+      </Link>
+      . Talento Humano completará después los datos que faltan de tu perfil.
+    </span>
+  )
+}
 
 export default function Registro() {
   const { data: catalogos } = useCatalogosRegistro()
@@ -43,7 +74,9 @@ export default function Registro() {
     areaId: '',
     cargoId: '',
   })
-  const [error, setError] = useState<string | null>(null)
+  // Es `ReactNode` y no `string` porque el aviso de correo ya registrado lleva
+  // enlaces a iniciar sesión y a recuperar la contraseña.
+  const [error, setError] = useState<React.ReactNode>(null)
   const [enviando, setEnviando] = useState(false)
   const [listo, setListo] = useState(false)
 
@@ -55,8 +88,8 @@ export default function Registro() {
     e.preventDefault()
     setError(null)
 
-    if (form.clave.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.')
+    if (form.clave.length < LONGITUD_MINIMA_CLAVE) {
+      setError(`La contraseña debe tener al menos ${LONGITUD_MINIMA_CLAVE} caracteres.`)
       return
     }
     if (form.clave !== form.confirmacion) {
@@ -86,11 +119,20 @@ export default function Registro() {
       )
       setListo(true)
     } catch (err) {
+      const mensaje = err instanceof Error ? err.message.toLowerCase() : ''
+
       if (err instanceof ErrorDominioNoPermitido) {
         setError(err.message)
-      } else if (err instanceof Error && err.message.toLowerCase().includes('already registered')) {
-        setError('Ese correo ya tiene una cuenta. Intenta iniciar sesión o recuperar tu contraseña.')
-      } else if (err instanceof Error && err.message.toLowerCase().includes('rate limit')) {
+      } else if (
+        err instanceof ErrorCorreoYaRegistrado ||
+        mensaje.includes('already registered')
+      ) {
+        setError(<AvisoCorreoExistente />)
+      } else if (mensaje.includes('pwned') || mensaje.includes('weak password')) {
+        setError(
+          'Esa contraseña aparece en filtraciones públicas y no se puede usar. Elige otra: la barra de color te indica cuándo es lo bastante fuerte.'
+        )
+      } else if (mensaje.includes('rate limit')) {
         setError('Se hicieron demasiados intentos seguidos. Espera un minuto y vuelve a intentarlo.')
       } else {
         setError('No fue posible completar el registro. Intenta de nuevo en unos minutos.')
@@ -262,12 +304,15 @@ export default function Registro() {
             id="clave"
             type="password"
             required
-            minLength={8}
+            minLength={LONGITUD_MINIMA_CLAVE}
             autoComplete="new-password"
             value={form.clave}
             onChange={(e) => set('clave', e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Mínimo 8 caracteres.</p>
+          <MedidorClave
+            clave={form.clave}
+            contexto={[form.nombre, form.correo, form.documento]}
+          />
         </div>
 
         <div className="space-y-2">

@@ -2,6 +2,31 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.1.1] — 2026-07-30
+
+### Añadido
+
+- **Administración de procesos/áreas y de cargos**: hasta ahora los dos
+  desplegables del registro solo se podían tocar en la base de datos, así que
+  quien no encontraba su cargo se quedaba sin poder crear la cuenta. Llevan el
+  aviso de catálogo compartido con Cambio de Turnos.
+- **Barra de fortaleza de la contraseña** en el registro y al establecer una
+  nueva: cuatro segmentos de color, con el motivo escrito al lado. Degrada las
+  claves que repiten el nombre, el correo o el documento de la propia persona.
+
+### Corregido
+
+- **El registro decía «revisa tu correo» aunque no fuera a llegar ninguno.**
+  Ante un correo que ya tiene cuenta, Supabase responde 200 y no envía nada,
+  a propósito, para no revelar qué direcciones están dadas de alta. Como el
+  proyecto de Supabase es el mismo de Cambio de Turnos, cualquiera con cuenta
+  allí caía en este caso. Ahora se detecta y la pantalla ofrece iniciar sesión
+  o recuperar la contraseña.
+- Los catálogos recién creados ya aparecen en el formulario de registro sin
+  recargar: la caché de la RPC `permisos_catalogos_registro` se invalidaba.
+- El nombre repetido en un catálogo mostraba el error crudo de Postgres; ahora
+  avisa de que puede existir desactivado.
+
 ## [0.1.0] — 2026-07-30
 
 Primera versión desplegada en https://juanetayo-projects.github.io/permisos_tthh/

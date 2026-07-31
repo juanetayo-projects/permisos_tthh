@@ -39,6 +39,9 @@ function invalidar(qc: ReturnType<typeof useQueryClient>, tabla: TablaCatalogo) 
   void qc.invalidateQueries({ queryKey: ['coordinadores'] })
   void qc.invalidateQueries({ queryKey: ['areas'] })
   void qc.invalidateQueries({ queryKey: ['cargos'] })
+  // El formulario de registro lee áreas y cargos por RPC, con una caché de una
+  // hora: sin esto, el cargo recién creado no aparecería hasta recargar.
+  void qc.invalidateQueries({ queryKey: ['catalogos-registro'] })
 }
 
 export function useGuardarFila(tabla: TablaCatalogo) {

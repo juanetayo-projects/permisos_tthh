@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import {
+  BriefcaseBusiness,
   Building2,
   FileCog,
   ListTree,
+  Network,
   ScrollText,
   SlidersHorizontal,
   Tags,
@@ -20,6 +22,21 @@ const CAMPOS_EMPRESA: CampoCatalogo[] = [
   { clave: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true },
   { clave: 'orden', etiqueta: 'Orden', tipo: 'numero', ancho: 'w-24' },
   { clave: 'activo', etiqueta: 'Activa', tipo: 'booleano', ancho: 'w-24' },
+]
+
+/**
+ * Áreas y cargos comparten forma —solo nombre y estado— porque las tablas
+ * vienen de Cambio de Turnos y no tienen columna de orden: se listan por
+ * nombre, que es como se buscan en un desplegable largo.
+ */
+const CAMPOS_AREA: CampoCatalogo[] = [
+  { clave: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true },
+  { clave: 'activo', etiqueta: 'Activa', tipo: 'booleano', ancho: 'w-24' },
+]
+
+const CAMPOS_CARGO: CampoCatalogo[] = [
+  { clave: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true },
+  { clave: 'activo', etiqueta: 'Activo', tipo: 'booleano', ancho: 'w-24' },
 ]
 
 const CAMPOS_CATEGORIA: CampoCatalogo[] = [
@@ -64,6 +81,8 @@ const CAMPOS_TRAMITE: CampoCatalogo[] = [
 type Seccion =
   | 'usuarios'
   | 'coordinadores'
+  | 'areas'
+  | 'cargos'
   | 'tramites'
   | 'categorias'
   | 'tipos'
@@ -74,6 +93,8 @@ type Seccion =
 const SECCIONES: { clave: Seccion; etiqueta: string; icono: typeof Users }[] = [
   { clave: 'usuarios', etiqueta: 'Usuarios y roles', icono: Users },
   { clave: 'coordinadores', etiqueta: 'Jefes directos', icono: UserCog },
+  { clave: 'areas', etiqueta: 'Procesos y áreas', icono: Network },
+  { clave: 'cargos', etiqueta: 'Cargos', icono: BriefcaseBusiness },
   { clave: 'tramites', etiqueta: 'Trámites y formatos', icono: FileCog },
   { clave: 'categorias', etiqueta: 'Categorías', icono: Tags },
   { clave: 'tipos', etiqueta: 'Motivos de permiso', icono: ListTree },
@@ -81,6 +102,10 @@ const SECCIONES: { clave: Seccion; etiqueta: string; icono: typeof Users }[] = [
   { clave: 'parametros', etiqueta: 'Parámetros', icono: SlidersHorizontal },
   { clave: 'auditoria', etiqueta: 'Auditoría', icono: ScrollText },
 ]
+
+/** Lo que cambie aquí también lo ve Cambio de Turnos: comparten las tablas. */
+const AVISO_COMPARTIDO =
+  'Este catálogo lo comparten Permisos y Cambio de Turnos: lo que cambies aquí afecta a las dos aplicaciones.'
 
 export default function Administracion() {
   const [seccion, setSeccion] = useState<Seccion>('usuarios')
@@ -202,7 +227,31 @@ export default function Administracion() {
           orden="nombre"
           titulo="Jefes directos"
           descripcion="Quiénes pueden autorizar solicitudes y de qué servicio. Es la lista que ve el colaborador al solicitar."
-          advertencia="Este catálogo lo comparten Permisos y Cambio de Turnos: lo que cambies aquí afecta a las dos aplicaciones."
+          advertencia={AVISO_COMPARTIDO}
+          valoresPorDefecto={{ activo: true }}
+        />
+      )}
+
+      {seccion === 'areas' && (
+        <EditorCatalogo
+          tabla="areas"
+          campos={CAMPOS_AREA}
+          orden="nombre"
+          titulo="Procesos y áreas"
+          descripcion="La lista que elige el colaborador al registrarse y al solicitar. Agrega aquí el proceso que falte."
+          advertencia={AVISO_COMPARTIDO}
+          valoresPorDefecto={{ activo: true }}
+        />
+      )}
+
+      {seccion === 'cargos' && (
+        <EditorCatalogo
+          tabla="cargos"
+          campos={CAMPOS_CARGO}
+          orden="nombre"
+          titulo="Cargos"
+          descripcion="Los cargos del desplegable del registro. Agrega aquí el que falte para que nadie se quede sin poder crear su cuenta."
+          advertencia={AVISO_COMPARTIDO}
           valoresPorDefecto={{ activo: true }}
         />
       )}

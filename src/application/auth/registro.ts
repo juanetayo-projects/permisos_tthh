@@ -4,6 +4,22 @@ import { dominioPermitido, ErrorDominioNoPermitido } from '@/domain/correo'
 // Se reexportan para no romper a quien ya las importaba desde aquí.
 export { dominioDe, dominioPermitido, ErrorDominioNoPermitido } from '@/domain/correo'
 
+/**
+ * El correo ya tiene cuenta en el proyecto de Supabase.
+ *
+ * Supabase responde 200 al registrar un correo existente y **no envía ningún
+ * correo**, para no revelar qué direcciones están dadas de alta. Sin este
+ * error, la pantalla decía «revisa tu correo» por un mensaje que nunca iba a
+ * llegar. Pasa más de lo que parece porque el proyecto es el mismo de Cambio
+ * de Turnos: quien ya tenga cuenta allí, la tiene aquí.
+ */
+export class ErrorCorreoYaRegistrado extends Error {
+  constructor() {
+    super('Ese correo ya tiene una cuenta.')
+    this.name = 'ErrorCorreoYaRegistrado'
+  }
+}
+
 export interface DatosRegistro {
   nombre: string
   correo: string
@@ -32,7 +48,7 @@ export async function registrar(datos: DatosRegistro, dominios: string[] = []): 
     throw new ErrorDominioNoPermitido(dominios)
   }
 
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: correo,
     password: datos.clave,
     options: {
@@ -51,6 +67,12 @@ export async function registrar(datos: DatosRegistro, dominios: string[] = []): 
   })
 
   if (error) throw error
+
+  // Alta repetida: Supabase devuelve el usuario con la lista de identidades
+  // vacía en vez de un error, y no manda correo. Es la única señal disponible.
+  if (data.user && (data.user.identities?.length ?? 0) === 0) {
+    throw new ErrorCorreoYaRegistrado()
+  }
 }
 
 export async function enviarRecuperacion(correo: string): Promise<void> {

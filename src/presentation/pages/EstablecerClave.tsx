@@ -5,6 +5,8 @@ import { AuthLayout } from '@/presentation/layouts/AuthLayout'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { Label } from '@/presentation/components/ui/label'
+import { MedidorClave } from '@/presentation/components/MedidorClave'
+import { LONGITUD_MINIMA_CLAVE } from '@/domain/clave'
 import { establecerClave } from '@/application/auth/registro'
 import { useAuth } from '@/application/auth/AuthProvider'
 
@@ -25,8 +27,8 @@ export default function EstablecerClave() {
     e.preventDefault()
     setError(null)
 
-    if (clave.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.')
+    if (clave.length < LONGITUD_MINIMA_CLAVE) {
+      setError(`La contraseña debe tener al menos ${LONGITUD_MINIMA_CLAVE} caracteres.`)
       return
     }
     if (clave !== confirmacion) {
@@ -82,12 +84,12 @@ export default function EstablecerClave() {
             id="clave"
             type="password"
             required
-            minLength={8}
+            minLength={LONGITUD_MINIMA_CLAVE}
             autoComplete="new-password"
             value={clave}
             onChange={(e) => setClave(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">Mínimo 8 caracteres.</p>
+          <MedidorClave clave={clave} contexto={[session?.user.email ?? '']} />
         </div>
 
         <div className="space-y-2">

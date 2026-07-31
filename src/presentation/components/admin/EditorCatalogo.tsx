@@ -40,6 +40,25 @@ interface FilaCatalogo {
 }
 
 /**
+ * Traduce el error de Postgres a algo accionable.
+ *
+ * `areas` y `cargos` tienen `unique (nombre)`, y el caso frecuente al agregar
+ * un cargo que «falta» es que ya exista desactivado: sin este mensaje se ve
+ * «duplicate key value violates unique constraint», que no dice qué hacer.
+ */
+function mensajeDeError(e: unknown): string {
+  const { code, message } = (e ?? {}) as { code?: string; message?: string }
+
+  if (code === '23505' || message?.includes('duplicate key')) {
+    return 'Ya existe un registro con ese nombre. Puede estar desactivado en la lista: reactívalo en vez de crear otro.'
+  }
+  if (code === '42501' || message?.toLowerCase().includes('row-level security')) {
+    return 'Tu cuenta no tiene permiso para modificar este catálogo.'
+  }
+  return message || 'No fue posible guardar.'
+}
+
+/**
  * Editor de catálogos reutilizable.
  *
  * Los cinco catálogos administrables tienen la misma forma, así que se
@@ -101,7 +120,7 @@ export function EditorCatalogo({
       await guardar.mutateAsync(editando === 'nuevo' ? borrador : { ...borrador, id: editando as number })
       setEditando(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No fue posible guardar.')
+      setError(mensajeDeError(e))
     }
   }
 
