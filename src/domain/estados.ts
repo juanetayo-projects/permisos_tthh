@@ -208,6 +208,19 @@ export const TONO_ESTADO: Record<Estado, TonoEstado> = {
   VENCIDA: 'error',
 }
 
+/**
+ * ¿El texto que acompaña a esta decisión es una causa de rechazo?
+ *
+ * El diálogo pide texto tanto al rechazar como al autorizar, pero significan
+ * cosas opuestas: la causa del rechazo se le muestra al solicitante en rojo y
+ * viaja en el correo; la observación de quien autoriza solo queda en el
+ * historial. Confundirlas hacía que una solicitud autorizada apareciera como
+ * rechazada, así que la distinción vive aquí y no en cada pantalla.
+ */
+export function esDecisionNegativa(estado: Estado): boolean {
+  return estado.startsWith('RECHAZADA') || estado === 'CANCELADA'
+}
+
 /** Estados que ocupan una bandeja: lo que está esperando una decisión. */
 export const ESTADOS_BANDEJA: Record<'coordinador' | 'th' | 'gerencia', Estado[]> = {
   coordinador: ['PENDIENTE_COORDINADOR'],

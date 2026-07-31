@@ -16,7 +16,7 @@ import SolicitudVacaciones from '@/presentation/pages/SolicitudVacaciones'
 import MisSolicitudes from '@/presentation/pages/MisSolicitudes'
 import DetalleSolicitud from '@/presentation/pages/DetalleSolicitud'
 import Bandeja from '@/presentation/pages/Bandeja'
-import EnConstruccion from '@/presentation/pages/EnConstruccion'
+import SinPermiso from '@/presentation/pages/SinPermiso'
 
 /**
  * El dashboard arrastra Recharts y ECharts (~1,4 MB). Cargarlo bajo demanda
@@ -28,6 +28,8 @@ const Dashboard = lazy(() => import('@/presentation/pages/Dashboard'))
 /** Solo la usa el administrador: no tiene por qué pesar en el arranque de todos. */
 const Administracion = lazy(() => import('@/presentation/pages/Administracion'))
 const Validaciones = lazy(() => import('@/presentation/pages/Validaciones'))
+/** Histórico completo: solo lo abren Talento Humano y administración. */
+const TodasSolicitudes = lazy(() => import('@/presentation/pages/TodasSolicitudes'))
 import type { Rol } from '@/domain/estados'
 
 const queryClient = new QueryClient({
@@ -61,9 +63,7 @@ function RutaPrivada() {
 
 function RutaPorRol({ roles, children }: { roles: Rol[]; children: React.ReactNode }) {
   const { perfil } = useAuth()
-  if (!perfil || !roles.includes(perfil.rol)) {
-    return <EnConstruccion modulo="No tienes permiso para ver esta sección" />
-  }
+  if (!perfil || !roles.includes(perfil.rol)) return <SinPermiso />
   return <>{children}</>
 }
 
@@ -110,6 +110,16 @@ function Rutas() {
             element={
               <RutaPorRol roles={['gerente_th']}>
                 <Bandeja vista="gerencia" />
+              </RutaPorRol>
+            }
+          />
+          <Route
+            path="/solicitudes"
+            element={
+              <RutaPorRol roles={['analista_th', 'gerente_th', 'administrador']}>
+                <Suspense fallback={<Cargando />}>
+                  <TodasSolicitudes />
+                </Suspense>
               </RutaPorRol>
             }
           />

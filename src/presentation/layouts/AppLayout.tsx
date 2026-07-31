@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FileText,
   Inbox,
+  Layers,
   LogOut,
   Menu,
   Moon,
@@ -36,6 +37,9 @@ const ENLACES: Enlace[] = [
   { a: '/bandeja/coordinador', etiqueta: 'Bandeja del área', icono: Inbox, roles: ['coordinador', 'administrador'] },
   { a: '/bandeja/th', etiqueta: 'Bandeja de Talento Humano', icono: Inbox, roles: ['analista_th', 'gerente_th'] },
   { a: '/bandeja/gerencia', etiqueta: 'Cesantías', icono: ShieldCheck, roles: ['gerente_th'] },
+  // Las bandejas vacían lo ya decidido; esta es la única vista donde vuelve a
+  // encontrarse una solicitud después de autorizarla.
+  { a: '/solicitudes', etiqueta: 'Todas las solicitudes', icono: Layers, roles: ['analista_th', 'gerente_th', 'administrador'] },
   { a: '/validaciones', etiqueta: 'Validar colaboradores', icono: UserCheck, roles: ['analista_th', 'gerente_th', 'administrador'] },
   { a: '/dashboard', etiqueta: 'Dashboard', icono: BarChart3, roles: ['coordinador', 'analista_th', 'gerente_th', 'administrador'] },
   { a: '/administracion', etiqueta: 'Administración', icono: Settings, roles: ['administrador'] },

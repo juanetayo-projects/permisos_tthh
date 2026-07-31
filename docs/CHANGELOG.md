@@ -2,6 +2,37 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.1.3] — 2026-07-31
+
+### Corregido
+
+- **Una solicitud autorizada aparecía como rechazada.** El diálogo de decisión
+  pide texto en los dos casos —obligatorio al rechazar, opcional al
+  autorizar— y los dos acababan en `motivo_rechazo`, que el detalle pinta en
+  rojo como «Causa del rechazo». La observación pasa a su propia columna
+  `observacion_decision`; el historial toma el texto de la que corresponda al
+  paso. La migración corrige también las filas ya escritas.
+
+### Añadido
+
+- **Todas las solicitudes**: histórico completo para Talento Humano y
+  administración, con pestañas por estado, filtros de trámite y área y
+  exportación a Excel y PDF. Las bandejas solo muestran lo que espera decisión,
+  así que al autorizar una solicitud no quedaba ninguna pantalla desde donde
+  volver a encontrarla.
+- Pantalla propia cuando la sesión abierta no tiene acceso a una sección: dice
+  con qué cuenta se entró y ofrece cambiar de cuenta. Antes se reutilizaba el
+  cartel de «módulo en construcción», que ni era cierto ni daba salida —el caso
+  típico es el jefe abriendo «Ir a mi bandeja» en un equipo donde quedó la
+  sesión del solicitante.
+
+### Cambiado
+
+- Detalle de la solicitud rediseñado con el sistema de bloques de color ya
+  existente: cabecera en relieve con franja del estado, un color por bloque de
+  datos e hitos del historial coloreados por tono. Se añade la variante
+  `bloque-rojo`, reservada a rechazos y cancelaciones.
+
 ## [0.1.2] — 2026-07-31
 
 ### Corregido

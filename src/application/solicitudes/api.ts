@@ -1,6 +1,26 @@
 import { supabase } from '@/infrastructure/supabase/client'
-import { estadoAlEnviar, type Estado } from '@/domain/estados'
+import { esDecisionNegativa, estadoAlEnviar, type Estado } from '@/domain/estados'
 import type { FechaISO } from '@/domain/festivos'
+
+/**
+ * Coloca el texto de una decisión en la columna que le corresponde.
+ *
+ * `motivo_rechazo` se le muestra al solicitante en rojo y viaja en el correo
+ * de rechazo; `observacion_decision` solo queda en el historial. Antes las dos
+ * iban al mismo sitio y una solicitud autorizada con observación aparecía como
+ * rechazada.
+ *
+ * Se escriben siempre las dos —una con el texto y la otra a `null`— para que
+ * una solicitud que cambia de rumbo no arrastre el texto del paso anterior en
+ * la columna equivocada.
+ */
+export function columnasDelTexto(estado: Estado, texto?: string | null) {
+  const valor = texto?.trim() || null
+
+  return esDecisionNegativa(estado)
+    ? { motivo_rechazo: valor, observacion_decision: null }
+    : { motivo_rechazo: null, observacion_decision: valor }
+}
 
 export type TipoNotificacion =
   | 'enviada'
@@ -182,7 +202,7 @@ export async function cambiarEstado(params: {
     .from('permisos_solicitudes')
     .update({
       estado: params.estado,
-      motivo_rechazo: params.motivo ?? null,
+      ...columnasDelTexto(params.estado, params.motivo),
       ...params.campos,
     })
     .eq('id', params.id)

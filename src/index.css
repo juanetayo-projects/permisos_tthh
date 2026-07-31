@@ -57,6 +57,8 @@
   --tinte-violeta-borde: #e2dcf5;
   --tinte-teal: #f0f9f8;
   --tinte-teal-borde: #cfe8e5;
+  --tinte-rojo: #fdf4f3;
+  --tinte-rojo-borde: #f5d5d2;
 
   /* Superficies */
   --background: #f4f6fb;
@@ -141,6 +143,8 @@
   --tinte-violeta-borde: #2e2755;
   --tinte-teal: #0c2321;
   --tinte-teal-borde: #1a413d;
+  --tinte-rojo: #2a1210;
+  --tinte-rojo-borde: #4d211d;
 
   --relieve: 6px 6px 14px rgba(0, 0, 0, 0.45), -6px -6px 14px rgba(255, 255, 255, 0.03);
   --relieve-sm: 3px 3px 8px rgba(0, 0, 0, 0.4), -3px -3px 8px rgba(255, 255, 255, 0.025);
@@ -334,6 +338,13 @@
     --bloque-fondo: var(--tinte-teal);
     --bloque-borde: var(--tinte-teal-borde);
     --bloque-acento: var(--acento-teal);
+  }
+
+  /* Reservado a lo que le fue mal al solicitante: rechazos y cancelaciones. */
+  .bloque-rojo {
+    --bloque-fondo: var(--tinte-rojo);
+    --bloque-borde: var(--tinte-rojo-borde);
+    --bloque-acento: var(--error);
   }
 }
 

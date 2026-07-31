@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/infrastructure/supabase/client'
+import { columnasDelTexto } from './api'
 import type { Estado } from '@/domain/estados'
 
 /**
@@ -10,7 +11,7 @@ import type { Estado } from '@/domain/estados'
  */
 const SELECT_SOLICITUD = `
   id, consecutivo, estado, extemporanea, fecha_solicitud, fecha_inicio, fecha_fin,
-  motivo_rechazo, coord_fecha, th_fecha, created_at, observaciones,
+  motivo_rechazo, observacion_decision, coord_fecha, th_fecha, created_at, observaciones,
   tramite:permisos_tramites(id, codigo, nombre, codigo_formato, version_formato),
   solicitante:permisos_perfiles(user_id, nombre, correo, documento),
   area:areas(id, nombre),
@@ -37,6 +38,7 @@ export interface SolicitudLista {
   fecha_inicio: string
   fecha_fin: string
   motivo_rechazo: string | null
+  observacion_decision: string | null
   coord_fecha: string | null
   th_fecha: string | null
   created_at: string
@@ -171,7 +173,7 @@ export function useDecidir() {
         .from('permisos_solicitudes')
         .update({
           estado: params.estado,
-          motivo_rechazo: params.motivo ?? null,
+          ...columnasDelTexto(params.estado, params.motivo),
           ...params.campos,
         })
         .in('id', params.ids)

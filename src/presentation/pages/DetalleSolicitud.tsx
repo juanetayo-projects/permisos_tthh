@@ -1,10 +1,28 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Ban, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import {
+  ArrowLeft,
+  Ban,
+  CalendarRange,
+  CheckCircle2,
+  Clock,
+  MessageSquareQuote,
+  Palmtree,
+  Stethoscope,
+  UserRound,
+  XCircle,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/application/auth/AuthProvider'
 import { useDecidir, useHistorial, useSolicitud } from '@/application/solicitudes/useSolicitudes'
 import { notificar, tipoNotificacionPara } from '@/application/solicitudes/api'
-import { ETIQUETA_ESTADO, estadoTrasVistoBueno, puedeEjecutar, type Estado } from '@/domain/estados'
+import {
+  ETIQUETA_ESTADO,
+  TONO_ESTADO,
+  estadoTrasVistoBueno,
+  puedeEjecutar,
+  type Estado,
+} from '@/domain/estados'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { BadgeEstado } from '@/presentation/components/ui/badge'
 import { Button } from '@/presentation/components/ui/button'
@@ -13,10 +31,57 @@ import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { DialogoDecision, type TipoDecision } from '@/presentation/components/DialogoDecision'
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: React.ReactNode }) {
+  const vacio = valor === null || valor === undefined || valor === ''
+
   return (
-    <div>
-      <dt className="text-xs text-muted-foreground">{etiqueta}</dt>
-      <dd className="mt-0.5 text-sm">{valor ?? '—'}</dd>
+    <div className="min-w-0">
+      <dt className="text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground">
+        {etiqueta}
+      </dt>
+      <dd className={cn('mt-1 text-sm', vacio ? 'text-muted-foreground' : 'font-medium')}>
+        {vacio ? '—' : valor}
+      </dd>
+    </div>
+  )
+}
+
+/**
+ * Bloque de datos con franja de acento.
+ *
+ * Reutiliza las utilidades `bloque-*` del sistema en vez de inventar estilos:
+ * el color agrupa los campos de un vistazo, que es lo que le faltaba a esta
+ * pantalla cuando todo era una tarjeta blanca detrás de otra.
+ */
+function Bloque({
+  titulo,
+  icono: Icono,
+  tinte,
+  children,
+}: {
+  titulo: string
+  icono: typeof UserRound
+  tinte: 'azul' | 'violeta' | 'teal' | 'verde' | 'rojo'
+  children: React.ReactNode
+}) {
+  return (
+    <section className={cn('bloque-datos p-5', `bloque-${tinte}`)}>
+      <h2 className="bloque-titulo mb-4 flex items-center gap-2">
+        <Icono className="size-4" />
+        {titulo}
+      </h2>
+      {children}
+    </section>
+  )
+}
+
+/** Texto largo dentro de un bloque, sobre superficie propia para que respire. */
+function Parrafo({ etiqueta, children }: { etiqueta: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-4 rounded-md border border-border/60 bg-card/70 p-3">
+      <p className="text-[0.6875rem] font-medium uppercase tracking-wide text-muted-foreground">
+        {etiqueta}
+      </p>
+      <p className="mt-1 whitespace-pre-wrap text-sm">{children}</p>
     </div>
   )
 }
@@ -55,6 +120,8 @@ export default function DetalleSolicitud() {
   const puedeAprobarTh = puedeEjecutar('aprobar_th', ctx)
   const puedeCancelar = puedeEjecutar('cancelar', ctx)
 
+  const tono = TONO_ESTADO[s.estado]
+
   async function aplicar(motivo: string | null) {
     if (!dialogo || !session || !s) return
 
@@ -83,77 +150,87 @@ export default function DetalleSolicitud() {
         <ArrowLeft /> Volver
       </Button>
 
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight tabular">
-              {s.consecutivo ?? 'Borrador sin numerar'}
-            </h1>
-            <BadgeEstado estado={s.estado} />
-            {s.extemporanea && (
-              <span className="rounded-full bg-[var(--advertencia-suave)] px-2 py-0.5 text-xs font-medium text-[#8a6400] dark:text-[var(--advertencia)]">
-                Extemporánea
-              </span>
+      {/* Cabecera con relieve: es el ancla de la pantalla, no una fila de texto. */}
+      <header className="panel-relieve overflow-hidden">
+        <div
+          className={cn(
+            'h-1 w-full',
+            tono === 'exito' && 'bg-[var(--exito)]',
+            tono === 'error' && 'bg-[var(--error)]',
+            tono === 'advertencia' && 'bg-[var(--acento-ambar)]',
+            tono === 'info' && 'bg-[var(--cac-azul-500)]',
+            tono === 'neutro' && 'bg-border'
+          )}
+        />
+        <div className="flex flex-wrap items-start justify-between gap-3 p-5">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight tabular text-[var(--cac-azul)] dark:text-[var(--cac-azul-300)]">
+                {s.consecutivo ?? 'Borrador sin numerar'}
+              </h1>
+              <BadgeEstado estado={s.estado} />
+              {s.extemporanea && (
+                <span className="rounded-full bg-[var(--advertencia-suave)] px-2 py-0.5 text-xs font-medium text-[#8a6400] dark:text-[var(--advertencia)]">
+                  Extemporánea
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {s.tramite?.nombre} · formato {s.tramite?.codigo_formato} v{s.tramite?.version_formato}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {(puedeAprobarCoord || puedeAprobarTh) && (
+              <>
+                <Button
+                  variant="exito"
+                  size="sm"
+                  onClick={() =>
+                    setDialogo({
+                      tipo: 'aprobar',
+                      destino: puedeAprobarCoord
+                        ? 'PENDIENTE_TH'
+                        : s.estado === 'PENDIENTE_GERENCIA_TH'
+                          ? 'FINALIZADA'
+                          : estadoTrasVistoBueno(Boolean(s.detalle_permiso?.requiere_soporte_posterior)),
+                      etiqueta: puedeAprobarCoord ? 'Autorizar' : 'Dar visto bueno',
+                    })
+                  }
+                >
+                  <CheckCircle2 /> {puedeAprobarCoord ? 'Autorizar' : 'Dar visto bueno'}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() =>
+                    setDialogo({
+                      tipo: 'rechazar',
+                      destino: puedeAprobarCoord ? 'RECHAZADA_COORDINADOR' : 'RECHAZADA_TH',
+                      etiqueta: 'Rechazar',
+                    })
+                  }
+                >
+                  <XCircle /> Rechazar
+                </Button>
+              </>
+            )}
+            {puedeCancelar && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDialogo({ tipo: 'rechazar', destino: 'CANCELADA', etiqueta: 'Cancelar solicitud' })}
+              >
+                <Ban /> Cancelar
+              </Button>
             )}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {s.tramite?.nombre} · formato {s.tramite?.codigo_formato} v{s.tramite?.version_formato}
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {(puedeAprobarCoord || puedeAprobarTh) && (
-            <>
-              <Button
-                variant="exito"
-                size="sm"
-                onClick={() =>
-                  setDialogo({
-                    tipo: 'aprobar',
-                    destino: puedeAprobarCoord
-                      ? 'PENDIENTE_TH'
-                      : s.estado === 'PENDIENTE_GERENCIA_TH'
-                        ? 'FINALIZADA'
-                        : estadoTrasVistoBueno(Boolean(s.detalle_permiso?.requiere_soporte_posterior)),
-                    etiqueta: puedeAprobarCoord ? 'Autorizar' : 'Dar visto bueno',
-                  })
-                }
-              >
-                <CheckCircle2 /> {puedeAprobarCoord ? 'Autorizar' : 'Dar visto bueno'}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() =>
-                  setDialogo({
-                    tipo: 'rechazar',
-                    destino: puedeAprobarCoord ? 'RECHAZADA_COORDINADOR' : 'RECHAZADA_TH',
-                    etiqueta: 'Rechazar',
-                  })
-                }
-              >
-                <XCircle /> Rechazar
-              </Button>
-            </>
-          )}
-          {puedeCancelar && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDialogo({ tipo: 'rechazar', destino: 'CANCELADA', etiqueta: 'Cancelar solicitud' })}
-            >
-              <Ban /> Cancelar
-            </Button>
-          )}
         </div>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
         <div className="space-y-4">
-          <Card className="p-5">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Información general
-            </h2>
+          <Bloque titulo="Información general" icono={UserRound} tinte="azul">
             <dl className="grid gap-4 sm:grid-cols-3">
               <Dato etiqueta="Solicitante" valor={s.solicitante?.nombre} />
               <Dato etiqueta="Identificación" valor={s.solicitante?.documento} />
@@ -162,60 +239,72 @@ export default function DetalleSolicitud() {
               <Dato etiqueta="Fecha de solicitud" valor={formatearFecha(s.fecha_solicitud)} />
               <Dato
                 etiqueta="Periodo"
-                valor={`${formatearFecha(s.fecha_inicio)}${s.fecha_fin !== s.fecha_inicio ? ` → ${formatearFecha(s.fecha_fin)}` : ''}`}
+                valor={
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarRange className="size-3.5 text-muted-foreground" />
+                    {formatearFecha(s.fecha_inicio)}
+                    {s.fecha_fin !== s.fecha_inicio && ` → ${formatearFecha(s.fecha_fin)}`}
+                  </span>
+                }
               />
             </dl>
-          </Card>
+          </Bloque>
 
           {!esVacaciones && s.detalle_permiso && (
-            <Card className="p-5">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Motivo del permiso
-              </h2>
+            <Bloque titulo="Motivo del permiso" icono={Stethoscope} tinte="violeta">
               <dl className="grid gap-4 sm:grid-cols-3">
                 <Dato etiqueta="Categoría" valor={s.detalle_permiso.categoria?.nombre} />
                 <Dato etiqueta="Motivo" valor={s.detalle_permiso.tipo?.nombre} />
-                <Dato etiqueta="Remunerado" valor={s.detalle_permiso.remunerado ? 'Sí' : 'No'} />
+                <Dato
+                  etiqueta="Remunerado"
+                  valor={
+                    <span
+                      className={cn(
+                        'rounded-full px-2 py-0.5 text-xs font-semibold',
+                        s.detalle_permiso.remunerado
+                          ? 'bg-[var(--exito-suave)] text-[var(--exito)]'
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {s.detalle_permiso.remunerado ? 'Sí' : 'No'}
+                    </span>
+                  }
+                />
                 <Dato etiqueta="Hora de salida" valor={s.detalle_permiso.hora_salida?.slice(0, 5)} />
                 <Dato etiqueta="Hora de regreso" valor={s.detalle_permiso.hora_regreso?.slice(0, 5)} />
                 <Dato
                   etiqueta="Duración"
-                  valor={`${s.detalle_permiso.horas_permiso ?? 0} h · ${s.detalle_permiso.dias_permiso ?? 0} días`}
+                  valor={
+                    <span className="tabular">
+                      {s.detalle_permiso.horas_permiso ?? 0} h · {s.detalle_permiso.dias_permiso ?? 0} días
+                    </span>
+                  }
                 />
               </dl>
 
               {s.detalle_permiso.justificacion && (
-                <div className="mt-4">
-                  <p className="text-xs text-muted-foreground">Justificación</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{s.detalle_permiso.justificacion}</p>
-                </div>
+                <Parrafo etiqueta="Justificación">{s.detalle_permiso.justificacion}</Parrafo>
               )}
 
               {s.detalle_permiso.requiere_compensacion && (
-                <div className="mt-4">
-                  <p className="text-xs text-muted-foreground">Compensación del tiempo</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">
-                    {s.detalle_permiso.plan_compensacion ?? 'Sin plan descrito'}
-                  </p>
-                </div>
+                <Parrafo etiqueta="Compensación del tiempo">
+                  {s.detalle_permiso.plan_compensacion ?? 'Sin plan descrito'}
+                </Parrafo>
               )}
 
               {s.detalle_permiso.requiere_soporte_posterior && !s.detalle_permiso.soporte_posterior_entregado && (
-                <p className="mt-4 rounded-md bg-[var(--advertencia-suave)] p-3 text-sm text-[#8a6400] dark:text-[var(--advertencia)]">
+                <p className="mt-4 rounded-md border border-[var(--tinte-ambar-borde)] bg-[var(--tinte-ambar)] p-3 text-sm text-[var(--acento-ambar)]">
                   Pendiente de soporte
                   {s.detalle_permiso.fecha_limite_soporte &&
                     ` · plazo hasta el ${formatearFechaLarga(s.detalle_permiso.fecha_limite_soporte)}`}
                   .
                 </p>
               )}
-            </Card>
+            </Bloque>
           )}
 
           {esVacaciones && s.detalle_vacaciones && (
-            <Card className="p-5">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Periodo a disfrutar
-              </h2>
+            <Bloque titulo="Periodo a disfrutar" icono={Palmtree} tinte="teal">
               <dl className="grid gap-4 sm:grid-cols-3">
                 <Dato etiqueta="Días que corresponden" valor={s.detalle_vacaciones.dias_corresponden} />
                 <Dato etiqueta="Días a disfrutar" valor={s.detalle_vacaciones.dias_a_disfrutar} />
@@ -235,53 +324,70 @@ export default function DetalleSolicitud() {
                 />
               </dl>
 
-              {s.observaciones && (
-                <div className="mt-4">
-                  <p className="text-xs text-muted-foreground">Observaciones</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm">{s.observaciones}</p>
-                </div>
-              )}
-            </Card>
+              {s.observaciones && <Parrafo etiqueta="Observaciones">{s.observaciones}</Parrafo>}
+            </Bloque>
           )}
 
+          {/* La causa del rechazo y la observación de quien autoriza son cosas
+              opuestas: nunca deben compartir color ni título. */}
           {s.motivo_rechazo && (
-            <Card className="border-[var(--error)] p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--error)]">
-                Causa del rechazo
-              </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm">{s.motivo_rechazo}</p>
-            </Card>
+            <Bloque titulo="Causa del rechazo" icono={XCircle} tinte="rojo">
+              <p className="whitespace-pre-wrap text-sm">{s.motivo_rechazo}</p>
+            </Bloque>
+          )}
+
+          {s.observacion_decision && (
+            <Bloque titulo="Observación de quien autorizó" icono={MessageSquareQuote} tinte="verde">
+              <p className="whitespace-pre-wrap text-sm">{s.observacion_decision}</p>
+            </Bloque>
           )}
         </div>
 
         {/* --------------------------------------------------------- Trazabilidad */}
         <Card relieve className="h-fit p-4">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h2 className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
             Historial
           </h2>
           <ol className="space-y-3">
-            {(historial ?? []).map((h) => (
-              <li key={h.id} className="flex gap-3">
-                <div className="flex flex-col items-center">
-                  <span className="mt-1 size-2 rounded-full bg-[var(--cac-azul)]" />
-                  <span className="w-px flex-1 bg-border" />
-                </div>
-                <div className="min-w-0 pb-1">
-                  <p className="text-sm font-medium">{h.accion}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {h.actor_nombre ?? 'Sistema'} ·{' '}
-                    {new Date(h.created_at).toLocaleString('es-CO', {
-                      dateStyle: 'short',
-                      timeStyle: 'short',
-                    })}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {ETIQUETA_ESTADO[h.estado_nuevo as Estado] ?? h.estado_nuevo}
-                  </p>
-                  {h.motivo && <p className="mt-1 text-xs italic">«{h.motivo}»</p>}
-                </div>
-              </li>
-            ))}
+            {(historial ?? []).map((h, i, todos) => {
+              const tonoPaso = TONO_ESTADO[h.estado_nuevo as Estado] ?? 'neutro'
+
+              return (
+                <li key={h.id} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <span
+                      className={cn(
+                        'mt-1 size-2.5 shrink-0 rounded-full ring-2 ring-card',
+                        tonoPaso === 'exito' && 'bg-[var(--exito)]',
+                        tonoPaso === 'error' && 'bg-[var(--error)]',
+                        tonoPaso === 'advertencia' && 'bg-[var(--acento-ambar)]',
+                        tonoPaso === 'info' && 'bg-[var(--cac-azul-500)]',
+                        tonoPaso === 'neutro' && 'bg-muted-foreground'
+                      )}
+                    />
+                    {i < todos.length - 1 && <span className="w-px flex-1 bg-border" />}
+                  </div>
+                  <div className="min-w-0 pb-1">
+                    <p className="text-sm font-medium">{h.accion}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {h.actor_nombre ?? 'Sistema'} ·{' '}
+                      {new Date(h.created_at).toLocaleString('es-CO', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {ETIQUETA_ESTADO[h.estado_nuevo as Estado] ?? h.estado_nuevo}
+                    </p>
+                    {h.motivo && (
+                      <p className="mt-1 border-l-2 border-border pl-2 text-xs italic text-muted-foreground">
+                        «{h.motivo}»
+                      </p>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
             {(historial ?? []).length === 0 && (
               <li className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="size-4" /> Sin movimientos todavía.
