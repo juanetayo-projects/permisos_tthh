@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { estadoTrasVistoBueno, puedeEjecutar, type ContextoAccion } from '@/domain/estados'
+import {
+  ESTADOS_BANDEJA,
+  TRANSICIONES,
+  estadoTrasVistoBueno,
+  puedeEjecutar,
+  type ContextoAccion,
+} from '@/domain/estados'
 
 const base: ContextoAccion = {
   estado: 'PENDIENTE_SOPORTE',
@@ -22,18 +28,43 @@ describe('cierre del trámite con soporte posterior', () => {
     expect(puedeEjecutar('registrar_soporte', { ...base, rol: 'administrador' })).toBe(false)
   })
 
-  it('Talento Humano y administración validan el soporte', () => {
-    expect(puedeEjecutar('validar_soporte', { ...base, rol: 'analista_th' })).toBe(true)
-    expect(puedeEjecutar('validar_soporte', { ...base, rol: 'gerente_th' })).toBe(true)
-    expect(puedeEjecutar('validar_soporte', { ...base, rol: 'administrador' })).toBe(true)
+  it('entregar el soporte cambia de responsable', () => {
+    // El paso clave del flujo: sale de la bandeja del colaborador y entra en
+    // la de Talento Humano, en vez de quedarse en el mismo estado.
+    expect(TRANSICIONES.registrar_soporte.hacia).toBe('SOPORTE_EN_VALIDACION')
+    expect(ESTADOS_BANDEJA.th).toContain('SOPORTE_EN_VALIDACION')
+    // Y lo que espera al colaborador no ensucia la bandeja de TH.
+    expect(ESTADOS_BANDEJA.th).not.toContain('PENDIENTE_SOPORTE')
+  })
+
+  it('Talento Humano y administración validan el soporte entregado', () => {
+    const enRevision: ContextoAccion = { ...base, estado: 'SOPORTE_EN_VALIDACION' }
+
+    expect(puedeEjecutar('validar_soporte', { ...enRevision, rol: 'analista_th' })).toBe(true)
+    expect(puedeEjecutar('validar_soporte', { ...enRevision, rol: 'gerente_th' })).toBe(true)
+    expect(puedeEjecutar('validar_soporte', { ...enRevision, rol: 'administrador' })).toBe(true)
+  })
+
+  it('devolver el soporte lo regresa al colaborador y exige motivo', () => {
+    const enRevision: ContextoAccion = { ...base, estado: 'SOPORTE_EN_VALIDACION', rol: 'analista_th' }
+
+    expect(puedeEjecutar('devolver_soporte', enRevision)).toBe(true)
+    expect(TRANSICIONES.devolver_soporte.hacia).toBe('PENDIENTE_SOPORTE')
+    expect(TRANSICIONES.devolver_soporte.exigeMotivo).toBe(true)
   })
 
   it('el jefe directo y el propio solicitante no cierran el trámite', () => {
-    expect(puedeEjecutar('validar_soporte', { ...base, rol: 'coordinador', coordinaElArea: true })).toBe(false)
-    expect(puedeEjecutar('validar_soporte', { ...base, esSolicitante: true })).toBe(false)
+    const enRevision: ContextoAccion = { ...base, estado: 'SOPORTE_EN_VALIDACION' }
+
+    expect(puedeEjecutar('validar_soporte', { ...enRevision, rol: 'coordinador', coordinaElArea: true })).toBe(false)
+    expect(puedeEjecutar('validar_soporte', { ...enRevision, esSolicitante: true })).toBe(false)
+    expect(puedeEjecutar('devolver_soporte', { ...enRevision, esSolicitante: true })).toBe(false)
   })
 
-  it('no se valida un soporte que nadie está esperando', () => {
+  it('no se valida un soporte que todavía no ha llegado', () => {
+    // Justo el caso que rompía antes: con el soporte aún sin entregar, TH no
+    // tiene nada que revisar.
+    expect(puedeEjecutar('validar_soporte', { ...base, rol: 'analista_th' })).toBe(false)
     expect(puedeEjecutar('validar_soporte', { ...base, estado: 'PENDIENTE_TH', rol: 'analista_th' })).toBe(false)
     expect(puedeEjecutar('validar_soporte', { ...base, estado: 'FINALIZADA', rol: 'analista_th' })).toBe(false)
   })

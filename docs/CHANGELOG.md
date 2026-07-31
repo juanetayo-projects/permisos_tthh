@@ -2,6 +2,32 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.1.6] — 2026-07-31
+
+### Añadido
+
+- **Estado `SOPORTE_EN_VALIDACION`** («Soporte en validación de Talento
+  Humano»). `PENDIENTE_SOPORTE` mezclaba dos situaciones con responsables
+  distintos —falta el documento, que le toca al colaborador; y el documento ya
+  está entregado, que le toca a TH— y se distinguían solo por un booleano del
+  detalle. Ahora cada estado tiene un único responsable.
+- **Devolución del soporte**: si el documento no sirve, Talento Humano lo
+  devuelve indicando qué falta. La solicitud vuelve a «pendiente de soporte»,
+  el colaborador recibe el correo con el motivo y sube otro. Antes solo existía
+  el camino de ida.
+
+### Cambiado
+
+- `PENDIENTE_SOPORTE` sale de la bandeja de Talento Humano: ahí la pelota la
+  tiene el colaborador, y una bandeja llena de cosas que no puedes mover no es
+  una bandeja de trabajo. TH ve `SOPORTE_EN_VALIDACION`.
+- Etiquetas del flujo alineadas con el lenguaje de Talento Humano:
+  «Autorizada, pendiente de justificar el soporte» y «Cerrada» (antes
+  «Finalizada»).
+- El Dashboard tenía copiadas en línea las listas de estados de los KPIs, así
+  que al añadir uno nuevo el número y su detalle dejaban de coincidir. Ahora
+  importa `EN_TRAMITE`, `APROBADAS` y `CON_SOPORTE_ABIERTO` del dominio.
+
 ## [0.1.5] — 2026-07-31
 
 ### Corregido

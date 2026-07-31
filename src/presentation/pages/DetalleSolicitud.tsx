@@ -95,7 +95,11 @@ export default function DetalleSolicitud() {
   const { data: historial } = useHistorial(id)
   const decidir = useDecidir()
 
-  const [dialogo, setDialogo] = useState<{ tipo: TipoDecision; destino: Estado; etiqueta: string } | null>(null)
+  const [dialogo, setDialogo] = useState<{
+    tipo: TipoDecision
+    destino: Estado
+    etiqueta: string
+  } | null>(null)
 
   if (isLoading || !s) {
     return (
@@ -123,6 +127,7 @@ export default function DetalleSolicitud() {
   const puedeValidarSoporte = puedeEjecutar('validar_soporte', ctx)
 
   const tono = TONO_ESTADO[s.estado]
+  const esDevolucion = dialogo?.destino === 'PENDIENTE_SOPORTE'
 
   /** Cierra el trámite cuando Talento Humano da por bueno el soporte. */
   async function validarSoporte() {
@@ -136,6 +141,7 @@ export default function DetalleSolicitud() {
 
     await notificar('finalizada', s.id)
   }
+
 
   async function aplicar(motivo: string | null) {
     if (!dialogo || !session || !s) return
@@ -342,7 +348,14 @@ export default function DetalleSolicitud() {
               solicitud={s}
               puedeValidar={puedeValidarSoporte}
               onValidar={() => void validarSoporte()}
-              validando={decidir.isPending}
+              onDevolver={() =>
+                setDialogo({
+                  tipo: 'rechazar',
+                  destino: 'PENDIENTE_SOPORTE',
+                  etiqueta: 'Devolver soporte',
+                })
+              }
+              procesando={decidir.isPending}
             />
           )}
 
@@ -421,6 +434,13 @@ export default function DetalleSolicitud() {
         tipo={dialogo?.tipo ?? 'aprobar'}
         cantidad={1}
         etiquetaAprobar={dialogo?.etiqueta ?? 'Autorizar'}
+        etiquetaRechazar={dialogo?.etiqueta ?? 'Rechazar'}
+        etiquetaMotivo={esDevolucion ? 'Qué falta en el soporte' : 'Causa del rechazo'}
+        descripcionRechazo={
+          esDevolucion
+            ? 'El colaborador recibirá este texto por correo y podrá subir otro documento.'
+            : 'El solicitante recibirá la causa por correo y quedará registrada en el historial.'
+        }
         onConfirmar={aplicar}
       />
     </div>

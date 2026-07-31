@@ -26,6 +26,9 @@ export function DialogoDecision({
   tipo,
   cantidad,
   etiquetaAprobar = 'Autorizar',
+  etiquetaRechazar = 'Rechazar',
+  etiquetaMotivo = 'Causa del rechazo',
+  descripcionRechazo = 'El solicitante recibirá la causa por correo y quedará registrada en el historial.',
   onConfirmar,
 }: {
   abierto: boolean
@@ -33,6 +36,10 @@ export function DialogoDecision({
   tipo: TipoDecision
   cantidad: number
   etiquetaAprobar?: string
+  /** Devolver un soporte también exige motivo, pero no es un rechazo. */
+  etiquetaRechazar?: string
+  etiquetaMotivo?: string
+  descripcionRechazo?: string
   onConfirmar: (motivo: string | null) => Promise<void>
 }) {
   const [motivo, setMotivo] = useState('')
@@ -80,12 +87,12 @@ export function DialogoDecision({
             ) : (
               <CheckCircle2 className="size-5 text-[var(--exito)]" />
             )}
-            {esRechazo ? 'Rechazar' : etiquetaAprobar}
+            {esRechazo ? etiquetaRechazar : etiquetaAprobar}
             {cantidad > 1 && ` ${cantidad} solicitudes`}
           </DialogTitle>
           <DialogDescription>
             {esRechazo
-              ? 'El solicitante recibirá la causa por correo y quedará registrada en el historial.'
+              ? descripcionRechazo
               : `Se notificará al solicitante y la solicitud avanzará al siguiente paso del flujo.${
                   cantidad > 1 ? ' La decisión aplica a todas las seleccionadas.' : ''
                 }`}
@@ -94,7 +101,7 @@ export function DialogoDecision({
 
         <div className="space-y-2">
           <Label htmlFor="motivo">
-            {esRechazo ? 'Causa del rechazo' : 'Observación (opcional)'}
+            {esRechazo ? etiquetaMotivo : 'Observación (opcional)'}
           </Label>
           <Textarea
             id="motivo"
@@ -125,7 +132,7 @@ export function DialogoDecision({
             cargando={enviando}
             onClick={() => void confirmar()}
           >
-            {esRechazo ? 'Rechazar' : etiquetaAprobar}
+            {esRechazo ? etiquetaRechazar : etiquetaAprobar}
           </Button>
         </DialogFooter>
       </DialogContent>

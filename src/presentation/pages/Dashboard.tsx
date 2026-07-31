@@ -28,6 +28,9 @@ import {
 import { useSolicitudes, type SolicitudLista } from '@/application/solicitudes/useSolicitudes'
 import { useAreas, useEmpresas } from '@/application/catalogos/useCatalogos'
 import {
+  APROBADAS,
+  CON_SOPORTE_ABIERTO,
+  EN_TRAMITE,
   aniosDisponibles,
   calcularKpis,
   mapaCalorAreaMes,
@@ -204,11 +207,7 @@ export default function Dashboard() {
           onClick={() =>
             abrirDetalle(
               'Solicitudes en trámite',
-              filtradas.filter((s) =>
-                ['PENDIENTE_COORDINADOR', 'PENDIENTE_TH', 'PENDIENTE_GERENCIA_TH', 'PENDIENTE_SOPORTE'].includes(
-                  s.estado
-                )
-              )
+              filtradas.filter((s) => EN_TRAMITE.includes(s.estado))
             )
           }
         />
@@ -221,9 +220,7 @@ export default function Dashboard() {
           onClick={() =>
             abrirDetalle(
               'Solicitudes aprobadas',
-              filtradas.filter((s) =>
-                ['APROBADA_TH', 'FINALIZADA', 'ARCHIVADA', 'PENDIENTE_SOPORTE'].includes(s.estado)
-              )
+              filtradas.filter((s) => APROBADAS.includes(s.estado))
             )
           }
         />
@@ -286,7 +283,7 @@ export default function Dashboard() {
                   onClick={() =>
                     abrirDetalle(
                       'Pendientes de soporte',
-                      filtradas.filter((s) => s.estado === 'PENDIENTE_SOPORTE')
+                      filtradas.filter((s) => CON_SOPORTE_ABIERTO.includes(s.estado))
                     )
                   }
                 >

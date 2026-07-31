@@ -13,6 +13,7 @@ export const ESTADOS = [
   'PENDIENTE_GERENCIA_TH',
   'APROBADA_TH',
   'PENDIENTE_SOPORTE',
+  'SOPORTE_EN_VALIDACION',
   'FINALIZADA',
   'ARCHIVADA',
   'RECHAZADA_COORDINADOR',
@@ -49,6 +50,7 @@ export type Accion =
   | 'rechazar_th'
   | 'registrar_soporte'
   | 'validar_soporte'
+  | 'devolver_soporte'
   | 'archivar'
   | 'cancelar'
   | 'vencer'
@@ -98,20 +100,32 @@ export const TRANSICIONES: Record<Accion, Transicion> = {
     exigeMotivo: true,
     etiqueta: 'Rechazar',
   },
+  // Entregar el soporte saca la solicitud de la bandeja del colaborador y la
+  // pone en la de Talento Humano. Antes se quedaba en PENDIENTE_SOPORTE con un
+  // booleano al lado, y nadie sabía a quién le tocaba mover.
   registrar_soporte: {
     desde: ['PENDIENTE_SOPORTE'],
-    hacia: 'PENDIENTE_SOPORTE',
+    hacia: 'SOPORTE_EN_VALIDACION',
     roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'],
-    etiqueta: 'Adjuntar soporte',
+    etiqueta: 'Entregar soporte',
   },
   validar_soporte: {
-    desde: ['PENDIENTE_SOPORTE'],
+    desde: ['SOPORTE_EN_VALIDACION'],
     hacia: 'FINALIZADA',
     roles: ['analista_th', 'gerente_th', 'administrador'],
     etiqueta: 'Validar soporte',
   },
+  // El camino de vuelta: si el documento no sirve, el colaborador sube otro.
+  devolver_soporte: {
+    desde: ['SOPORTE_EN_VALIDACION'],
+    hacia: 'PENDIENTE_SOPORTE',
+    roles: ['analista_th', 'gerente_th', 'administrador'],
+    exigeMotivo: true,
+    etiqueta: 'Devolver soporte',
+  },
   archivar: {
     desde: ['FINALIZADA', 'RECHAZADA_COORDINADOR', 'RECHAZADA_TH', 'CANCELADA', 'VENCIDA'],
+    // Nota: SOPORTE_EN_VALIDACION no se archiva; primero se valida o se devuelve.
     hacia: 'ARCHIVADA',
     roles: ['analista_th', 'gerente_th', 'administrador'],
     etiqueta: 'Archivar',
@@ -189,8 +203,9 @@ export const ETIQUETA_ESTADO: Record<Estado, string> = {
   PENDIENTE_TH: 'Pendiente de Talento Humano',
   PENDIENTE_GERENCIA_TH: 'Pendiente de Gerencia de TH',
   APROBADA_TH: 'Aprobada',
-  PENDIENTE_SOPORTE: 'Pendiente de soporte',
-  FINALIZADA: 'Finalizada',
+  PENDIENTE_SOPORTE: 'Autorizada, pendiente de justificar el soporte',
+  SOPORTE_EN_VALIDACION: 'Soporte en validación de Talento Humano',
+  FINALIZADA: 'Cerrada',
   ARCHIVADA: 'Archivada',
   RECHAZADA_COORDINADOR: 'Rechazada por el jefe directo',
   RECHAZADA_TH: 'Rechazada por Talento Humano',
@@ -206,6 +221,7 @@ export const TONO_ESTADO: Record<Estado, TonoEstado> = {
   PENDIENTE_GERENCIA_TH: 'advertencia',
   APROBADA_TH: 'exito',
   PENDIENTE_SOPORTE: 'advertencia',
+  SOPORTE_EN_VALIDACION: 'info',
   FINALIZADA: 'exito',
   ARCHIVADA: 'neutro',
   RECHAZADA_COORDINADOR: 'error',
@@ -230,6 +246,9 @@ export function esDecisionNegativa(estado: Estado): boolean {
 /** Estados que ocupan una bandeja: lo que está esperando una decisión. */
 export const ESTADOS_BANDEJA: Record<'coordinador' | 'th' | 'gerencia', Estado[]> = {
   coordinador: ['PENDIENTE_COORDINADOR'],
-  th: ['PENDIENTE_TH', 'PENDIENTE_SOPORTE'],
+  // `PENDIENTE_SOPORTE` queda fuera a propósito: ahí la pelota la tiene el
+  // colaborador, y una bandeja llena de cosas que no puedes mover no es una
+  // bandeja de trabajo.
+  th: ['PENDIENTE_TH', 'SOPORTE_EN_VALIDACION'],
   gerencia: ['PENDIENTE_GERENCIA_TH'],
 }

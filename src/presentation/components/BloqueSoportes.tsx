@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { AlertCircle, ExternalLink, FileCheck2, Paperclip, Upload } from 'lucide-react'
+import {
+  AlertCircle,
+  ExternalLink,
+  FileCheck2,
+  Hourglass,
+  Paperclip,
+  Undo2,
+  Upload,
+} from 'lucide-react'
 import { cn, formatearFechaLarga } from '@/lib/utils'
 import { useAuth } from '@/application/auth/AuthProvider'
 import { useAdjuntos, useEntregarSoporte, abrirSoporte } from '@/application/solicitudes/useAdjuntos'
@@ -15,10 +23,12 @@ const ETIQUETA_MOMENTO = {
 /**
  * Soportes de la solicitud.
  *
- * Cierra el hueco que dejaba atascadas las solicitudes en «Pendiente de
- * soporte»: el motor de estados contemplaba ese paso, pero no había ninguna
- * pantalla desde donde entregar el documento ni desde donde verlo, así que
- * `PENDIENTE_SOPORTE → FINALIZADA` era inalcanzable.
+ * Sostiene el tramo final del trámite, que tiene tres papeles distintos:
+ *
+ * 1. `PENDIENTE_SOPORTE` — le toca al colaborador: sube el documento.
+ * 2. `SOPORTE_EN_VALIDACION` — le toca a Talento Humano: lo valida y cierra,
+ *    o lo devuelve explicando qué falta.
+ * 3. Devuelto — vuelve al punto 1, con el motivo a la vista.
  *
  * Los archivos viven en un bucket privado —son datos de salud— y se abren con
  * una URL firmada que caduca en un minuto.
@@ -27,13 +37,15 @@ export function BloqueSoportes({
   solicitud,
   puedeValidar,
   onValidar,
-  validando,
+  onDevolver,
+  procesando,
 }: {
   solicitud: SolicitudLista
-  /** Talento Humano cierra el trámite cuando el soporte le sirve. */
+  /** Talento Humano cierra el trámite o devuelve el documento. */
   puedeValidar: boolean
   onValidar: () => void
-  validando: boolean
+  onDevolver: () => void
+  procesando: boolean
 }) {
   const { perfil, session } = useAuth()
   const { data: adjuntos, isLoading } = useAdjuntos(solicitud.id)
@@ -43,26 +55,24 @@ export function BloqueSoportes({
   const [error, setError] = useState<string | null>(null)
 
   const esSolicitante = solicitud.solicitante?.user_id === perfil?.user_id
-  const enEspera = solicitud.estado === 'PENDIENTE_SOPORTE'
+  const faltaEntregar = solicitud.estado === 'PENDIENTE_SOPORTE'
+  const enRevision = solicitud.estado === 'SOPORTE_EN_VALIDACION'
   // Solo el solicitante sube: así lo exige la policy de Storage.
-  const puedeEntregar = enEspera && esSolicitante
+  const puedeEntregar = faltaEntregar && esSolicitante
   const detalle = solicitud.detalle_permiso
+  // Tras una devolución el motivo queda aquí, y hay que mostrarlo antes de
+  // pedirle al colaborador que vuelva a intentarlo.
+  const motivoDevolucion = faltaEntregar ? solicitud.observacion_decision : null
 
   async function entregarSoporte() {
     if (!archivo || !session) return
     setError(null)
 
     try {
-      await entregar.mutateAsync({
-        solicitudId: solicitud.id,
-        archivo,
-        usuarioId: session.user.id,
-      })
+      await entregar.mutateAsync({ solicitudId: solicitud.id, archivo, usuarioId: session.user.id })
       setArchivo(null)
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : 'No fue posible subir el soporte. Intenta de nuevo.'
-      )
+      setError(e instanceof Error ? e.message : 'No fue posible subir el soporte. Intenta de nuevo.')
     }
   }
 
@@ -70,21 +80,41 @@ export function BloqueSoportes({
   if (!isLoading && (adjuntos ?? []).length === 0 && !puedeEntregar && !puedeValidar) return null
 
   return (
-    <section className={cn('bloque-datos p-5', enEspera ? 'bloque-ambar' : 'bloque-azul')}>
+    <section
+      className={cn(
+        'bloque-datos p-5',
+        faltaEntregar ? 'bloque-ambar' : enRevision ? 'bloque-violeta' : 'bloque-azul'
+      )}
+    >
       <h2 className="bloque-titulo mb-4 flex items-center gap-2">
         <Paperclip className="size-4" />
         Soportes
       </h2>
 
-      {enEspera && (
+      {motivoDevolucion && (
+        <div className="mb-4 rounded-md border border-[var(--tinte-rojo-borde)] bg-[var(--tinte-rojo)] p-3">
+          <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-[var(--error)]">
+            Talento Humano devolvió el soporte
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm">{motivoDevolucion}</p>
+        </div>
+      )}
+
+      {faltaEntregar && !motivoDevolucion && (
         <p className="mb-4 rounded-md border border-[var(--tinte-ambar-borde)] bg-[var(--tinte-ambar)] p-3 text-sm text-[var(--acento-ambar)]">
-          {detalle?.soporte_posterior_entregado
-            ? 'El soporte ya está entregado. Talento Humano lo revisará para cerrar el trámite.'
-            : 'Falta el soporte de este permiso para poder cerrarlo'}
-          {!detalle?.soporte_posterior_entregado && detalle?.fecha_limite_soporte && (
+          Falta el soporte para poder cerrar este permiso
+          {detalle?.fecha_limite_soporte && (
             <> · plazo hasta el {formatearFechaLarga(detalle.fecha_limite_soporte)}</>
           )}
           .
+        </p>
+      )}
+
+      {enRevision && !puedeValidar && (
+        <p className="mb-4 flex items-start gap-2 rounded-md border border-[var(--tinte-violeta-borde)] bg-[var(--tinte-violeta)] p-3 text-sm text-[var(--acento-violeta)]">
+          <Hourglass className="mt-0.5 size-4 shrink-0" />
+          Ya entregaste el soporte. Talento Humano lo está revisando; si sirve, la solicitud queda
+          cerrada.
         </p>
       )}
 
@@ -111,7 +141,11 @@ export function BloqueSoportes({
                 variant="outline"
                 size="sm"
                 className="shrink-0"
-                onClick={() => void abrirSoporte(a.ruta_storage).catch(() => setError('No fue posible abrir el archivo.'))}
+                onClick={() =>
+                  void abrirSoporte(a.ruta_storage).catch(() =>
+                    setError('No fue posible abrir el archivo.')
+                  )
+                }
               >
                 <ExternalLink /> Ver
               </Button>
@@ -122,12 +156,7 @@ export function BloqueSoportes({
 
       {puedeEntregar && (
         <div className="mt-4 space-y-2">
-          <CampoArchivo
-            id="soporte-posterior"
-            archivo={archivo}
-            onCambio={setArchivo}
-            obligatorio={!detalle?.soporte_posterior_entregado}
-          />
+          <CampoArchivo id="soporte-posterior" archivo={archivo} onCambio={setArchivo} obligatorio />
           <Button
             className="w-full sm:w-auto"
             disabled={!archivo}
@@ -140,13 +169,19 @@ export function BloqueSoportes({
       )}
 
       {puedeValidar && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border/60 pt-4">
-          <p className="flex-1 text-sm text-muted-foreground">
-            Si el soporte es correcto, valídalo para dar por finalizado el trámite.
+        <div className="mt-4 space-y-2 border-t border-border/60 pt-4">
+          <p className="text-sm text-muted-foreground">
+            Revisa el documento entregado. Si sirve, valídalo y el trámite queda cerrado; si no,
+            devuélvelo indicando qué falta para que el colaborador suba otro.
           </p>
-          <Button variant="exito" cargando={validando} onClick={onValidar}>
-            {!validando && <FileCheck2 />} Validar soporte y finalizar
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="exito" cargando={procesando} onClick={onValidar}>
+              {!procesando && <FileCheck2 />} Validar y cerrar
+            </Button>
+            <Button variant="outline" disabled={procesando} onClick={onDevolver}>
+              <Undo2 /> Devolver soporte
+            </Button>
+          </div>
         </div>
       )}
 

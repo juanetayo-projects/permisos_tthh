@@ -32,14 +32,32 @@ export interface SolicitudMetrica {
   detalle_vacaciones: { dias_a_disfrutar: number | null } | null
 }
 
-const EN_TRAMITE: Estado[] = [
+/**
+ * Agrupaciones de estado que comparten KPIs, pestañas y drill-down.
+ *
+ * Se exportan porque el Dashboard las tenía copiadas en línea, y al añadir un
+ * estado nuevo las copias se quedaron atrás: un KPI decía una cosa y su
+ * detalle otra.
+ */
+export const EN_TRAMITE: Estado[] = [
   'PENDIENTE_COORDINADOR',
   'PENDIENTE_TH',
   'PENDIENTE_GERENCIA_TH',
   'PENDIENTE_SOPORTE',
+  'SOPORTE_EN_VALIDACION',
 ]
-const APROBADAS: Estado[] = ['APROBADA_TH', 'FINALIZADA', 'ARCHIVADA', 'PENDIENTE_SOPORTE']
-const RECHAZADAS: Estado[] = ['RECHAZADA_COORDINADOR', 'RECHAZADA_TH']
+// Ya tienen el visto bueno del flujo aunque falte cerrar el soporte: el
+// ausentismo cuenta desde que se autoriza, no desde que se archiva el papel.
+export const APROBADAS: Estado[] = [
+  'APROBADA_TH',
+  'FINALIZADA',
+  'ARCHIVADA',
+  'PENDIENTE_SOPORTE',
+  'SOPORTE_EN_VALIDACION',
+]
+export const RECHAZADAS: Estado[] = ['RECHAZADA_COORDINADOR', 'RECHAZADA_TH']
+/** Esperan el documento del colaborador o su revisión por Talento Humano. */
+export const CON_SOPORTE_ABIERTO: Estado[] = ['PENDIENTE_SOPORTE', 'SOPORTE_EN_VALIDACION']
 
 export interface Kpis {
   total: number
@@ -86,7 +104,9 @@ export function calcularKpis(lista: SolicitudMetrica[]): Kpis {
     ),
     cicloPromedio: ciclos.length ? redondear(ciclos.reduce((a, b) => a + b, 0) / ciclos.length, 1) : null,
     tasaAprobacion: decididas.length ? redondear((aprobadas.length / decididas.length) * 100) : null,
-    soportesPendientes: lista.filter((s) => s.estado === 'PENDIENTE_SOPORTE').length,
+    soportesPendientes: lista.filter(
+      (s) => s.estado === 'PENDIENTE_SOPORTE' || s.estado === 'SOPORTE_EN_VALIDACION'
+    ).length,
   }
 }
 

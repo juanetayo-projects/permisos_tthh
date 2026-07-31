@@ -52,10 +52,15 @@ export async function abrirSoporte(ruta: string): Promise<void> {
 /**
  * Entrega del soporte posterior.
  *
- * Además de subir el archivo marca `soporte_posterior_entregado`, que es lo
- * que Talento Humano ve para saber que ya puede validar y cerrar el trámite.
- * La solicitud sigue en `PENDIENTE_SOPORTE`: el cierre lo decide TH, no el
- * hecho de haber subido un archivo.
+ * Sube el archivo y pasa la solicitud a `SOPORTE_EN_VALIDACION`: con eso la
+ * pelota cambia de lado —sale de la bandeja del colaborador y entra en la de
+ * Talento Humano— y deja de depender de un booleano para saber a quién le
+ * toca mover. El cierre lo decide TH, no el hecho de haber subido un archivo.
+ *
+ * El orden importa: primero el archivo. Si se cambiara el estado antes y la
+ * subida fallara, la solicitud quedaría esperando la revisión de un documento
+ * que no existe, y el colaborador ya no podría corregirlo porque la policy
+ * solo le deja escribir mientras está en `PENDIENTE_SOPORTE`.
  */
 export function useEntregarSoporte() {
   const qc = useQueryClient()
@@ -75,10 +80,17 @@ export function useEntregarSoporte() {
         maxMB: params.maxMB,
       })
 
-      const { error } = await supabase
+      const { error: errorDetalle } = await supabase
         .from('permisos_detalle_permiso')
         .update({ soporte_posterior_entregado: true })
         .eq('solicitud_id', params.solicitudId)
+
+      if (errorDetalle) throw errorDetalle
+
+      const { error } = await supabase
+        .from('permisos_solicitudes')
+        .update({ estado: 'SOPORTE_EN_VALIDACION', observacion_decision: null })
+        .eq('id', params.solicitudId)
 
       if (error) throw error
     },

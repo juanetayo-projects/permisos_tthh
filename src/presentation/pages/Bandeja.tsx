@@ -49,7 +49,7 @@ const CONFIG: Record<Vista, Config> = {
     // soporte: sin este caso la solicitud volvía a su propio estado y se
     // quedaba dando vueltas en la bandeja.
     estadoAprobado: (s) =>
-      s.estado === 'PENDIENTE_SOPORTE'
+      s.estado === 'SOPORTE_EN_VALIDACION'
         ? 'FINALIZADA'
         : estadoTrasVistoBueno(Boolean(s.detalle_permiso?.requiere_soporte_posterior)),
     estadoRechazado: 'RECHAZADA_TH',
