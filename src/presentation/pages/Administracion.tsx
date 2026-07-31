@@ -187,6 +187,14 @@ export default function Administracion() {
       soloEnFormulario: true,
       ayuda: 'Para calamidad y luto, que no se pueden planear.',
     },
+    {
+      clave: 'dias_calendario',
+      etiqueta: 'Cuenta días calendario',
+      tipo: 'booleano',
+      soloEnFormulario: true,
+      ayuda:
+        'Sí para incapacidades y licencias: pueden empezar cualquier día y los fines de semana cuentan. No para citas y diligencias, que solo van en días hábiles.',
+    },
     { clave: 'orden', etiqueta: 'Orden', tipo: 'numero', ancho: 'w-20' },
     { clave: 'activo', etiqueta: 'Activo', tipo: 'booleano', ancho: 'w-24' },
   ]

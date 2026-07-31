@@ -4,7 +4,10 @@ import {
   contarDiasCalendario,
   contarDiasHabiles,
   desdeISO,
-  esDiaHabil,
+  diaDeLaSemana,
+  diaDelMes,
+  esFestivo,
+  esFinDeSemana,
   sumarDias,
   aISO,
   type FechaISO,
@@ -27,12 +30,15 @@ export function LineaTiempoPeriodo({
   inicio,
   fin,
   reintegro,
+  porCalendario = false,
   className,
 }: {
   inicio: FechaISO
   fin: FechaISO
   /** Solo en vacaciones: el día en que se presenta a laborar. */
   reintegro?: FechaISO | null
+  /** Incapacidades y licencias: cuentan todos los días, no solo los hábiles. */
+  porCalendario?: boolean
   className?: string
 }) {
   if (!inicio || !fin || fin < inicio) return null
@@ -53,14 +59,24 @@ export function LineaTiempoPeriodo({
           <CalendarDays className="size-3.5" />
           Periodo solicitado
         </h3>
+        {/* La cifra que manda depende del motivo: una incapacidad se cuenta
+            por calendario y destacar sus «días hábiles» sería engañoso. */}
         <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="rounded-full bg-[var(--cac-azul-600)] px-2 py-0.5 font-semibold text-white tabular">
-            {habiles} {habiles === 1 ? 'día hábil' : 'días hábiles'}
-          </span>
-          {noHabiles > 0 && (
-            <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground tabular">
-              +{noHabiles} no {noHabiles === 1 ? 'hábil' : 'hábiles'}
+          {porCalendario ? (
+            <span className="rounded-full bg-[var(--cac-azul-600)] px-2 py-0.5 font-semibold text-white tabular">
+              {total} {total === 1 ? 'día calendario' : 'días calendario'}
             </span>
+          ) : (
+            <>
+              <span className="rounded-full bg-[var(--cac-azul-600)] px-2 py-0.5 font-semibold text-white tabular">
+                {habiles} {habiles === 1 ? 'día hábil' : 'días hábiles'}
+              </span>
+              {noHabiles > 0 && (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground tabular">
+                  +{noHabiles} no {noHabiles === 1 ? 'hábil' : 'hábiles'}
+                </span>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -78,27 +94,44 @@ export function LineaTiempoPeriodo({
         )}
       </ol>
 
-      {/* Tira de días: cada cuadro es un día, apagado si no se trabaja. */}
+      {/* Tira de días. Cada motivo de «no hábil» lleva su color: en ámbar el
+          fin de semana y en rojo el festivo, porque no son lo mismo y ver cuál
+          es cuál explica el número de días hábiles sin tener que contar. */}
       {dias.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1">
           {dias.map((d) => {
-            const habil = esDiaHabil(d)
+            const festivo = esFestivo(d)
+            const finde = esFinDeSemana(d)
+
             return (
               <span
                 key={d}
-                title={`${formatearFecha(d)}${habil ? '' : ' · no hábil'}`}
+                title={`${formatearFecha(d)}${festivo ? ' · festivo' : finde ? ' · fin de semana' : ''}`}
                 className={cn(
-                  'flex size-7 flex-col items-center justify-center rounded text-[10px] leading-none',
-                  habil
-                    ? 'bg-[var(--cac-azul-600)] font-semibold text-white'
-                    : 'bg-muted text-muted-foreground line-through'
+                  'flex size-7 flex-col items-center justify-center rounded border text-[10px] leading-none',
+                  festivo
+                    ? 'border-[var(--tinte-rojo-borde)] bg-[var(--tinte-rojo)] text-[var(--error)]'
+                    : finde
+                      ? 'border-[var(--tinte-ambar-borde)] bg-[var(--tinte-ambar)] text-[var(--acento-ambar)]'
+                      : 'border-transparent bg-[var(--cac-azul-600)] font-semibold text-white'
                 )}
               >
-                <span className="opacity-70">{DIAS[desdeISO(d).getDay()]}</span>
-                <span className="tabular">{desdeISO(d).getDate()}</span>
+                <span className="opacity-80">{DIAS[diaDeLaSemana(d)]}</span>
+                <span className="tabular">{diaDelMes(d)}</span>
               </span>
             )
           })}
+
+          <span className="ml-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="size-2 rounded-sm bg-[var(--tinte-ambar)] ring-1 ring-[var(--tinte-ambar-borde)]" />
+              fin de semana
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="size-2 rounded-sm bg-[var(--tinte-rojo)] ring-1 ring-[var(--tinte-rojo-borde)]" />
+              festivo
+            </span>
+          </span>
         </div>
       )}
     </section>

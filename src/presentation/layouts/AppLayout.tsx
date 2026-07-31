@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/application/auth/AuthProvider'
 import type { Rol } from '@/domain/estados'
+import { aplicarTema, guardarTema, temaOscuroGuardado } from '@/lib/tema'
 
 const LOGO_BLANCO = `${import.meta.env.BASE_URL}images/logo_cacsb_blanc.png`
 
@@ -53,13 +54,11 @@ const ENLACES: Enlace[] = [
  * el interruptor, manda su elección y se recuerda.
  */
 function useTemaOscuro() {
-  const [oscuro, setOscuro] = useState(
-    () => (localStorage.getItem('permisos-tema') ?? 'oscuro') === 'oscuro'
-  )
+  const [oscuro, setOscuro] = useState(temaOscuroGuardado)
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', oscuro)
-    localStorage.setItem('permisos-tema', oscuro ? 'oscuro' : 'claro')
+    aplicarTema(oscuro)
+    guardarTema(oscuro)
   }, [oscuro])
 
   return [oscuro, setOscuro] as const

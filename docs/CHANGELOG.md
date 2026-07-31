@@ -2,6 +2,36 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.2.1] — 2026-08-01
+
+### Corregido
+
+- **La línea de tiempo mostraba el día anterior.** `desdeISO` construye la
+  fecha en UTC —para que el huso no corra un día al comparar— y la tira de
+  días la leía con `getDate()`, que en Colombia va cinco horas por detrás: el
+  4 de agosto salía como «lunes 3» y el festivo se pintaba en el día
+  equivocado. Se añaden `diaDelMes` y `diaDeLaSemana` al dominio, con pruebas,
+  para que no se repita.
+- **El modo oscuro por defecto no llegaba a quien ya había usado la app.** La
+  versión anterior escribía `claro` en cada arranque a quien tuviera el sistema
+  en claro, así que su preferencia guardada seguía ganando. La clave estrena
+  sufijo (`permisos-tema-2`) para repartir el nuevo valor por defecto una vez.
+
+### Añadido
+
+- **`dias_calendario` en los motivos de permiso**, editable desde
+  Administración: incapacidades y licencias pueden empezar cualquier día y se
+  cuentan por calendario; citas y diligencias siguen restringidas a días
+  hábiles. Antes la única excepción era `exento_antelacion`, que servía a la
+  vez para dos cosas distintas.
+- La tira de días colorea el motivo de cada día no hábil: **ámbar** el fin de
+  semana y **rojo** el festivo, con su leyenda.
+
+### Cambiado
+
+- En la solicitud de permiso, **el motivo va antes de las fechas**: es el que
+  decide qué días se pueden elegir y cómo se cuentan.
+
 ## [0.2.0] — 2026-07-31
 
 ### Añadido

@@ -123,11 +123,14 @@ export default function SolicitudPermiso() {
   const fechaMinima = tipo?.exento_antelacion ? undefined : HOY
 
   /**
-   * Los motivos exentos de antelación —calamidad, luto— sí pueden caer en
-   * sábado, domingo o festivo: ocurren cuando ocurren. Para el resto, un
-   * permiso laboral solo tiene sentido en un día que se trabaja.
+   * Qué días admite este motivo.
+   *
+   * Una incapacidad o una licencia corren por calendario: empiezan el día que
+   * las expide el médico, aunque sea sábado. Una cita médica o una diligencia,
+   * no: no se pide permiso para un día que no se trabaja. Lo decide el propio
+   * motivo (`dias_calendario`), configurable desde Administración.
    */
-  const admiteNoHabiles = Boolean(tipo?.exento_antelacion)
+  const admiteNoHabiles = Boolean(tipo?.dias_calendario || tipo?.exento_antelacion)
 
   const coordinadoresDelArea = useMemo(
     () => coordinadores?.filter((c) => String(c.area_id) === areaId) ?? [],
@@ -449,76 +452,6 @@ export default function SolicitudPermiso() {
 
           {/* -------------------------------------------------------- Dos columnas */}
           <div className="grid gap-3 md:grid-cols-2">
-            <section className="bloque-datos bloque-teal p-3">
-              <h2 className="bloque-titulo mb-2">Tiempos del permiso</h2>
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="desde">Desde</Label>
-                  <CampoFecha
-                    id="desde"
-                    min={fechaMinima}
-                    valor={form.fechaInicio}
-                    soloHabiles={!admiteNoHabiles}
-                    onCambio={(f) => {
-                      set('fechaInicio', f)
-                      if (f > form.fechaFin) set('fechaFin', f)
-                    }}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="hasta">Hasta</Label>
-                  <CampoFecha
-                    id="hasta"
-                    min={form.fechaInicio}
-                    valor={form.fechaFin}
-                    soloHabiles={!admiteNoHabiles}
-                    onCambio={(f) => set('fechaFin', f)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="salida">Hora de salida</Label>
-                  <Input
-                    id="salida"
-                    type="time"
-                    value={form.horaSalida}
-                    onChange={(e) => set('horaSalida', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="regreso">Hora de regreso</Label>
-                  <Input
-                    id="regreso"
-                    type="time"
-                    value={form.horaRegreso}
-                    onChange={(e) => set('horaRegreso', e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <LineaTiempoPeriodo
-                className="mt-3"
-                inicio={form.fechaInicio}
-                fin={form.fechaFin}
-              />
-
-              <div className="mt-2.5 flex flex-wrap items-center gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={form.remunerado}
-                    onCheckedChange={(v) => set('remunerado', v === true)}
-                  />
-                  Permiso remunerado
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={form.requiereCompensacion}
-                    onCheckedChange={(v) => set('requiereCompensacion', v === true)}
-                  />
-                  Compensaré el tiempo
-                </label>
-              </div>
-            </section>
-
             <section className="bloque-datos bloque-violeta p-3">
               <h2 className="bloque-titulo mb-2">Motivo del permiso</h2>
               <div className="space-y-2.5">
@@ -574,6 +507,77 @@ export default function SolicitudPermiso() {
                   maxMB={Number(config?.max_mb_adjunto ?? 10)}
                   obligatorio={Boolean(soporteExigido?.previo?.obligatorio)}
                 />
+              </div>
+            </section>
+
+            <section className="bloque-datos bloque-teal p-3">
+              <h2 className="bloque-titulo mb-2">Tiempos del permiso</h2>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="desde">Desde</Label>
+                  <CampoFecha
+                    id="desde"
+                    min={fechaMinima}
+                    valor={form.fechaInicio}
+                    soloHabiles={!admiteNoHabiles}
+                    onCambio={(f) => {
+                      set('fechaInicio', f)
+                      if (f > form.fechaFin) set('fechaFin', f)
+                    }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="hasta">Hasta</Label>
+                  <CampoFecha
+                    id="hasta"
+                    min={form.fechaInicio}
+                    valor={form.fechaFin}
+                    soloHabiles={!admiteNoHabiles}
+                    onCambio={(f) => set('fechaFin', f)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="salida">Hora de salida</Label>
+                  <Input
+                    id="salida"
+                    type="time"
+                    value={form.horaSalida}
+                    onChange={(e) => set('horaSalida', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="regreso">Hora de regreso</Label>
+                  <Input
+                    id="regreso"
+                    type="time"
+                    value={form.horaRegreso}
+                    onChange={(e) => set('horaRegreso', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <LineaTiempoPeriodo
+                className="mt-3"
+                inicio={form.fechaInicio}
+                fin={form.fechaFin}
+                porCalendario={admiteNoHabiles}
+              />
+
+              <div className="mt-2.5 flex flex-wrap items-center gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={form.remunerado}
+                    onCheckedChange={(v) => set('remunerado', v === true)}
+                  />
+                  Permiso remunerado
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={form.requiereCompensacion}
+                    onCheckedChange={(v) => set('requiereCompensacion', v === true)}
+                  />
+                  Compensaré el tiempo
+                </label>
               </div>
             </section>
           </div>

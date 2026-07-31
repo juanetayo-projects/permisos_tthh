@@ -48,6 +48,8 @@ export interface Tipo {
   soporte_obligatorio_desde_dias: number | null
   ruta_aprobacion: 'coordinador_th' | 'gerente_th_directo'
   exento_antelacion: boolean
+  /** Se cuenta por días calendario: incapacidades y licencias. */
+  dias_calendario: boolean
   descripcion: string | null
   orden: number
 }
@@ -156,7 +158,7 @@ export function useTipos() {
       const { data, error } = await supabase
         .from('permisos_tipos')
         .select(
-          'id, categoria_id, nombre, remunerado_por_defecto, requiere_soporte_previo, requiere_soporte_posterior, soporte_obligatorio_desde_dias, ruta_aprobacion, exento_antelacion, descripcion, orden'
+          'id, categoria_id, nombre, remunerado_por_defecto, requiere_soporte_previo, requiere_soporte_posterior, soporte_obligatorio_desde_dias, ruta_aprobacion, exento_antelacion, dias_calendario, descripcion, orden'
         )
         .eq('activo', true)
         .order('orden')

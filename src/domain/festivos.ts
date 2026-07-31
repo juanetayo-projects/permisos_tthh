@@ -36,6 +36,24 @@ export function sumarDias(d: Date, dias: number): Date {
   return new Date(d.getTime() + dias * MS_POR_DIA)
 }
 
+/**
+ * Día del mes de una fecha ISO.
+ *
+ * Existe porque `desdeISO` construye la fecha **en UTC** —para que el huso no
+ * corra un día al comparar—, y sobre ese `Date` hay que leer con métodos UTC.
+ * Usar `getDate()` en Colombia, cinco horas por detrás de UTC, devuelve el día
+ * anterior: la línea de tiempo llegó a etiquetar el 4 de agosto como «lunes 3»
+ * y a marcar como festivo el día equivocado.
+ */
+export function diaDelMes(iso: FechaISO): number {
+  return desdeISO(iso).getUTCDate()
+}
+
+/** Día de la semana: 0 = domingo … 6 = sábado. Ver `diaDelMes`. */
+export function diaDeLaSemana(iso: FechaISO): number {
+  return desdeISO(iso).getUTCDay()
+}
+
 /** Domingo de Pascua por el algoritmo de Gauss (Computus gregoriano). */
 function domingoDePascua(anio: number): Date {
   const a = anio % 19
