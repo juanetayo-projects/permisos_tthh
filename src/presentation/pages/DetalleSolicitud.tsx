@@ -23,12 +23,13 @@ import {
   puedeEjecutar,
   type Estado,
 } from '@/domain/estados'
-import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
+import { formatearFecha } from '@/lib/utils'
 import { BadgeEstado } from '@/presentation/components/ui/badge'
 import { Button } from '@/presentation/components/ui/button'
 import { Card } from '@/presentation/components/ui/card'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { DialogoDecision, type TipoDecision } from '@/presentation/components/DialogoDecision'
+import { BloqueSoportes } from '@/presentation/components/BloqueSoportes'
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: React.ReactNode }) {
   const vacio = valor === null || valor === undefined || valor === ''
@@ -119,8 +120,22 @@ export default function DetalleSolicitud() {
   const puedeAprobarCoord = puedeEjecutar('aprobar_coordinador', ctx)
   const puedeAprobarTh = puedeEjecutar('aprobar_th', ctx)
   const puedeCancelar = puedeEjecutar('cancelar', ctx)
+  const puedeValidarSoporte = puedeEjecutar('validar_soporte', ctx)
 
   const tono = TONO_ESTADO[s.estado]
+
+  /** Cierra el trámite cuando Talento Humano da por bueno el soporte. */
+  async function validarSoporte() {
+    if (!session || !s) return
+
+    await decidir.mutateAsync({
+      ids: [s.id],
+      estado: 'FINALIZADA',
+      campos: { th_fecha: new Date().toISOString(), th_actor_id: session.user.id },
+    })
+
+    await notificar('finalizada', s.id)
+  }
 
   async function aplicar(motivo: string | null) {
     if (!dialogo || !session || !s) return
@@ -292,14 +307,8 @@ export default function DetalleSolicitud() {
                 </Parrafo>
               )}
 
-              {s.detalle_permiso.requiere_soporte_posterior && !s.detalle_permiso.soporte_posterior_entregado && (
-                <p className="mt-4 rounded-md border border-[var(--tinte-ambar-borde)] bg-[var(--tinte-ambar)] p-3 text-sm text-[var(--acento-ambar)]">
-                  Pendiente de soporte
-                  {s.detalle_permiso.fecha_limite_soporte &&
-                    ` · plazo hasta el ${formatearFechaLarga(s.detalle_permiso.fecha_limite_soporte)}`}
-                  .
-                </p>
-              )}
+              {/* El aviso de soporte pendiente vive en el bloque de Soportes,
+                  que además ofrece dónde entregarlo. */}
             </Bloque>
           )}
 
@@ -326,6 +335,15 @@ export default function DetalleSolicitud() {
 
               {s.observaciones && <Parrafo etiqueta="Observaciones">{s.observaciones}</Parrafo>}
             </Bloque>
+          )}
+
+          {!esVacaciones && (
+            <BloqueSoportes
+              solicitud={s}
+              puedeValidar={puedeValidarSoporte}
+              onValidar={() => void validarSoporte()}
+              validando={decidir.isPending}
+            />
           )}
 
           {/* La causa del rechazo y la observación de quien autoriza son cosas

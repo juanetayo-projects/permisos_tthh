@@ -2,6 +2,34 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.1.4] — 2026-07-31
+
+### Añadido
+
+- **Bloque de soportes en el detalle de la solicitud**: lista los adjuntos con
+  enlace firmado de 60 s para abrirlos, deja al solicitante entregar el soporte
+  posterior mientras la solicitud está en «Pendiente de soporte», y da a
+  Talento Humano el botón *Validar soporte y finalizar*. Hasta ahora el motor
+  de estados contemplaba ese paso pero no había ninguna pantalla desde donde
+  darlo: `PENDIENTE_SOPORTE → FINALIZADA` era inalcanzable y un permiso de más
+  de dos días por cita médica se quedaba atascado para siempre.
+
+### Cambiado
+
+- El rol `administrador` puede dar el visto bueno de Talento Humano, rechazar
+  en ese paso y validar soportes, y ve la bandeja de TH. Sin esto una solicitud
+  se quedaba clavada en `PENDIENTE_TH` cuando no había ningún analista o
+  gerente disponible.
+- `registrar_soporte` ya no se le ofrece a Talento Humano: la policy de Storage
+  ata la ruta al `solicitante_id`, así que esa subida siempre habría fallado
+  contra el servidor.
+
+### Corregido
+
+- En la bandeja de TH, dar el visto bueno a una solicitud que ya estaba en
+  «Pendiente de soporte» la devolvía a su propio estado y se quedaba dando
+  vueltas en la bandeja. Ahora la valida y la finaliza.
+
 ## [0.1.3] — 2026-07-31
 
 ### Corregido

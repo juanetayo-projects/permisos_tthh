@@ -100,7 +100,7 @@ function Rutas() {
           <Route
             path="/bandeja/th"
             element={
-              <RutaPorRol roles={['analista_th', 'gerente_th']}>
+              <RutaPorRol roles={['analista_th', 'gerente_th', 'administrador']}>
                 <Bandeja vista="th" />
               </RutaPorRol>
             }

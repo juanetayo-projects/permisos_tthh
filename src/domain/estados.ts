@@ -81,16 +81,20 @@ export const TRANSICIONES: Record<Accion, Transicion> = {
     exigeMotivo: true,
     etiqueta: 'Rechazar',
   },
+  // El administrador acompaña a Talento Humano en sus tres acciones. No es un
+  // permiso de conveniencia: sin él, una solicitud se quedaba bloqueada en
+  // PENDIENTE_TH cuando no había ningún analista o gerente disponible, y quien
+  // administra ya puede repartir los roles de todos modos.
   aprobar_th: {
     desde: ['PENDIENTE_TH', 'PENDIENTE_GERENCIA_TH'],
     hacia: 'APROBADA_TH',
-    roles: ['analista_th', 'gerente_th'],
+    roles: ['analista_th', 'gerente_th', 'administrador'],
     etiqueta: 'Dar visto bueno',
   },
   rechazar_th: {
     desde: ['PENDIENTE_TH', 'PENDIENTE_GERENCIA_TH'],
     hacia: 'RECHAZADA_TH',
-    roles: ['analista_th', 'gerente_th'],
+    roles: ['analista_th', 'gerente_th', 'administrador'],
     exigeMotivo: true,
     etiqueta: 'Rechazar',
   },
@@ -103,7 +107,7 @@ export const TRANSICIONES: Record<Accion, Transicion> = {
   validar_soporte: {
     desde: ['PENDIENTE_SOPORTE'],
     hacia: 'FINALIZADA',
-    roles: ['analista_th', 'gerente_th'],
+    roles: ['analista_th', 'gerente_th', 'administrador'],
     etiqueta: 'Validar soporte',
   },
   archivar: {
@@ -154,7 +158,9 @@ export function puedeEjecutar(accion: Accion, ctx: ContextoAccion): boolean {
     case 'cancelar':
       return ctx.esSolicitante
     case 'registrar_soporte':
-      return ctx.esSolicitante || ctx.rol === 'analista_th' || ctx.rol === 'gerente_th'
+      // Quien sube el archivo es siempre el solicitante: así lo exige la
+      // policy de Storage, que ata la ruta a `solicitante_id`.
+      return ctx.esSolicitante
     case 'aprobar_coordinador':
     case 'rechazar_coordinador':
       return ctx.coordinaElArea || ctx.rol === 'administrador'

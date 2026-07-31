@@ -35,7 +35,7 @@ const ENLACES: Enlace[] = [
   { a: '/solicitar/vacaciones', etiqueta: 'Solicitar vacaciones', icono: CalendarDays, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
   { a: '/mis-solicitudes', etiqueta: 'Mis solicitudes', icono: ClipboardList, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
   { a: '/bandeja/coordinador', etiqueta: 'Bandeja del área', icono: Inbox, roles: ['coordinador', 'administrador'] },
-  { a: '/bandeja/th', etiqueta: 'Bandeja de Talento Humano', icono: Inbox, roles: ['analista_th', 'gerente_th'] },
+  { a: '/bandeja/th', etiqueta: 'Bandeja de Talento Humano', icono: Inbox, roles: ['analista_th', 'gerente_th', 'administrador'] },
   { a: '/bandeja/gerencia', etiqueta: 'Cesantías', icono: ShieldCheck, roles: ['gerente_th'] },
   // Las bandejas vacían lo ya decidido; esta es la única vista donde vuelve a
   // encontrarse una solicitud después de autorizarla.

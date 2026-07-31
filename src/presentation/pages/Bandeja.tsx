@@ -45,7 +45,13 @@ const CONFIG: Record<Vista, Config> = {
     estados: ESTADOS_BANDEJA.th,
     etiquetaAprobar: 'Dar visto bueno',
     // Una cita médica de más de 2 días queda esperando el soporte posterior.
-    estadoAprobado: (s) => estadoTrasVistoBueno(Boolean(s.detalle_permiso?.requiere_soporte_posterior)),
+    // Y si ya estaba esperándolo, el visto bueno es la validación de ese
+    // soporte: sin este caso la solicitud volvía a su propio estado y se
+    // quedaba dando vueltas en la bandeja.
+    estadoAprobado: (s) =>
+      s.estado === 'PENDIENTE_SOPORTE'
+        ? 'FINALIZADA'
+        : estadoTrasVistoBueno(Boolean(s.detalle_permiso?.requiere_soporte_posterior)),
     estadoRechazado: 'RECHAZADA_TH',
     campoFecha: 'th_fecha',
     campoActor: 'th_actor_id',

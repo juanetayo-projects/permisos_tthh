@@ -1,0 +1,91 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '@/infrastructure/supabase/client'
+import { subirSoporte, urlFirmadaSoporte } from './api'
+
+export interface Adjunto {
+  id: string
+  momento: 'previo' | 'posterior'
+  nombre_archivo: string
+  ruta_storage: string
+  mime: string | null
+  tamano_bytes: number | null
+  created_at: string
+}
+
+export function useAdjuntos(solicitudId: string | undefined) {
+  return useQuery({
+    queryKey: ['adjuntos', solicitudId],
+    enabled: Boolean(solicitudId),
+    queryFn: async (): Promise<Adjunto[]> => {
+      const { data, error } = await supabase
+        .from('permisos_adjuntos')
+        .select('id, momento, nombre_archivo, ruta_storage, mime, tamano_bytes, created_at')
+        .eq('solicitud_id', solicitudId!)
+        .order('created_at')
+      if (error) throw error
+      return (data ?? []) as Adjunto[]
+    },
+  })
+}
+
+/**
+ * Abre un soporte en una pestaña nueva.
+ *
+ * El bucket es privado porque son datos de salud (Ley 1581), así que se pide
+ * una URL firmada de 60 s en el momento de abrirlo. La pestaña se abre *antes*
+ * de esperar la firma para que Safari y Firefox no la traten como emergente
+ * bloqueada: el clic y la apertura tienen que ocurrir en el mismo gesto.
+ */
+export async function abrirSoporte(ruta: string): Promise<void> {
+  const pestana = window.open('', '_blank', 'noopener,noreferrer')
+
+  try {
+    const url = await urlFirmadaSoporte(ruta)
+    if (pestana) pestana.location.href = url
+    else window.location.href = url
+  } catch (e) {
+    pestana?.close()
+    throw e
+  }
+}
+
+/**
+ * Entrega del soporte posterior.
+ *
+ * Además de subir el archivo marca `soporte_posterior_entregado`, que es lo
+ * que Talento Humano ve para saber que ya puede validar y cerrar el trámite.
+ * La solicitud sigue en `PENDIENTE_SOPORTE`: el cierre lo decide TH, no el
+ * hecho de haber subido un archivo.
+ */
+export function useEntregarSoporte() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      solicitudId: string
+      archivo: File
+      usuarioId: string
+      maxMB?: number
+    }) => {
+      await subirSoporte({
+        solicitudId: params.solicitudId,
+        archivo: params.archivo,
+        momento: 'posterior',
+        usuarioId: params.usuarioId,
+        maxMB: params.maxMB,
+      })
+
+      const { error } = await supabase
+        .from('permisos_detalle_permiso')
+        .update({ soporte_posterior_entregado: true })
+        .eq('solicitud_id', params.solicitudId)
+
+      if (error) throw error
+    },
+    onSuccess: (_d, params) => {
+      void qc.invalidateQueries({ queryKey: ['adjuntos', params.solicitudId] })
+      void qc.invalidateQueries({ queryKey: ['solicitud'] })
+      void qc.invalidateQueries({ queryKey: ['solicitudes'] })
+    },
+  })
+}
