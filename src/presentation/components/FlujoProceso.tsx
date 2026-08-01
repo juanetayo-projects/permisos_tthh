@@ -91,15 +91,17 @@ export function FlujoProceso({ rol }: { rol?: Rol }) {
           : null
 
   return (
-    <section className="panel-relieve overflow-hidden">
-      <header className="border-b border-border px-5 py-3">
+    <section className="panel-relieve panel-destacado shrink-0 overflow-hidden">
+      {/* Título y bajada en la misma línea: la carrilera ya ocupa lo suyo y el
+          inicio tiene que caber sin scroll. */}
+      <header className="flex flex-wrap items-baseline gap-x-3 border-b border-border px-5 py-2.5">
         <h2 className="font-semibold">Así avanza una solicitud</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Cinco pasos y tres manos. En cada uno verás de quién depende que siga.
         </p>
       </header>
 
-      <ol className="grid gap-x-2 gap-y-5 p-5 md:grid-cols-5">
+      <ol className="grid gap-x-2 gap-y-4 px-5 py-3 md:grid-cols-5">
         {PASOS.map((paso, i) => {
           const a = ACTORES[paso.actor]
           const Icono = paso.icono
@@ -116,7 +118,7 @@ export function FlujoProceso({ rol }: { rol?: Rol }) {
                 />
                 <span
                   className={cn(
-                    'flex size-11 shrink-0 items-center justify-center rounded-full text-white shadow-sm',
+                    'flex size-10 shrink-0 items-center justify-center rounded-full text-white shadow-sm',
                     a.fondo,
                     esMio && 'ring-2 ring-offset-2 ring-offset-card',
                     esMio && paso.actor === 'colaborador' && 'ring-[var(--cac-azul-600)]',
@@ -134,7 +136,7 @@ export function FlujoProceso({ rol }: { rol?: Rol }) {
                 />
               </div>
 
-              <div className="mt-3 text-center">
+              <div className="mt-2 text-center">
                 <span
                   className={cn(
                     'inline-block rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
@@ -144,11 +146,11 @@ export function FlujoProceso({ rol }: { rol?: Rol }) {
                 >
                   {esMio ? `${a.etiqueta} · te toca` : a.etiqueta}
                 </span>
-                <h3 className="mt-1.5 text-sm font-semibold">
+                <h3 className="mt-1 text-sm font-semibold">
                   <span className="tabular text-muted-foreground">{i + 1}. </span>
                   {paso.titulo}
                 </h3>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{paso.guia}</p>
+                <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{paso.guia}</p>
                 {paso.condicional && (
                   <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-[var(--acento-ambar)]">
                     No siempre aplica
@@ -162,15 +164,15 @@ export function FlujoProceso({ rol }: { rol?: Rol }) {
 
       {/* Los desvíos, aparte: no son pasos del camino, son lo que pasa cuando
           algo no sale. Mezclarlos en la vía haría el flujo ilegible. */}
-      <footer className="flex flex-wrap gap-x-6 gap-y-2 border-t border-border bg-muted/40 px-5 py-3 text-xs">
-        <span className="flex items-start gap-2">
+      <footer className="flex flex-wrap gap-x-6 gap-y-2 border-t border-border bg-muted/40 px-5 py-2 text-xs">
+        <span className="flex min-w-0 flex-1 basis-72 items-start gap-2">
           <XCircle className="mt-0.5 size-4 shrink-0 text-[var(--error)]" />
           <span className="text-muted-foreground">
             <strong className="text-foreground">Si la rechazan</strong>, recibes el motivo por
             correo y el trámite termina ahí.
           </span>
         </span>
-        <span className="flex items-start gap-2">
+        <span className="flex min-w-0 flex-1 basis-72 items-start gap-2">
           <Undo2 className="mt-0.5 size-4 shrink-0 text-[var(--acento-ambar)]" />
           <span className="text-muted-foreground">
             <strong className="text-foreground">Si el soporte no sirve</strong>, TH te lo devuelve

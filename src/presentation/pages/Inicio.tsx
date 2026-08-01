@@ -43,33 +43,42 @@ export default function Inicio() {
   const primerNombre = perfil?.nombre.split(' ')[0] ?? ''
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 lg:h-full lg:overflow-y-auto lg:pr-1">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
+    // El inicio cabe entero en pantalla: es la portada del trámite y obligar a
+    // bajar para ver el flujo o las advertencias hacía que nadie las leyera.
+    // Por eso la columna ocupa el alto disponible y son los bloques los que se
+    // ajustan, no la ventana la que crece.
+    <div className="mx-auto flex max-w-6xl flex-col gap-3 lg:h-full lg:gap-2.5 lg:overflow-hidden">
+      <header className="shrink-0">
+        <h1 className="text-xl font-semibold tracking-tight">
           {saludo()}
           {primerNombre && `, ${primerNombre}`}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-0.5 text-sm text-muted-foreground">
           Gestiona tus permisos y vacaciones sin papel.
         </p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {ACCESOS.map(({ a, titulo, descripcion, icono: Icono, codigo }) => {
           const tramite = codigo ? tramites?.find((t) => t.codigo === codigo) : undefined
           return (
             <Link key={a} to={a} className="group">
-              <Card relieve className="h-full p-5 transition-transform group-hover:-translate-y-0.5">
-                <div className="flex items-start justify-between gap-3">
-                  <span className="flex size-11 items-center justify-center rounded-xl bg-[var(--info-suave)] text-[var(--cac-azul)] dark:text-[var(--cac-azul-300)]">
+              <Card
+                relieve
+                className="tarjeta-acceso h-full p-4 transition-transform group-hover:-translate-y-0.5"
+              >
+                {/* Icono y título en la misma línea: apilarlos gastaba una
+                    franja de alto que el inicio no tiene para dar. */}
+                <div className="flex items-center gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--info-suave)] text-[var(--cac-azul)] dark:text-[var(--cac-azul-300)]">
                     <Icono className="size-5" />
                   </span>
-                  <ArrowRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                  <h2 className="min-w-0 flex-1 font-semibold leading-tight">{titulo}</h2>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
                 </div>
-                <h2 className="mt-4 font-semibold">{titulo}</h2>
-                <p className="mt-1 text-sm text-muted-foreground">{descripcion}</p>
+                <p className="mt-2 text-sm leading-snug text-muted-foreground">{descripcion}</p>
                 {tramite && (
-                  <p className="mt-3 text-xs text-muted-foreground">
+                  <p className="mt-1.5 text-xs text-muted-foreground">
                     Formato {tramite.codigo_formato} · versión {tramite.version_formato}
                   </p>
                 )}
@@ -81,12 +90,19 @@ export default function Inicio() {
 
       <FlujoProceso rol={perfil?.rol} />
 
-      <Card className="border-[var(--cac-azul-200)] bg-[var(--info-suave)] p-5 dark:border-[var(--cac-azul-800)]">
-        <div className="flex gap-3">
+      {/* Las notas al pie llegan del catálogo, así que este es el único bloque
+          de alto imprevisible: se le deja encoger y, si algún día crecen mucho,
+          es la lista la que se desplaza —no la pantalla entera—. */}
+      <Card className="panel-destacado shrink bg-[var(--info-suave)] p-4 lg:min-h-0">
+        <div className="flex h-full min-h-0 gap-3">
           <Info className="mt-0.5 size-5 shrink-0 text-[var(--cac-azul)] dark:text-[var(--cac-azul-300)]" />
-          <div className="space-y-2 text-sm">
+          <div className="flex min-h-0 flex-col gap-1.5 text-sm">
             <p className="font-medium text-foreground">Antes de solicitar, ten en cuenta</p>
-            <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+            {/* Rejilla y no `columns-2`: el multicolumna desborda de lado, así
+                que al encoger la tarjeta las últimas notas se iban fuera de la
+                pantalla sin dejar rastro. Con rejilla el sobrante baja y la
+                lista sí se puede desplazar. */}
+            <ul className="grid min-h-0 list-disc gap-x-6 gap-y-1 overflow-y-auto pl-5 text-xs leading-relaxed text-muted-foreground sm:grid-cols-2">
               {tramites?.map((t) => (
                 <li key={t.id}>{t.nota_pie}</li>
               ))}

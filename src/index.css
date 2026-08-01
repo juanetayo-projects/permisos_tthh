@@ -265,6 +265,39 @@
     box-shadow: var(--relieve-hover);
   }
 
+  /*
+   * Accesos rápidos del inicio.
+   *
+   * Con el borde neutro del sistema, sobre el fondo oscuro las tarjetas se
+   * fundían con el panel y no se leían como algo en lo que se puede hacer
+   * clic. Llevan borde institucional, más grueso, que se intensifica al pasar
+   * por encima. Va después de `.panel-relieve` para ganarle el borde.
+   */
+  .tarjeta-acceso {
+    border: 2px solid var(--cac-azul-300);
+  }
+
+  .tarjeta-acceso:hover {
+    border-color: var(--cac-azul-600);
+  }
+
+  .dark .tarjeta-acceso {
+    border-color: var(--cac-azul-400);
+  }
+
+  .dark .tarjeta-acceso:hover {
+    border-color: var(--cac-azul-200);
+  }
+
+  /* Paneles del inicio: mismo criterio, sin llegar al énfasis de un acceso. */
+  .panel-destacado {
+    border: 1px solid var(--cac-azul-200);
+  }
+
+  .dark .panel-destacado {
+    border-color: var(--cac-azul-600);
+  }
+
   .panel-hundido {
     background-color: var(--background);
     border-radius: var(--radius);
