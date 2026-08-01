@@ -3,6 +3,7 @@ import { ArrowRight, CalendarDays, ClipboardList, FileText, Info } from 'lucide-
 import { useAuth } from '@/application/auth/AuthProvider'
 import { useTramites } from '@/application/catalogos/useCatalogos'
 import { Card } from '@/presentation/components/ui/card'
+import { FlujoProceso } from '@/presentation/components/FlujoProceso'
 
 function saludo(): string {
   const hora = new Date().getHours()
@@ -77,6 +78,8 @@ export default function Inicio() {
           )
         })}
       </div>
+
+      <FlujoProceso rol={perfil?.rol} />
 
       <Card className="border-[var(--cac-azul-200)] bg-[var(--info-suave)] p-5 dark:border-[var(--cac-azul-800)]">
         <div className="flex gap-3">

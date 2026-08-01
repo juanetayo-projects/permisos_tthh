@@ -2,6 +2,20 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.2.2] — 2026-08-01
+
+### Añadido
+
+- **Carrilera del proceso en Inicio.** Cinco estaciones sobre una vía continua
+  —solicitas, autoriza tu jefe, visto bueno de TH, entregas el soporte,
+  cerrada—, cada una con su icono, quién actúa y qué ocurre ahí en una frase.
+  Quien entra por primera vez no sabía cuántas manos toca su solicitud ni por
+  qué queda «pendiente» de alguien, y terminaba preguntando por teléfono.
+- Los pasos del rol de quien mira se destacan con «te toca»: al colaborador le
+  interesa saber qué le corresponde, no memorizar el flujo entero.
+- Los desvíos —rechazo y devolución del soporte— van aparte, al pie: no son
+  pasos del camino y mezclarlos en la vía la haría ilegible.
+
 ## [0.2.1] — 2026-08-01
 
 ### Corregido
