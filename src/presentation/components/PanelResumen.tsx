@@ -57,7 +57,7 @@ export function PanelResumen({
         <h2 className="text-xs font-semibold uppercase tracking-wider text-white">{titulo}</h2>
       </header>
 
-      <dl className="divide-y divide-[var(--tinte-azul-borde)]">
+      <dl className="shrink-0 divide-y divide-[var(--tinte-azul-borde)]">
         {filas.map((f, i) => (
           <div
             key={f.etiqueta}
@@ -84,8 +84,10 @@ export function PanelResumen({
         ))}
       </dl>
 
+      {/* Los avisos se llevan el espacio sobrante y se desplazan por dentro:
+          con seis advertencias, el pie del formato quedaba fuera del panel. */}
       {avisos.length > 0 && (
-        <div className="space-y-1.5 border-t border-[var(--tinte-azul-borde)] p-3">
+        <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto border-t border-[var(--tinte-azul-borde)] p-3">
           {avisos.map((a, i) => {
             const Icono = ICONO[a.tono]
             return (
@@ -105,7 +107,7 @@ export function PanelResumen({
       )}
 
       {pie && (
-        <p className="mt-auto border-t border-[var(--tinte-azul-borde)] bg-[var(--tinte-azul)] px-4 py-2 text-[11px] leading-snug text-muted-foreground">
+        <p className="mt-auto shrink-0 border-t border-[var(--tinte-azul-borde)] bg-[var(--tinte-azul)] px-4 py-2 text-[11px] leading-snug text-muted-foreground">
           {pie}
         </p>
       )}

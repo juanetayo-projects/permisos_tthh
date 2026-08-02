@@ -1,5 +1,6 @@
 import type { Estado } from './estados'
 import { contarDiasHabiles, type FechaISO } from './festivos'
+import { etiquetaTramite, type CodigoTramite } from './tramites'
 
 /**
  * Agregaciones del dashboard.
@@ -22,7 +23,7 @@ export interface SolicitudMetrica {
   created_at: string
   area: { id: number; nombre: string } | null
   empresa: { id: number; nombre: string } | null
-  tramite: { codigo: 'permiso' | 'vacaciones' } | null
+  tramite: { codigo: CodigoTramite } | null
   detalle_permiso: {
     horas_permiso: number | null
     dias_permiso: number | null
@@ -125,6 +126,7 @@ export interface PuntoTendencia {
   indice: number
   permisos: number
   vacaciones: number
+  cesantias: number
   total: number
 }
 
@@ -135,6 +137,7 @@ export function tendenciaMensual(lista: SolicitudMetrica[], anio: number): Punto
     indice: i,
     permisos: 0,
     vacaciones: 0,
+    cesantias: 0,
     total: 0,
   }))
 
@@ -142,8 +145,11 @@ export function tendenciaMensual(lista: SolicitudMetrica[], anio: number): Punto
     const f = new Date(`${s.fecha_inicio}T00:00:00`)
     if (f.getFullYear() !== anio) continue
     const p = base[f.getMonth()]
+
     if (s.tramite?.codigo === 'vacaciones') p.vacaciones += 1
+    else if (s.tramite?.codigo === 'cesantias') p.cesantias += 1
     else p.permisos += 1
+
     p.total += 1
   }
 
@@ -160,10 +166,12 @@ export function porCategoria(lista: SolicitudMetrica[]): Segmento[] {
   const mapa = new Map<string, number>()
 
   for (const s of lista) {
+    // Vacaciones y cesantías no tienen casilla en el TH-F-002: se agrupan por
+    // el nombre de su trámite, que es lo que significan en este gráfico.
     const nombre =
-      s.tramite?.codigo === 'vacaciones'
-        ? 'Vacaciones'
-        : (s.detalle_permiso?.categoria?.nombre ?? 'Sin categoría')
+      s.tramite?.codigo === 'permiso'
+        ? (s.detalle_permiso?.categoria?.nombre ?? 'Sin categoría')
+        : etiquetaTramite(s.tramite?.codigo)
     mapa.set(nombre, (mapa.get(nombre) ?? 0) + 1)
   }
 

@@ -10,7 +10,7 @@ Ver el diagrama en [ERD.md](ERD.md) y las policies en [SECURITY.md](SECURITY.md)
 | Tabla | Contenido |
 |---|---|
 | `permisos_empresas` | CAC Santa Bárbara, GE2, Geriater |
-| `permisos_tramites` | Los dos formatos, con código, versión y antelación mínima |
+| `permisos_tramites` | Permiso, vacaciones y cesantías, con código, versión y antelación mínima |
 | `permisos_categorias` | Las cinco casillas del TH-F-002 |
 | `permisos_tipos` | Motivos, con sus reglas legales, de soporte y de aprobación |
 | `permisos_documentos` | Catálogo de documentos soporte, con la norma que los exige |
@@ -59,7 +59,7 @@ motivo que diga «no pide soporte» con tres documentos obligatorios configurado
 
 | Campo | Notas |
 |---|---|
-| `consecutivo` | `PL-2026-00001` / `VA-2026-00001`, lo asigna un trigger al enviar |
+| `consecutivo` | `PL-2026-00001` / `VA-2026-00001` / `CE-2026-00001`, lo asigna un trigger al enviar |
 | `codigo_verificacion` | 18 hex aleatorios para el QR del PDF |
 | `estado` | Ver la máquina de estados en [ERD.md](ERD.md) |
 | `extemporanea` | Se envió sin la antelación del formato |
@@ -149,6 +149,7 @@ llevan el motivo en la cabecera:
 | 017 | La bandeja sigue al jefe elegido, no solo al área |
 | 018 | El admin de Permisos puede gestionar los catálogos compartidos |
 | 20260801000200–600 | Revisión frente al Código Sustantivo del Trabajo: reglas por motivo, documentos soporte, motivos faltantes, interrupción de periodos y vista de ausentismo |
+| 20260802000100 | El retiro parcial de cesantías deja de ser un motivo del formulario de permisos y pasa a ser trámite propio |
 
 ## Storage
 

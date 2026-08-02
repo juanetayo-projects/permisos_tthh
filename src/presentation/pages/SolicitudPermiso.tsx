@@ -111,8 +111,18 @@ export default function SolicitudPermiso() {
     setForm((f) => ({ ...f, [campo]: valor }))
   }
 
+  /**
+   * Motivos de la categoría elegida.
+   *
+   * Los trámites quedan fuera: el retiro parcial de cesantías tiene formulario
+   * propio porque no tiene periodo, ni horario, ni antelación que cumplir.
+   * Ofrecerlo aquí obligaba a responder preguntas que no significan nada.
+   */
   const tiposDeCategoria = useMemo(
-    () => tipos?.filter((t) => String(t.categoria_id) === form.categoriaId) ?? [],
+    () =>
+      tipos?.filter(
+        (t) => String(t.categoria_id) === form.categoriaId && t.naturaleza !== 'tramite'
+      ) ?? [],
     [tipos, form.categoriaId]
   )
   const tipo = tipos?.find((t) => String(t.id) === form.tipoId)
@@ -476,8 +486,11 @@ export default function SolicitudPermiso() {
   const nombreEmpresa = empresas?.find((e) => String(e.id) === empresaId)?.nombre
 
   return (
+    // Altura fija y scroll por dentro. Sin esto, el formulario se salía de la
+    // ventana —que en escritorio no scrollea— y quedaban fuera de alcance la
+    // justificación, la compensación y los propios botones de enviar.
     <form
-      className="mx-auto flex max-w-7xl flex-col gap-3"
+      className="mx-auto flex max-w-7xl flex-col gap-3 lg:h-full lg:overflow-hidden"
       onSubmit={(e) => {
         e.preventDefault()
         // Se confirma el jefe antes de grabar: el aviso sale por correo y
@@ -485,7 +498,7 @@ export default function SolicitudPermiso() {
         setConfirmando(true)
       }}
     >
-      <header className="flex flex-wrap items-baseline justify-between gap-x-3">
+      <header className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-3">
         <h1 className="text-lg font-semibold tracking-tight">Solicitud de permiso</h1>
         <p className="text-xs text-muted-foreground">
           Formato {tramite?.codigo_formato} · versión {tramite?.version_formato} · solicitado el{' '}
@@ -493,8 +506,8 @@ export default function SolicitudPermiso() {
         </p>
       </header>
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_19rem]">
-        <div className="space-y-3">
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1fr_19rem] lg:overflow-hidden">
+        <div className="min-h-0 space-y-3 lg:overflow-y-auto lg:pr-1">
           {/* ------------------------------------------------ Información general */}
           <section className="bloque-datos bloque-azul p-3">
             <h2 className="bloque-titulo mb-2">Información general</h2>
@@ -837,14 +850,14 @@ export default function SolicitudPermiso() {
       {error && (
         <p
           role="alert"
-          className="flex items-start gap-2 rounded-md bg-[var(--error-suave)] p-3 text-sm text-[var(--error)]"
+          className="flex shrink-0 items-start gap-2 rounded-md bg-[var(--error-suave)] p-3 text-sm text-[var(--error)]"
         >
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
           {error}
         </p>
       )}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" cargando={enviando} onClick={() => void guardar(false)}>
           <Save /> Guardar borrador
         </Button>

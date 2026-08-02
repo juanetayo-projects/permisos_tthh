@@ -9,6 +9,7 @@ import {
   GitBranch,
   MessageSquareQuote,
   Palmtree,
+  PiggyBank,
   Scale,
   Stethoscope,
   UserCheck,
@@ -33,6 +34,7 @@ import {
   type Estado,
 } from '@/domain/estados'
 import { formatearFecha } from '@/lib/utils'
+import { esAusencia } from '@/domain/tramites'
 import { BadgeEstado } from '@/presentation/components/ui/badge'
 import { Button } from '@/presentation/components/ui/button'
 import { Card } from '@/presentation/components/ui/card'
@@ -123,6 +125,8 @@ export default function DetalleSolicitud() {
   }
 
   const esVacaciones = s.tramite?.codigo === 'vacaciones'
+  /** Un trámite no tiene periodo: sus fechas son el día en que se radicó. */
+  const esTramite = !esAusencia(s.tramite?.codigo)
   const esSolicitante = s.solicitante?.user_id === perfil?.user_id
   const coordinaElArea = perfil?.rol === 'coordinador' && perfil.area_id === s.area?.id
 
@@ -152,7 +156,8 @@ export default function DetalleSolicitud() {
       perfil?.rol === 'administrador' ||
       coordinaElArea) &&
     ['APROBADA_TH', 'PENDIENTE_SOPORTE', 'FINALIZADA'].includes(s.estado) &&
-    s.fecha_fin > s.fecha_inicio
+    s.fecha_fin > s.fecha_inicio &&
+    !esTramite
 
   const tono = TONO_ESTADO[s.estado]
   const esDevolucion = dialogo?.destino === 'PENDIENTE_SOPORTE'
@@ -250,7 +255,14 @@ export default function DetalleSolicitud() {
               <span className="text-muted-foreground">
                 {yaAutorizoElJefe ? 'Autorizada por:' : 'Autoriza:'}
               </span>
-              <strong>{s.coordinador?.nombre ?? 'sin jefe directo asignado'}</strong>
+              {/* Las cesantías van directo a la Gerencia y no llevan jefe
+                  directo: decir «sin jefe asignado» parecería un dato faltante. */}
+              <strong>
+                {s.coordinador?.nombre ??
+                  (s.detalle_permiso?.tipo?.ruta_aprobacion === 'gerente_th_directo'
+                    ? 'Gerencia de Talento Humano'
+                    : 'sin jefe directo asignado')}
+              </strong>
               {s.coordinador?.cargo && (
                 <span className="text-muted-foreground">· {s.coordinador.cargo}</span>
               )}
@@ -348,53 +360,70 @@ export default function DetalleSolicitud() {
               <Dato etiqueta="Empresa" valor={s.empresa?.nombre} />
               <Dato etiqueta="Área o servicio" valor={s.area?.nombre} />
               <Dato etiqueta="Fecha de solicitud" valor={formatearFecha(s.fecha_solicitud)} />
-              <Dato
-                etiqueta="Periodo"
-                valor={
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarRange className="size-3.5 text-muted-foreground" />
-                    {formatearFecha(s.fecha_inicio)}
-                    {s.fecha_fin !== s.fecha_inicio && ` → ${formatearFecha(s.fecha_fin)}`}
-                  </span>
-                }
-              />
+              {/* Un trámite no tiene periodo: mostrar «Periodo: hoy → hoy»
+                  sugeriría una ausencia de un día que nunca existió. */}
+              {!esTramite && (
+                <Dato
+                  etiqueta="Periodo"
+                  valor={
+                    <span className="inline-flex items-center gap-1.5">
+                      <CalendarRange className="size-3.5 text-muted-foreground" />
+                      {formatearFecha(s.fecha_inicio)}
+                      {s.fecha_fin !== s.fecha_inicio && ` → ${formatearFecha(s.fecha_fin)}`}
+                    </span>
+                  }
+                />
+              )}
             </dl>
           </Bloque>
 
           {!esVacaciones && s.detalle_permiso && (
-            <Bloque titulo="Motivo del permiso" icono={Stethoscope} tinte="violeta">
+            <Bloque
+              titulo={esTramite ? 'Detalle del trámite' : 'Motivo del permiso'}
+              icono={esTramite ? PiggyBank : Stethoscope}
+              tinte="violeta"
+            >
               <dl className="grid gap-3 sm:grid-cols-3">
                 <Dato etiqueta="Categoría" valor={s.detalle_permiso.categoria?.nombre} />
                 <Dato etiqueta="Motivo" valor={s.detalle_permiso.tipo?.nombre} />
-                <Dato
-                  etiqueta="Remunerado"
-                  valor={
-                    <span
-                      className={cn(
-                        'rounded-full px-2 py-0.5 text-xs font-semibold',
-                        s.detalle_permiso.remunerado
-                          ? 'bg-[var(--exito-suave)] text-[var(--exito)]'
-                          : 'bg-muted text-muted-foreground'
-                      )}
-                    >
-                      {s.detalle_permiso.remunerado ? 'Sí' : 'No'}
-                    </span>
-                  }
-                />
-                <Dato etiqueta="Hora de salida" valor={s.detalle_permiso.hora_salida?.slice(0, 5)} />
-                <Dato etiqueta="Hora de regreso" valor={s.detalle_permiso.hora_regreso?.slice(0, 5)} />
-                <Dato
-                  etiqueta="Duración"
-                  valor={
-                    <span className="tabular">
-                      {s.detalle_permiso.horas_permiso ?? 0} h · {s.detalle_permiso.dias_permiso ?? 0} días
-                    </span>
-                  }
-                />
+                {/* Horas, duración y remuneración no significan nada en un
+                    trámite: no hay tiempo dejado de trabajar que pagar. */}
+                {!esTramite && (
+                  <>
+                    <Dato
+                      etiqueta="Remunerado"
+                      valor={
+                        <span
+                          className={cn(
+                            'rounded-full px-2 py-0.5 text-xs font-semibold',
+                            s.detalle_permiso.remunerado
+                              ? 'bg-[var(--exito-suave)] text-[var(--exito)]'
+                              : 'bg-muted text-muted-foreground'
+                          )}
+                        >
+                          {s.detalle_permiso.remunerado ? 'Sí' : 'No'}
+                        </span>
+                      }
+                    />
+                    <Dato etiqueta="Hora de salida" valor={s.detalle_permiso.hora_salida?.slice(0, 5)} />
+                    <Dato etiqueta="Hora de regreso" valor={s.detalle_permiso.hora_regreso?.slice(0, 5)} />
+                    <Dato
+                      etiqueta="Duración"
+                      valor={
+                        <span className="tabular">
+                          {s.detalle_permiso.horas_permiso ?? 0} h ·{' '}
+                          {s.detalle_permiso.dias_permiso ?? 0} días
+                        </span>
+                      }
+                    />
+                  </>
+                )}
               </dl>
 
               {s.detalle_permiso.justificacion && (
-                <Parrafo etiqueta="Justificación">{s.detalle_permiso.justificacion}</Parrafo>
+                <Parrafo etiqueta={esTramite ? 'Destinación' : 'Justificación'}>
+                  {s.detalle_permiso.justificacion}
+                </Parrafo>
               )}
 
               {s.detalle_permiso.requiere_compensacion && (

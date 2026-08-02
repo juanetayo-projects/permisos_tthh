@@ -1,5 +1,6 @@
 import { FilterX, Search } from 'lucide-react'
 import { MESES_CORTOS, ETIQUETA_NATURALEZA } from '@/domain/ausentismo'
+import { etiquetaTramite, type CodigoTramite } from '@/domain/tramites'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { Label } from '@/presentation/components/ui/label'
@@ -20,7 +21,7 @@ export interface FiltroAusentismo {
   empresaId: number | null
   tipoId: number | null
   naturaleza: string | null
-  tramite: 'permiso' | 'vacaciones' | null
+  tramite: CodigoTramite | null
   /** Busca por nombre o documento del colaborador. */
   texto: string
   /** Fechas exactas: mandan sobre año y mes cuando se diligencian. */
@@ -62,7 +63,7 @@ export function describirFiltroAusentismo(
   if (v.empresaId) texto.push(`Empresa: ${nombre(catalogos.empresas, v.empresaId)}`)
   if (v.tipoId) texto.push(`Motivo: ${nombre(catalogos.tipos, v.tipoId)}`)
   if (v.naturaleza) texto.push(`Naturaleza: ${ETIQUETA_NATURALEZA[v.naturaleza] ?? v.naturaleza}`)
-  if (v.tramite) texto.push(`Trámite: ${v.tramite === 'vacaciones' ? 'Vacaciones' : 'Permisos'}`)
+  if (v.tramite) texto.push(`Trámite: ${etiquetaTramite(v.tramite)}`)
   if (v.texto.trim()) texto.push(`Colaborador: «${v.texto.trim()}»`)
 
   return texto
@@ -277,10 +278,12 @@ export function FiltrosAusentismo({
           <Label htmlFor="a-tramite" className="text-xs">Trámite</Label>
           <Select
             value={valores.tramite ?? TODOS}
-            onValueChange={(v) => set('tramite', v === TODOS ? null : (v as 'permiso' | 'vacaciones'))}
+            onValueChange={(v) => set('tramite', v === TODOS ? null : (v as CodigoTramite))}
           >
             <SelectTrigger id="a-tramite" className="h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
+              {/* Las cesantías no aparecen: son un trámite, no una ausencia, y
+                  la vista de ausentismo ya las deja fuera. */}
               <SelectItem value={TODOS}>Ambos</SelectItem>
               <SelectItem value="permiso">Permisos</SelectItem>
               <SelectItem value="vacaciones">Vacaciones</SelectItem>

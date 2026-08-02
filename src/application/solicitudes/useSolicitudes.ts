@@ -3,6 +3,7 @@ import { supabase } from '@/infrastructure/supabase/client'
 import { columnasDelTexto } from './api'
 import type { Estado } from '@/domain/estados'
 import { ESTADOS_VIGENTES, type PeriodoOcupado } from '@/domain/concurrencia'
+import { esAusencia, type CodigoTramite } from '@/domain/tramites'
 
 /**
  * Selección compartida por bandejas y listados.
@@ -56,7 +57,7 @@ export interface SolicitudLista {
   dias_pendientes_reprogramar: number | null
   reprograma_a_id: string | null
   nota_interrupcion: string | null
-  tramite: { id: number; codigo: 'permiso' | 'vacaciones'; nombre: string; codigo_formato: string; version_formato: string } | null
+  tramite: { id: number; codigo: CodigoTramite; nombre: string; codigo_formato: string; version_formato: string } | null
   solicitante: { user_id: string; nombre: string; correo: string; documento: string | null } | null
   area: { id: number; nombre: string } | null
   empresa: { id: number; nombre: string } | null
@@ -110,7 +111,7 @@ export interface FiltroSolicitudes {
   estados?: Estado[]
   soloPropias?: boolean
   areaIds?: number[]
-  tramiteCodigo?: 'permiso' | 'vacaciones'
+  tramiteCodigo?: CodigoTramite
   desde?: string
   hasta?: string
 }
@@ -195,43 +196,49 @@ export function usePeriodosOcupados(usuarioId: string | undefined, excluirId?: s
       const { data, error } = await q
       if (error) throw error
 
-      return (data ?? []).map((s) => {
-        const fila = s as unknown as {
-          id: string
-          consecutivo: string | null
-          estado: string
-          fecha_inicio: string
-          fecha_fin: string
-          tramite: { codigo: string } | null
-          detalle_permiso: {
-            tipo: {
-              nombre: string
-              prioridad: number
-              interrumpe_otros: boolean
-              dias_calendario: boolean
+      const filas = (data ?? []) as unknown as { tramite: { codigo: string } | null }[]
+
+      return filas
+        // Un trámite no ocupa fechas: sus fechas son el día en que se radicó,
+        // y avisar de que «se cruza» con una solicitud de cesantías sería ruido.
+        .filter((s) => esAusencia(s.tramite?.codigo))
+        .map((s) => {
+          const fila = s as unknown as {
+            id: string
+            consecutivo: string | null
+            estado: string
+            fecha_inicio: string
+            fecha_fin: string
+            tramite: { codigo: string } | null
+            detalle_permiso: {
+              tipo: {
+                nombre: string
+                prioridad: number
+                interrumpe_otros: boolean
+                dias_calendario: boolean
+              } | null
             } | null
-          } | null
-        }
+          }
 
-        const esVacaciones = fila.tramite?.codigo === 'vacaciones'
-        const tipo = fila.detalle_permiso?.tipo ?? null
+          const esVacaciones = fila.tramite?.codigo === 'vacaciones'
+          const tipo = fila.detalle_permiso?.tipo ?? null
 
-        return {
-          id: fila.id,
-          consecutivo: fila.consecutivo,
-          estado: fila.estado,
-          fechaInicio: fila.fecha_inicio,
-          fechaFin: fila.fecha_fin,
-          motivo: esVacaciones ? 'Vacaciones' : (tipo?.nombre ?? 'Sin motivo'),
-          // Las vacaciones no están en el catálogo de motivos, así que su
-          // prioridad se fija aquí: por encima de un permiso corriente y por
-          // debajo de una incapacidad, que es justo lo que dice el art. 187.
-          prioridad: esVacaciones ? 10 : (tipo?.prioridad ?? 0),
-          interrumpeOtros: esVacaciones ? false : (tipo?.interrumpe_otros ?? false),
-          esVacaciones,
-          diasCalendario: esVacaciones ? false : (tipo?.dias_calendario ?? false),
-        }
-      })
+          return {
+            id: fila.id,
+            consecutivo: fila.consecutivo,
+            estado: fila.estado,
+            fechaInicio: fila.fecha_inicio,
+            fechaFin: fila.fecha_fin,
+            motivo: esVacaciones ? 'Vacaciones' : (tipo?.nombre ?? 'Sin motivo'),
+            // Las vacaciones no están en el catálogo de motivos, así que su
+            // prioridad se fija aquí: por encima de un permiso corriente y por
+            // debajo de una incapacidad, que es justo lo que dice el art. 187.
+            prioridad: esVacaciones ? 10 : (tipo?.prioridad ?? 0),
+            interrumpeOtros: esVacaciones ? false : (tipo?.interrumpe_otros ?? false),
+            esVacaciones,
+            diasCalendario: esVacaciones ? false : (tipo?.dias_calendario ?? false),
+          }
+        })
     },
   })
 }

@@ -11,6 +11,8 @@
  * filtrada: funciones puras, sin React ni Supabase.
  */
 
+import type { CodigoTramite } from './tramites'
+
 export interface FilaAusentismo {
   solicitud_id: string
   consecutivo: string | null
@@ -26,7 +28,7 @@ export interface FilaAusentismo {
   empresa_id: number | null
   empresa: string | null
   coordinador: string | null
-  tramite: 'permiso' | 'vacaciones'
+  tramite: CodigoTramite
   categoria_id: number | null
   categoria: string | null
   tipo_id: number | null

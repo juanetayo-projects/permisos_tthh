@@ -318,6 +318,10 @@ export default function Dashboard() {
                   <stop offset="0%" stopColor="#0F9D58" stopOpacity={0.6} />
                   <stop offset="100%" stopColor="#0F9D58" stopOpacity={0.05} />
                 </linearGradient>
+                <linearGradient id="gCesantias" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#F4B400" stopOpacity={0.6} />
+                  <stop offset="100%" stopColor="#F4B400" stopOpacity={0.05} />
+                </linearGradient>
               </defs>
               <XAxis dataKey="mes" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
@@ -344,6 +348,14 @@ export default function Dashboard() {
                 name="Vacaciones"
                 stroke="#0F9D58"
                 fill="url(#gVacaciones)"
+                strokeWidth={2}
+              />
+              <Area
+                type="monotone"
+                dataKey="cesantias"
+                name="Cesantías"
+                stroke="#F4B400"
+                fill="url(#gCesantias)"
                 strokeWidth={2}
               />
             </AreaChart>

@@ -1,6 +1,7 @@
 import { FilterX } from 'lucide-react'
 import { MESES } from '@/domain/metricas'
 import { ESTADOS, ETIQUETA_ESTADO, type Estado } from '@/domain/estados'
+import { CODIGOS_TRAMITE, ETIQUETA_TRAMITE, etiquetaTramite, type CodigoTramite } from '@/domain/tramites'
 import { Button } from '@/presentation/components/ui/button'
 import { Label } from '@/presentation/components/ui/label'
 import {
@@ -17,7 +18,7 @@ export interface ValoresFiltro {
   mes: number | null
   areaId: number | null
   empresaId: number | null
-  tramite: 'permiso' | 'vacaciones' | null
+  tramite: CodigoTramite | null
   estado: Estado | null
 }
 
@@ -42,7 +43,7 @@ export function describirFiltros(
   if (v.mes !== null) texto.push(`Mes: ${MESES[v.mes]}`)
   if (v.areaId) texto.push(`Área: ${areas?.find((a) => a.id === v.areaId)?.nombre ?? v.areaId}`)
   if (v.empresaId) texto.push(`Empresa: ${empresas?.find((e) => e.id === v.empresaId)?.nombre ?? v.empresaId}`)
-  if (v.tramite) texto.push(`Trámite: ${v.tramite === 'vacaciones' ? 'Vacaciones' : 'Permisos'}`)
+  if (v.tramite) texto.push(`Trámite: ${etiquetaTramite(v.tramite)}`)
   if (v.estado) texto.push(`Estado: ${ETIQUETA_ESTADO[v.estado]}`)
   return texto
 }
@@ -145,15 +146,16 @@ export function FiltrosDashboard({
         <Label htmlFor="f-tramite" className="text-xs">Trámite</Label>
         <Select
           value={valores.tramite ?? TODOS}
-          onValueChange={(v) => set('tramite', v === TODOS ? null : (v as 'permiso' | 'vacaciones'))}
+          onValueChange={(v) => set('tramite', v === TODOS ? null : (v as CodigoTramite))}
         >
           <SelectTrigger id="f-tramite" className="h-9">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={TODOS}>Ambos</SelectItem>
-            <SelectItem value="permiso">Permisos</SelectItem>
-            <SelectItem value="vacaciones">Vacaciones</SelectItem>
+            <SelectItem value={TODOS}>Todos</SelectItem>
+            {CODIGOS_TRAMITE.map((c) => (
+              <SelectItem key={c} value={c}>{ETIQUETA_TRAMITE[c]}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

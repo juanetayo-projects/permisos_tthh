@@ -2,6 +2,44 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.3.1] — 2026-08-02
+
+### Corregido
+
+- **Los formularios de permiso y de vacaciones se salían de la pantalla.** En
+  escritorio la ventana no scrollea a propósito —lo decide cada pantalla—, y
+  estos dos no lo habían decidido: quedaban fuera de alcance la justificación,
+  la compensación y los propios botones de guardar y enviar, así que no había
+  forma de terminar la solicitud. Ahora la columna de campos se desplaza por
+  dentro y las acciones quedan siempre a la vista, como ya hacía el detalle de
+  la solicitud.
+- El panel de resumen se desborda igual: con seis advertencias, la nota al pie
+  del formato se salía del panel. Los avisos se llevan el espacio sobrante y se
+  desplazan por dentro.
+
+### Cambiado
+
+- **El retiro parcial de cesantías tiene trámite y pantalla propios**
+  (`/solicitar/cesantias`), como las vacaciones. Se tramitaba en el formulario
+  de permisos y eso obligaba a responder cosas que ahí no significan nada
+  —fecha de inicio, fecha de fin, hora de salida, hora de regreso—; encima
+  advertía que «faltan 21 horas para el inicio y el formato exige 48», cuando un
+  retiro de cesantías no tiene inicio ni antelación que cumplir.
+
+  El trámite nuevo numera aparte (`CE-2026-00001`), tiene antelación cero y
+  pregunta lo que de verdad decide la Gerencia: la destinación —solo vivienda o
+  educación, art. 102 CST y Ley 1071 de 2006—, el monto y sus soportes. Las
+  solicitudes ya radicadas se movieron al trámite nuevo conservando su
+  consecutivo: renumerarlas rompería la trazabilidad de un documento que ya
+  circuló firmado.
+- Los motivos de naturaleza `tramite` dejan de ofrecerse en el formulario de
+  permisos, y un trámite ya no ocupa fechas: no cruza con otros permisos, no se
+  puede interrumpir y no muestra periodo ni duración en su detalle.
+- `etiquetaTramite` y `esAusencia` en `domain/tramites.ts`. El código estaba
+  lleno de `codigo === 'vacaciones' ? 'Vacaciones' : 'Permiso'`, y al aparecer
+  un tercer trámite todos esos ternarios lo habrían etiquetado como «Permiso»,
+  que es justo lo que se estaba separando.
+
 ## [0.3.0] — 2026-08-01
 
 Revisión de la aplicación frente al Código Sustantivo del Trabajo. El detalle

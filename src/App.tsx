@@ -13,6 +13,7 @@ import Verificar from '@/presentation/pages/Verificar'
 import Inicio from '@/presentation/pages/Inicio'
 import SolicitudPermiso from '@/presentation/pages/SolicitudPermiso'
 import SolicitudVacaciones from '@/presentation/pages/SolicitudVacaciones'
+import SolicitudCesantias from '@/presentation/pages/SolicitudCesantias'
 import MisSolicitudes from '@/presentation/pages/MisSolicitudes'
 import DetalleSolicitud from '@/presentation/pages/DetalleSolicitud'
 import Bandeja from '@/presentation/pages/Bandeja'
@@ -90,6 +91,7 @@ function Rutas() {
           <Route path="/" element={<Inicio />} />
           <Route path="/solicitar/permiso" element={<SolicitudPermiso />} />
           <Route path="/solicitar/vacaciones" element={<SolicitudVacaciones />} />
+          <Route path="/solicitar/cesantias" element={<SolicitudCesantias />} />
           <Route path="/mis-solicitudes" element={<MisSolicitudes />} />
           <Route path="/solicitud/:id" element={<DetalleSolicitud />} />
           <Route

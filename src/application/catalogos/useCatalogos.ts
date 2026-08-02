@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/infrastructure/supabase/client'
 import type { DocumentoExigido } from '@/domain/soportes'
+import type { CodigoTramite } from '@/domain/tramites'
 
 export interface Empresa {
   id: number
@@ -94,7 +95,7 @@ export interface TipoDocumento {
 }
 export interface Tramite {
   id: number
-  codigo: 'permiso' | 'vacaciones'
+  codigo: CodigoTramite
   nombre: string
   codigo_formato: string
   version_formato: string
@@ -294,7 +295,7 @@ export function useTramites() {
   })
 }
 
-export function useTramite(codigo: 'permiso' | 'vacaciones') {
+export function useTramite(codigo: CodigoTramite) {
   const { data, ...resto } = useTramites()
   return { ...resto, data: data?.find((t) => t.codigo === codigo) }
 }

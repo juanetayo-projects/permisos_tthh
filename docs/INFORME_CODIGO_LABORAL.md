@@ -67,7 +67,7 @@ que devolverlo para pedir el segundo.
 | Salud | **Acompañamiento a cita de familiar** | — | Constancia de asistencia |
 | Empresarial | Movilidad sostenible | — | — |
 | Empresarial | Comisión o actividad institucional | — | — |
-| Empresarial | Solicitud de cesantías | Formato de retiro parcial · Soporte de la destinación | — |
+| *(trámite propio)* | Retiro parcial de cesantías | Formato de retiro parcial · Soporte de la destinación | — |
 | Empresarial | **Comisión sindical** | Comunicación del sindicato | — |
 | Empresarial | **Capacitación institucional** | — | — |
 | Calamidad | Calamidad doméstica | — | Prueba de la calamidad |
@@ -154,18 +154,37 @@ recogía:
 
 ### 3.3 Lo que no es un permiso
 
-El **retiro parcial de cesantías** (art. 102 CST, Ley 1071 de 2006) se tramita
-en este formato y lo firma la misma gerencia, pero **no es una ausencia**.
-Aparecía en las estadísticas como si el colaborador hubiera faltado, porque el
-motor exige un rango de fechas.
+El **retiro parcial de cesantías** (art. 102 CST, Ley 1071 de 2006) se firma en
+este formato y lo aprueba la misma gerencia, pero **no es una ausencia**.
+Aparecía en las estadísticas como si el colaborador hubiera faltado, y el
+formulario le pedía fecha de inicio, fecha de fin y horas de salida y regreso,
+además de advertirle que la solicitud quedaría marcada como extemporánea por no
+pedirla con 48 horas de antelación. Nada de eso significa algo aquí.
 
-Ahora cada motivo declara su *naturaleza* —permiso, licencia, incapacidad o
-trámite— y los trámites quedan fuera del ausentismo. Lo mismo aplica a la
-comisión sindical y a la capacitación institucional: ahí el colaborador está
-cumpliendo una función, no faltando.
+**Tiene ahora trámite y pantalla propios**, como las vacaciones:
+
+- Numera aparte: `CE-2026-00001`.
+- Antelación cero: deja de marcarse extemporánea.
+- Pregunta lo que de verdad revisa la Gerencia —destinación, monto y soportes—
+  y no pregunta fechas ni horarios.
+- No cuenta como ausentismo, no cruza con otros permisos y no se puede
+  interrumpir.
+
+Las solicitudes ya radicadas se movieron al trámite nuevo conservando su
+consecutivo: renumerarlas rompería la trazabilidad de un documento que ya
+circuló firmado.
+
+El mismo criterio aplica a la comisión sindical y a la capacitación
+institucional, que siguen siendo permisos pero no cuentan como ausentismo: ahí
+el colaborador está cumpliendo una función, no faltando.
 
 > **⚠️ DECISIÓN 5.** ¿Hay otros trámites que deban pasar por este formato sin
-> contar como ausencia? Certificaciones laborales, afiliaciones, préstamos.
+> contar como ausencia? Certificaciones laborales, afiliaciones, préstamos. Si
+> los hay, cada uno puede tener su propia pantalla o compartir la de cesantías.
+
+> **⚠️ DECISIÓN 5b.** El trámite de cesantías usa el código de formato
+> **TH-F-002** porque es lo que Calidad tiene publicado. Si procede pedir un
+> formato propio, se cambia desde Administración sin desplegar.
 
 ---
 
@@ -321,7 +340,7 @@ Los dos últimos valores son parámetros editables en Administración; hoy está
 | 2 | Cita médica | ¿Constancia siempre, o solo si supera 2 días? |
 | 3 | Historia clínica | ¿Se pide de entrada o solo si la incapacidad no basta? |
 | 4 | Categorías | ¿Se pide a Calidad una casilla «Licencia de ley»? |
-| 5 | Trámites | ¿Qué otros trámites pasan por el formato sin ser ausencia? |
+| 5 | Trámites | ¿Qué otros trámites pasan por el formato sin ser ausencia? ¿Cesantías necesita formato propio de Calidad? |
 | 6 | Duraciones | ¿Cuántos días por calamidad y por permiso no remunerado? |
 | 7 | Cupos | ¿Algún otro motivo con tope por periodo? |
 | 8 | Cruces | ¿La calamidad debe interrumpir las vacaciones? |

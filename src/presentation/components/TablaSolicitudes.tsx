@@ -7,12 +7,14 @@ import {
   Columns3,
   FileText,
   Inbox,
+  PiggyBank,
   Rows3,
   Search,
   X,
 } from 'lucide-react'
 import { cn, formatearFecha } from '@/lib/utils'
 import type { SolicitudLista } from '@/application/solicitudes/useSolicitudes'
+import { etiquetaTramite } from '@/domain/tramites'
 import { BadgeEstado } from '@/presentation/components/ui/badge'
 import { Button } from '@/presentation/components/ui/button'
 import { Checkbox } from '@/presentation/components/ui/checkbox'
@@ -75,16 +77,21 @@ const COLUMNAS: Columna[] = [
     ancho: 'w-32',
     ordenable: true,
     valor: (s) => s.tramite?.nombre ?? '',
-    celda: (s) => (
-      <span className="inline-flex items-center gap-1.5 text-sm">
-        {s.tramite?.codigo === 'vacaciones' ? (
-          <CalendarDays className="size-3.5 text-muted-foreground" />
-        ) : (
-          <FileText className="size-3.5 text-muted-foreground" />
-        )}
-        {s.tramite?.codigo === 'vacaciones' ? 'Vacaciones' : 'Permiso'}
-      </span>
-    ),
+    celda: (s) => {
+      const Icono =
+        s.tramite?.codigo === 'vacaciones'
+          ? CalendarDays
+          : s.tramite?.codigo === 'cesantias'
+            ? PiggyBank
+            : FileText
+
+      return (
+        <span className="inline-flex items-center gap-1.5 text-sm">
+          <Icono className="size-3.5 text-muted-foreground" />
+          {etiquetaTramite(s.tramite?.codigo)}
+        </span>
+      )
+    },
   },
   {
     clave: 'motivo',

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, CalendarDays, ClipboardList, FileText, Info } from 'lucide-react'
+import { ArrowRight, CalendarDays, ClipboardList, FileText, Info, PiggyBank } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import { useTramites } from '@/application/catalogos/useCatalogos'
 import { Card } from '@/presentation/components/ui/card'
@@ -26,6 +26,13 @@ const ACCESOS = [
     descripcion: 'Periodo a disfrutar, saldos y fecha de reintegro.',
     icono: CalendarDays,
     codigo: 'vacaciones' as const,
+  },
+  {
+    a: '/solicitar/cesantias',
+    titulo: 'Retiro de cesantías',
+    descripcion: 'Retiro parcial para vivienda o educación. No descuenta tiempo.',
+    icono: PiggyBank,
+    codigo: 'cesantias' as const,
   },
   {
     a: '/mis-solicitudes',
@@ -58,7 +65,7 @@ export default function Inicio() {
         </p>
       </header>
 
-      <div className="grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {ACCESOS.map(({ a, titulo, descripcion, icono: Icono, codigo }) => {
           const tramite = codigo ? tramites?.find((t) => t.codigo === codigo) : undefined
           return (

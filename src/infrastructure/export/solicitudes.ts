@@ -1,5 +1,6 @@
 import type { SolicitudLista } from '@/application/solicitudes/useSolicitudes'
 import { ETIQUETA_ESTADO } from '@/domain/estados'
+import { etiquetaTramite } from '@/domain/tramites'
 import { formatearFecha } from '@/lib/utils'
 import { exportarExcel } from './excel'
 import { exportarPdf } from './pdf'
@@ -12,7 +13,7 @@ import { exportarPdf } from './pdf'
  */
 const CAMPOS: { titulo: string; anchoExcel: number; anchoPdf?: string | number; valor: (s: SolicitudLista) => string }[] = [
   { titulo: 'Consecutivo', anchoExcel: 16, anchoPdf: 62, valor: (s) => s.consecutivo ?? 'Borrador' },
-  { titulo: 'Trámite', anchoExcel: 14, anchoPdf: 52, valor: (s) => (s.tramite?.codigo === 'vacaciones' ? 'Vacaciones' : 'Permiso') },
+  { titulo: 'Trámite', anchoExcel: 14, anchoPdf: 52, valor: (s) => etiquetaTramite(s.tramite?.codigo) },
   { titulo: 'Formato', anchoExcel: 14, anchoPdf: 52, valor: (s) => s.tramite?.codigo_formato ?? '' },
   { titulo: 'Solicitante', anchoExcel: 26, valor: (s) => s.solicitante?.nombre ?? '' },
   { titulo: 'Identificación', anchoExcel: 16, anchoPdf: 60, valor: (s) => s.solicitante?.documento ?? '' },
@@ -21,7 +22,10 @@ const CAMPOS: { titulo: string; anchoExcel: number; anchoPdf?: string | number; 
   {
     titulo: 'Categoría',
     anchoExcel: 18,
-    valor: (s) => (s.tramite?.codigo === 'vacaciones' ? 'Vacaciones' : (s.detalle_permiso?.categoria?.nombre ?? '')),
+    valor: (s) =>
+      s.tramite?.codigo === 'permiso'
+        ? (s.detalle_permiso?.categoria?.nombre ?? '')
+        : etiquetaTramite(s.tramite?.codigo),
   },
   {
     titulo: 'Motivo',

@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  PiggyBank,
   Settings,
   ShieldCheck,
   Sun,
@@ -35,6 +36,9 @@ const ENLACES: Enlace[] = [
   { a: '/', etiqueta: 'Inicio', icono: BarChart3, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
   { a: '/solicitar/permiso', etiqueta: 'Solicitar permiso', icono: FileText, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
   { a: '/solicitar/vacaciones', etiqueta: 'Solicitar vacaciones', icono: CalendarDays, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
+  // Trámite propio y no un motivo del formulario de permisos: no tiene periodo,
+  // ni horario, ni antelación que cumplir.
+  { a: '/solicitar/cesantias', etiqueta: 'Retiro de cesantías', icono: PiggyBank, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
   { a: '/mis-solicitudes', etiqueta: 'Mis solicitudes', icono: ClipboardList, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
   { a: '/bandeja/coordinador', etiqueta: 'Bandeja del área', icono: Inbox, roles: ['coordinador', 'administrador'] },
   { a: '/bandeja/th', etiqueta: 'Bandeja de Talento Humano', icono: Inbox, roles: ['analista_th', 'gerente_th', 'administrador'] },
