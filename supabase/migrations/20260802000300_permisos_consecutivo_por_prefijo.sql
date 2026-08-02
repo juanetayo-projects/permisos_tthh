@@ -52,3 +52,21 @@ end;
 $$;
 
 revoke all on function public.permisos_asignar_consecutivo() from public, anon, authenticated;
+
+-- -----------------------------------------------------------------------------
+-- De paso: `permisos_touch_updated_at` tenía el `search_path` sin fijar, que es
+-- lo que marca el linter de Supabase. Es un trigger sin EXECUTE para nadie,
+-- pero acotarlo es gratis y cierra el aviso.
+-- -----------------------------------------------------------------------------
+create or replace function public.permisos_touch_updated_at()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+revoke all on function public.permisos_touch_updated_at() from public, anon, authenticated;
