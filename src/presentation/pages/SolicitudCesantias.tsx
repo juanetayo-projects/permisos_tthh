@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertCircle, PiggyBank, Save, Send } from 'lucide-react'
+import { PiggyBank, Save, Send } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
   documentosDelTipo,
@@ -13,10 +13,13 @@ import {
 } from '@/application/catalogos/useCatalogos'
 import { crearSolicitud, guardarDocumentoPropio, subirSoporte } from '@/application/solicitudes/api'
 import { documentosDelMomento } from '@/domain/soportes'
+import { problemaAlGuardar, validarCesantias, type Problema } from '@/domain/validacion'
 import { aISO } from '@/domain/festivos'
-import { formatearFechaLarga } from '@/lib/utils'
+import { formatearFechaLarga, formatearMoneda } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
+import { CampoMoneda } from '@/presentation/components/CampoMoneda'
+import { DialogoProblemas } from '@/presentation/components/DialogoProblemas'
 import { ListaDocumentos } from '@/presentation/components/ListaDocumentos'
 import {
   DialogoSolicitudEnviada,
@@ -25,6 +28,7 @@ import {
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
 import { Label } from '@/presentation/components/ui/label'
+import { Obligatorio } from '@/presentation/components/ui/obligatorio'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import {
   Select,
@@ -84,7 +88,8 @@ export default function SolicitudCesantias() {
     justificacion: '',
   })
   const [soporte, setSoporte] = useState<File | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  /** Lo que impide enviar. Se muestra en modal, con la causa y su motivo. */
+  const [problemas, setProblemas] = useState<Problema[]>([])
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
 
@@ -135,20 +140,24 @@ export default function SolicitudCesantias() {
   }, [docsPrevios, form.destino])
 
   async function guardar(enviar: boolean) {
-    setError(null)
+    setProblemas([])
     if (!perfil || !session || !tramite) return
 
-    if (enviar && !form.destino) {
-      setError('Selecciona la destinación del retiro: la ley solo admite vivienda o educación.')
-      return
-    }
-    if (enviar && !documento.trim()) {
-      setError('Indica tu número de identificación: el formato lo exige.')
-      return
-    }
-    if (enviar && !soporte) {
-      setError('Adjunta el soporte que acredita la destinación del retiro.')
-      return
+    // El borrador se guarda como esté: es un apunte a medias por definición.
+    if (enviar) {
+      const encontrados = validarCesantias({
+        documento,
+        empresaId,
+        areaId,
+        cargoId,
+        destino: form.destino,
+        tieneSoporte: Boolean(soporte),
+      })
+
+      if (encontrados.length > 0) {
+        setProblemas(encontrados)
+        return
+      }
     }
 
     setEnviando(true)
@@ -187,7 +196,7 @@ export default function SolicitudCesantias() {
           // encabezan la justificación en vez de esconderse en un campo aparte.
           justificacion: [
             `Destinación: ${destino}.`,
-            form.monto.trim() ? `Monto solicitado: $${form.monto.trim()}.` : null,
+            form.monto ? `Monto solicitado: ${formatearMoneda(Number(form.monto))}.` : null,
             form.justificacion.trim() || null,
           ]
             .filter(Boolean)
@@ -216,14 +225,12 @@ export default function SolicitudCesantias() {
           : 'Puedes retomarla cuando quieras desde Mis solicitudes.',
         filas: [
           { etiqueta: 'Destinación', valor: destino },
-          { etiqueta: 'Monto', valor: form.monto.trim() ? `$${form.monto.trim()}` : 'Sin indicar' },
+          { etiqueta: 'Monto', valor: form.monto ? formatearMoneda(Number(form.monto)) : 'Sin indicar' },
           { etiqueta: 'Soporte adjunto', valor: soporte ? soporte.name : 'Ninguno' },
         ],
       })
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'No fue posible guardar la solicitud. Intenta de nuevo.'
-      )
+      setProblemas([problemaAlGuardar(err)])
     } finally {
       setEnviando(false)
     }
@@ -260,7 +267,7 @@ export default function SolicitudCesantias() {
             <h2 className="bloque-titulo mb-2">Información general</h2>
             <div className="grid items-end gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
-                <Label htmlFor="documento">N.° de identificación</Label>
+                <Label htmlFor="documento">N.° de identificación<Obligatorio /></Label>
                 <Input
                   id="documento"
                   inputMode="numeric"
@@ -271,7 +278,7 @@ export default function SolicitudCesantias() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="empresa">Empresa</Label>
+                <Label htmlFor="empresa">Empresa<Obligatorio /></Label>
                 <Select value={empresaId} onValueChange={(v) => set('empresaId', v)}>
                   <SelectTrigger id="empresa">
                     <SelectValue placeholder="Selecciona…" />
@@ -287,7 +294,7 @@ export default function SolicitudCesantias() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="area">Servicio actual</Label>
+                <Label htmlFor="area">Servicio actual<Obligatorio /></Label>
                 <Select value={areaId} onValueChange={(v) => set('areaId', v)}>
                   <SelectTrigger id="area">
                     <SelectValue placeholder="Selecciona…" />
@@ -303,7 +310,7 @@ export default function SolicitudCesantias() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="cargo">Cargo</Label>
+                <Label htmlFor="cargo">Cargo<Obligatorio /></Label>
                 <Select value={cargoId} onValueChange={(v) => set('cargoId', v)}>
                   <SelectTrigger id="cargo">
                     <SelectValue placeholder="Selecciona…" />
@@ -325,7 +332,7 @@ export default function SolicitudCesantias() {
               <h2 className="bloque-titulo mb-2">Destinación del retiro</h2>
               <div className="space-y-2.5">
                 <div className="space-y-1">
-                  <Label htmlFor="destino">¿A qué vas a destinarlo?</Label>
+                  <Label htmlFor="destino">¿A qué vas a destinarlo?<Obligatorio /></Label>
                   <Select value={form.destino} onValueChange={(v) => set('destino', v)}>
                     <SelectTrigger id="destino">
                       <SelectValue placeholder="Selecciona…" />
@@ -345,12 +352,11 @@ export default function SolicitudCesantias() {
 
                 <div className="space-y-1">
                   <Label htmlFor="monto">Monto solicitado</Label>
-                  <Input
+                  <CampoMoneda
                     id="monto"
-                    inputMode="numeric"
-                    value={form.monto}
-                    onChange={(e) => set('monto', e.target.value)}
-                    placeholder="Por ejemplo: 3.500.000"
+                    valor={form.monto}
+                    onCambio={(v) => set('monto', v)}
+                    placeholder="$ 0"
                   />
                   <p className="text-xs text-muted-foreground">
                     Opcional. La administradora liquida el saldo real disponible.
@@ -401,7 +407,7 @@ export default function SolicitudCesantias() {
             { etiqueta: 'Empresa', valor: nombreEmpresa ?? '—' },
             { etiqueta: 'Área', valor: nombreArea ?? '—' },
             { etiqueta: 'Destinación', valor: nombreDestino ?? '—', destacado: true },
-            { etiqueta: 'Monto', valor: form.monto.trim() ? `$${form.monto.trim()}` : '—' },
+            { etiqueta: 'Monto', valor: form.monto ? formatearMoneda(Number(form.monto)) : '—' },
             { etiqueta: 'Soporte', valor: soporte ? soporte.name : 'Sin adjuntar' },
             { etiqueta: 'Aprueba', valor: 'Gerencia de TH' },
           ]}
@@ -409,16 +415,6 @@ export default function SolicitudCesantias() {
           pie={tramite?.nota_pie}
         />
       </div>
-
-      {error && (
-        <p
-          role="alert"
-          className="flex shrink-0 items-start gap-2 rounded-md bg-[var(--error-suave)] p-3 text-sm text-[var(--error)]"
-        >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" />
-          {error}
-        </p>
-      )}
 
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" cargando={enviando} onClick={() => void guardar(false)}>
@@ -428,6 +424,8 @@ export default function SolicitudCesantias() {
           <Send /> Enviar solicitud
         </Button>
       </div>
+
+      <DialogoProblemas problemas={problemas} onCerrar={() => setProblemas([])} />
 
       <DialogoSolicitudEnviada datos={enviada} />
     </form>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertCircle, Save, Send } from 'lucide-react'
+import { Save, Send } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
   useAreas,
@@ -12,12 +12,14 @@ import {
 } from '@/application/catalogos/useCatalogos'
 import { crearSolicitud, guardarDocumentoPropio } from '@/application/solicitudes/api'
 import { calcularVacaciones, evaluarAntelacion, validarSaldos } from '@/domain/reglas'
+import { problemaAlGuardar, validarVacaciones, type Problema } from '@/domain/validacion'
 import { aISO, fechaFinPorDiasHabiles } from '@/domain/festivos'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
 import { CampoFecha } from '@/presentation/components/CampoFecha'
 import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
 import { DialogoConfirmarJefe } from '@/presentation/components/DialogoConfirmarJefe'
+import { DialogoProblemas } from '@/presentation/components/DialogoProblemas'
 import {
   DialogoSolicitudEnviada,
   type SolicitudEnviada,
@@ -26,6 +28,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { Checkbox } from '@/presentation/components/ui/checkbox'
 import { Input } from '@/presentation/components/ui/input'
 import { Label } from '@/presentation/components/ui/label'
+import { Obligatorio } from '@/presentation/components/ui/obligatorio'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import {
   Select,
@@ -68,7 +71,8 @@ export default function SolicitudVacaciones() {
     observaciones: '',
     declaracion: false,
   })
-  const [error, setError] = useState<string | null>(null)
+  /** Lo que impide enviar. Se muestra en modal, con la causa y su motivo. */
+  const [problemas, setProblemas] = useState<Problema[]>([])
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
   const [confirmando, setConfirmando] = useState(false)
@@ -197,26 +201,33 @@ export default function SolicitudVacaciones() {
     return lista
   }, [antelacion, calculo, saldos, fechaFinEsManual, fechaFinCalculada, form.fechaFinManual, aDisfrutar, coordinador, perfil, areaId])
 
+  /**
+   * Revisa la solicitud y muestra lo que falte.
+   *
+   * Corre antes de pedir la confirmación del jefe: encadenar dos modales haría
+   * que el colaborador confirmara un envío que la validación va a detener.
+   */
+  function hayProblemas(): boolean {
+    const encontrados = validarVacaciones({
+      documento,
+      empresaId,
+      areaId,
+      cargoId,
+      diasADisfrutar: aDisfrutar,
+      declaracionAceptada: form.declaracion,
+      tieneCoordinador: Boolean(coordinador),
+    })
+
+    setProblemas(encontrados)
+    return encontrados.length > 0
+  }
+
   async function guardar(enviar: boolean) {
-    setError(null)
+    setProblemas([])
     if (!perfil || !tramite) return
 
-    if (enviar && !form.declaracion) {
-      setError('Debes aceptar la declaración de conformidad para enviar la solicitud.')
-      return
-    }
-    if (enviar && aDisfrutar === null) {
-      setError('Indica cuántos días vas a disfrutar.')
-      return
-    }
-    if (enviar && !coordinador) {
-      setError('Selecciona el jefe directo que debe autorizar la solicitud.')
-      return
-    }
-    if (enviar && !documento.trim()) {
-      setError('Indica tu número de identificación: el formato lo exige.')
-      return
-    }
+    // El borrador se guarda como esté: es un apunte a medias por definición.
+    if (enviar && hayProblemas()) return
 
     setEnviando(true)
     try {
@@ -268,9 +279,7 @@ export default function SolicitudVacaciones() {
         ],
       })
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'No fue posible guardar la solicitud. Intenta de nuevo.'
-      )
+      setProblemas([problemaAlGuardar(err)])
     } finally {
       setEnviando(false)
     }
@@ -286,6 +295,8 @@ export default function SolicitudVacaciones() {
       className="mx-auto flex max-w-7xl flex-col gap-3 lg:h-full lg:overflow-hidden"
       onSubmit={(e) => {
         e.preventDefault()
+        // Primero lo que falta; después la confirmación del jefe.
+        if (hayProblemas()) return
         // Se confirma el jefe antes de grabar: el aviso sale por correo y
         // corregirlo despues implica cancelar y rehacer la solicitud.
         setConfirmando(true)
@@ -307,7 +318,7 @@ export default function SolicitudVacaciones() {
                 debe costar una fila entera, o el formato dejaría de caber. */}
             <div className="grid items-end gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-1">
-                <Label htmlFor="documento">N.° de identificación</Label>
+                <Label htmlFor="documento">N.° de identificación<Obligatorio /></Label>
                 <Input
                   id="documento"
                   inputMode="numeric"
@@ -318,7 +329,7 @@ export default function SolicitudVacaciones() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="empresa">Empresa</Label>
+                <Label htmlFor="empresa">Empresa<Obligatorio /></Label>
                 <Select value={empresaId} onValueChange={(v) => set('empresaId', v)}>
                   <SelectTrigger id="empresa">
                     <SelectValue placeholder="Selecciona…" />
@@ -333,7 +344,7 @@ export default function SolicitudVacaciones() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="area">Servicio actual</Label>
+                <Label htmlFor="area">Servicio actual<Obligatorio /></Label>
                 <Select
                   value={areaId}
                   onValueChange={(v) => {
@@ -355,7 +366,7 @@ export default function SolicitudVacaciones() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="cargo">Cargo</Label>
+                <Label htmlFor="cargo">Cargo<Obligatorio /></Label>
                 <Select value={cargoId} onValueChange={(v) => set('cargoId', v)}>
                   <SelectTrigger id="cargo">
                     <SelectValue placeholder="Selecciona…" />
@@ -371,7 +382,7 @@ export default function SolicitudVacaciones() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="coordinador">Jefe directo que autoriza</Label>
+                <Label htmlFor="coordinador">Jefe directo que autoriza<Obligatorio /></Label>
                 <Select value={coordinadorId} onValueChange={(v) => set('coordinadorId', v)}>
                   <SelectTrigger id="coordinador">
                     <SelectValue placeholder="Selecciona a quién le llega…" />
@@ -415,7 +426,7 @@ export default function SolicitudVacaciones() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="disfrutar">Días a disfrutar</Label>
+                <Label htmlFor="disfrutar">Días a disfrutar<Obligatorio /></Label>
                 <Input
                   id="disfrutar"
                   type="number"
@@ -571,16 +582,6 @@ export default function SolicitudVacaciones() {
         />
       </div>
 
-      {error && (
-        <p
-          role="alert"
-          className="flex shrink-0 items-start gap-2 rounded-md bg-[var(--error-suave)] p-3 text-sm text-[var(--error)]"
-        >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" />
-          {error}
-        </p>
-      )}
-
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" cargando={enviando} onClick={() => void guardar(false)}>
           <Save /> Guardar borrador
@@ -600,6 +601,8 @@ export default function SolicitudVacaciones() {
           void guardar(true)
         }}
       />
+
+      <DialogoProblemas problemas={problemas} onCerrar={() => setProblemas([])} />
 
       <DialogoSolicitudEnviada datos={enviada} />
     </form>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertCircle, Save, Send } from 'lucide-react'
+import { Save, Send } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
   documentosDelTipo,
@@ -30,12 +30,14 @@ import {
 } from '@/domain/reglas'
 import { evaluarSolapamiento } from '@/domain/concurrencia'
 import { documentosDelMomento } from '@/domain/soportes'
+import { problemaAlGuardar, validarPermiso, type Problema } from '@/domain/validacion'
 import { aISO } from '@/domain/festivos'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
 import { AvisoCruce } from '@/presentation/components/AvisoCruce'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
 import { CampoFecha } from '@/presentation/components/CampoFecha'
+import { DialogoProblemas } from '@/presentation/components/DialogoProblemas'
 import { ListaDocumentos } from '@/presentation/components/ListaDocumentos'
 import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
 import { DialogoConfirmarJefe } from '@/presentation/components/DialogoConfirmarJefe'
@@ -47,6 +49,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { Checkbox } from '@/presentation/components/ui/checkbox'
 import { Input } from '@/presentation/components/ui/input'
 import { Label } from '@/presentation/components/ui/label'
+import { Obligatorio } from '@/presentation/components/ui/obligatorio'
 import { Textarea } from '@/presentation/components/ui/textarea'
 import {
   Select,
@@ -96,7 +99,8 @@ export default function SolicitudPermiso() {
     justificacion: '',
   })
   const [soporte, setSoporte] = useState<File | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  /** Lo que impide enviar. Se muestra en modal, con la causa y su motivo. */
+  const [problemas, setProblemas] = useState<Problema[]>([])
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
   const [confirmando, setConfirmando] = useState(false)
@@ -377,30 +381,36 @@ export default function SolicitudPermiso() {
     suspendidos,
   ])
 
-  async function guardar(enviar: boolean) {
-    setError(null)
+  /**
+   * Revisa la solicitud y muestra lo que falte.
+   *
+   * Se ejecuta **antes** de pedir la confirmación del jefe: encadenar dos
+   * modales —confirmar y, acto seguido, «faltan datos»— haría que el
+   * colaborador confirmara algo que ni siquiera se va a enviar.
+   */
+  function hayProblemas(): boolean {
+    const encontrados = validarPermiso({
+      documento,
+      empresaId,
+      areaId,
+      cargoId,
+      tipoId: form.tipoId,
+      justificacion: form.justificacion,
+      faltaSoportePrevio: Boolean(soporteExigido?.previo?.obligatorio) && !soporte,
+      vaDirectoAGerencia: tipo?.ruta_aprobacion === 'gerente_th_directo',
+      tieneCoordinador: Boolean(coordinador),
+    })
 
+    setProblemas(encontrados)
+    return encontrados.length > 0
+  }
+
+  async function guardar(enviar: boolean) {
+    setProblemas([])
     if (!perfil || !session || !tramite) return
-    if (enviar && !form.tipoId) {
-      setError('Selecciona la categoría y el motivo del permiso.')
-      return
-    }
-    if (enviar && !form.justificacion.trim()) {
-      setError('Describe la justificación del permiso.')
-      return
-    }
-    if (enviar && soporteExigido?.previo?.obligatorio && !soporte) {
-      setError('Este motivo exige adjuntar el soporte al momento de solicitar.')
-      return
-    }
-    if (enviar && !coordinador && tipo?.ruta_aprobacion !== 'gerente_th_directo') {
-      setError('Selecciona el jefe directo que debe autorizar la solicitud.')
-      return
-    }
-    if (enviar && !documento.trim()) {
-      setError('Indica tu número de identificación: el formato lo exige.')
-      return
-    }
+
+    // El borrador se guarda como esté: es un apunte a medias por definición.
+    if (enviar && hayProblemas()) return
 
     setEnviando(true)
     try {
@@ -474,9 +484,7 @@ export default function SolicitudPermiso() {
         ],
       })
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'No fue posible guardar la solicitud. Intenta de nuevo.'
-      )
+      setProblemas([problemaAlGuardar(err)])
     } finally {
       setEnviando(false)
     }
@@ -493,6 +501,9 @@ export default function SolicitudPermiso() {
       className="mx-auto flex max-w-7xl flex-col gap-3 lg:h-full lg:overflow-hidden"
       onSubmit={(e) => {
         e.preventDefault()
+        // Primero lo que falta; después la confirmación del jefe. Al revés, se
+        // confirmaba un envío que la validación iba a detener.
+        if (hayProblemas()) return
         // Se confirma el jefe antes de grabar: el aviso sale por correo y
         // corregirlo despues implica cancelar y rehacer la solicitud.
         setConfirmando(true)
@@ -515,7 +526,7 @@ export default function SolicitudPermiso() {
                 debe costar una fila entera, o el formato dejaría de caber. */}
             <div className="grid items-end gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-1">
-                <Label htmlFor="documento">N.° de identificación</Label>
+                <Label htmlFor="documento">N.° de identificación<Obligatorio /></Label>
                 <Input
                   id="documento"
                   inputMode="numeric"
@@ -526,7 +537,7 @@ export default function SolicitudPermiso() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="empresa">Empresa</Label>
+                <Label htmlFor="empresa">Empresa<Obligatorio /></Label>
                 <Select value={empresaId} onValueChange={(v) => set('empresaId', v)}>
                   <SelectTrigger id="empresa">
                     <SelectValue placeholder="Selecciona…" />
@@ -542,7 +553,7 @@ export default function SolicitudPermiso() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="area">Servicio actual</Label>
+                <Label htmlFor="area">Servicio actual<Obligatorio /></Label>
                 <Select
                   value={areaId}
                   onValueChange={(v) => {
@@ -565,7 +576,7 @@ export default function SolicitudPermiso() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="cargo">Cargo</Label>
+                <Label htmlFor="cargo">Cargo<Obligatorio /></Label>
                 <Select value={cargoId} onValueChange={(v) => set('cargoId', v)}>
                   <SelectTrigger id="cargo">
                     <SelectValue placeholder="Selecciona…" />
@@ -581,7 +592,7 @@ export default function SolicitudPermiso() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="coordinador">Jefe directo que autoriza</Label>
+                <Label htmlFor="coordinador">Jefe directo que autoriza<Obligatorio /></Label>
                 <Select value={coordinadorId} onValueChange={(v) => set('coordinadorId', v)}>
                   <SelectTrigger id="coordinador">
                     <SelectValue placeholder="Selecciona a quién le llega…" />
@@ -619,7 +630,7 @@ export default function SolicitudPermiso() {
               <h2 className="bloque-titulo mb-2">Motivo del permiso</h2>
               <div className="space-y-2.5">
                 <div className="space-y-1">
-                  <Label htmlFor="categoria">Categoría</Label>
+                  <Label htmlFor="categoria">Categoría<Obligatorio /></Label>
                   <Select
                     value={form.categoriaId}
                     onValueChange={(v) => {
@@ -641,7 +652,7 @@ export default function SolicitudPermiso() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="tipo">Motivo</Label>
+                  <Label htmlFor="tipo">Motivo<Obligatorio /></Label>
                   <Select
                     value={form.tipoId}
                     onValueChange={(v) => {
@@ -847,16 +858,6 @@ export default function SolicitudPermiso() {
         />
       </div>
 
-      {error && (
-        <p
-          role="alert"
-          className="flex shrink-0 items-start gap-2 rounded-md bg-[var(--error-suave)] p-3 text-sm text-[var(--error)]"
-        >
-          <AlertCircle className="mt-0.5 size-4 shrink-0" />
-          {error}
-        </p>
-      )}
-
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" cargando={enviando} onClick={() => void guardar(false)}>
           <Save /> Guardar borrador
@@ -876,6 +877,8 @@ export default function SolicitudPermiso() {
           void guardar(true)
         }}
       />
+
+      <DialogoProblemas problemas={problemas} onCerrar={() => setProblemas([])} />
 
       <DialogoSolicitudEnviada datos={enviada} />
     </form>

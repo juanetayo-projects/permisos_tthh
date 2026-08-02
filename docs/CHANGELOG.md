@@ -2,6 +2,37 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.3.2] — 2026-08-02
+
+### Corregido
+
+- **Se podía enviar un permiso sin cargo.** El cargo va impreso en el TH-F-002
+  y es uno de los cortes del informe de ausentismo, pero ningún formulario lo
+  exigía: bastaba con que el perfil no lo tuviera. Se validan también empresa y
+  servicio, que fallan por lo mismo —un perfil incompleto— y sin los cuales la
+  solicitud no llega a ninguna bandeja. Los tres campos llevan ahora asterisco.
+
+### Cambiado
+
+- **Los avisos de error salen en un modal, con la causa y su motivo.** Eran una
+  frase roja al pie del formulario y, en un formato que ocupa toda la pantalla,
+  quedaban fuera de la vista justo cuando aparecían. Peor: decían *qué* faltaba
+  pero nunca *por qué* se exigía, así que pedir el cargo parecía un capricho
+  del sistema.
+
+  El modal lista **todos** los problemas a la vez. Antes se cortaba en el
+  primero, así que el colaborador los descubría de uno en uno, a un intento de
+  envío por dato. Y corre **antes** de la confirmación del jefe: encadenar dos
+  modales hacía confirmar un envío que la validación iba a detener.
+- Las reglas viven en `domain/validacion.ts`, con pruebas, en vez de repartidas
+  en tres cadenas de `if` casi iguales. Los errores de Supabase se traducen ahí
+  mismo: «new row violates row-level security policy» no le dice nada a quien
+  solicita, y era lo que aparecía al pie.
+- **El monto de cesantías se escribe en pesos.** `3500000` se quedaba en
+  pantalla como una tira de siete dígitos que nadie lee de un vistazo —¿tres
+  millones y medio o treinta y cinco?—. Ahora se formatea al teclear como
+  `$ 3.500.000`, se guarda limpio y acepta un importe pegado ya formateado.
+
 ## [0.3.1] — 2026-08-02
 
 ### Corregido
