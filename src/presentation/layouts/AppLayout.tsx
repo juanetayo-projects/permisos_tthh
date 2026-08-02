@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
+  Activity,
   BarChart3,
   CalendarDays,
   ChevronDown,
@@ -43,6 +44,9 @@ const ENLACES: Enlace[] = [
   { a: '/solicitudes', etiqueta: 'Todas las solicitudes', icono: Layers, roles: ['analista_th', 'gerente_th', 'administrador'] },
   { a: '/validaciones', etiqueta: 'Validar colaboradores', icono: UserCheck, roles: ['analista_th', 'gerente_th', 'administrador'] },
   { a: '/dashboard', etiqueta: 'Dashboard', icono: BarChart3, roles: ['coordinador', 'analista_th', 'gerente_th', 'administrador'] },
+  // Va aparte del dashboard a propósito: aquel mide el flujo de solicitudes y
+  // este, tiempo no laborado. Son preguntas distintas.
+  { a: '/ausentismo', etiqueta: 'Ausentismo', icono: Activity, roles: ['coordinador', 'analista_th', 'gerente_th', 'administrador'] },
   { a: '/administracion', etiqueta: 'Administración', icono: Settings, roles: ['administrador'] },
 ]
 

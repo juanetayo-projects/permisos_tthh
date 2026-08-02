@@ -10,6 +10,9 @@ export interface Adjunto {
   mime: string | null
   tamano_bytes: number | null
   created_at: string
+  documento_id: number | null
+  /** Documento de la matriz al que corresponde; null en los adjuntos antiguos. */
+  documento: { id: number; codigo: string; nombre: string } | null
 }
 
 export function useAdjuntos(solicitudId: string | undefined) {
@@ -19,11 +22,15 @@ export function useAdjuntos(solicitudId: string | undefined) {
     queryFn: async (): Promise<Adjunto[]> => {
       const { data, error } = await supabase
         .from('permisos_adjuntos')
-        .select('id, momento, nombre_archivo, ruta_storage, mime, tamano_bytes, created_at')
+        .select(
+          'id, momento, nombre_archivo, ruta_storage, mime, tamano_bytes, created_at, ' +
+            'documento_id, documento:permisos_documentos(id, codigo, nombre)'
+        )
         .eq('solicitud_id', solicitudId!)
+        .is('deleted_at', null)
         .order('created_at')
       if (error) throw error
-      return (data ?? []) as Adjunto[]
+      return (data ?? []) as unknown as Adjunto[]
     },
   })
 }
@@ -77,17 +84,17 @@ export async function abrirSoporte(ruta: string): Promise<void> {
 }
 
 /**
- * Entrega del soporte posterior.
+ * Entrega de un documento de la lista de soportes posteriores.
  *
- * Sube el archivo y pasa la solicitud a `SOPORTE_EN_VALIDACION`: con eso la
- * pelota cambia de lado —sale de la bandeja del colaborador y entra en la de
- * Talento Humano— y deja de depender de un booleano para saber a quién le
- * toca mover. El cierre lo decide TH, no el hecho de haber subido un archivo.
+ * Sube el archivo y, **solo cuando ya no falta ningún obligatorio**, pasa la
+ * solicitud a `SOPORTE_EN_VALIDACION`. Antes cualquier archivo cerraba el paso,
+ * así que un motivo que exige registro de defunción y prueba de parentesco se
+ * daba por entregado con el primero de los dos y Talento Humano tenía que
+ * devolverlo para pedir el que faltaba.
  *
- * El orden importa: primero el archivo. Si se cambiara el estado antes y la
- * subida fallara, la solicitud quedaría esperando la revisión de un documento
- * que no existe, y el colaborador ya no podría corregirlo porque la policy
- * solo le deja escribir mientras está en `PENDIENTE_SOPORTE`.
+ * Con la pelota en el lado de TH el colaborador ya no puede escribir —la policy
+ * solo se lo permite en `PENDIENTE_SOPORTE`—, y por eso el cambio de estado va
+ * al final y no antes de la subida.
  */
 export function useEntregarSoporte() {
   const qc = useQueryClient()
@@ -98,6 +105,9 @@ export function useEntregarSoporte() {
       archivo: File
       usuarioId: string
       maxMB?: number
+      documentoId?: number | null
+      /** `true` cuando este archivo completa los documentos obligatorios. */
+      completa: boolean
     }) => {
       await subirSoporte({
         solicitudId: params.solicitudId,
@@ -105,7 +115,10 @@ export function useEntregarSoporte() {
         momento: 'posterior',
         usuarioId: params.usuarioId,
         maxMB: params.maxMB,
+        documentoId: params.documentoId,
       })
+
+      if (!params.completa) return
 
       const { error: errorDetalle } = await supabase
         .from('permisos_detalle_permiso')

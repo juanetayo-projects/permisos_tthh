@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   AlertCircle,
   ExternalLink,
@@ -19,15 +19,26 @@ import {
   useUrlsAdjuntos,
   type Adjunto,
 } from '@/application/solicitudes/useAdjuntos'
+import { documentosDelTipo, useMatrizDocumentos } from '@/application/catalogos/useCatalogos'
 import type { SolicitudLista } from '@/application/solicitudes/useSolicitudes'
+import { avisoDeVencimiento, evaluarChecklist } from '@/domain/soportes'
+import { aISO } from '@/domain/festivos'
 import { Button } from '@/presentation/components/ui/button'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
+import { ListaDocumentos } from '@/presentation/components/ListaDocumentos'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/presentation/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/presentation/components/ui/select'
 
 const ETIQUETA_MOMENTO = {
   previo: 'Al solicitar',
@@ -67,10 +78,12 @@ export function PanelDocumentos({
   const { perfil, session } = useAuth()
   const { data: adjuntos, isLoading } = useAdjuntos(solicitud.id)
   const { data: urls } = useUrlsAdjuntos(adjuntos)
+  const { data: matriz } = useMatrizDocumentos()
   const entregar = useEntregarSoporte()
 
   const [ampliado, setAmpliado] = useState<Adjunto | null>(null)
   const [archivo, setArchivo] = useState<File | null>(null)
+  const [documentoId, setDocumentoId] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
 
   const lista = adjuntos ?? []
@@ -85,13 +98,58 @@ export function PanelDocumentos({
   // dar el visto bueno es una nota, al devolver es lo que hay que corregir.
   const nota = faltaEntregar ? solicitud.observacion_decision : null
 
+  /**
+   * Lista de verificación de lo que falta al regresar.
+   *
+   * Antes cualquier archivo daba por entregado el soporte, así que un motivo
+   * que exige registro de defunción **y** prueba de parentesco se cerraba con
+   * el primero de los dos y Talento Humano tenía que devolverlo para pedir el
+   * otro. Ahora el trámite solo avanza cuando no falta ningún obligatorio.
+   */
+  const checklist = useMemo(() => {
+    const docs = documentosDelTipo(matriz, solicitud.detalle_permiso?.tipo?.id)
+    const entregados = (adjuntos ?? [])
+      .filter((a) => a.momento === 'posterior' && a.documento?.codigo)
+      .map((a) => a.documento!.codigo)
+
+    return evaluarChecklist({
+      matriz: docs,
+      momento: 'posterior',
+      diasPermiso: Number(solicitud.detalle_permiso?.dias_permiso ?? 0),
+      entregados,
+    })
+  }, [matriz, adjuntos, solicitud.detalle_permiso])
+
+  const vencimiento = faltaEntregar
+    ? avisoDeVencimiento(solicitud.detalle_permiso?.fecha_limite_soporte ?? null, aISO(new Date()))
+    : null
+
+  /** Documento seleccionado, o el primero que falte si no se ha elegido nada. */
+  const documentoElegido =
+    checklist.documentos.find((d) => String(d.documentoId) === documentoId) ??
+    checklist.faltantes[0] ??
+    null
+
   async function entregarSoporte() {
     if (!archivo || !session) return
     setError(null)
 
+    // ¿Este archivo cierra la lista? Se resuelve antes de subir porque después
+    // el estado ya habrá cambiado y el colaborador no podría corregirlo.
+    const pendientesTrasEste = checklist.faltantes.filter(
+      (d) => d.documentoId !== documentoElegido?.documentoId
+    )
+
     try {
-      await entregar.mutateAsync({ solicitudId: solicitud.id, archivo, usuarioId: session.user.id })
+      await entregar.mutateAsync({
+        solicitudId: solicitud.id,
+        archivo,
+        usuarioId: session.user.id,
+        documentoId: documentoElegido?.documentoId ?? null,
+        completa: pendientesTrasEste.length === 0,
+      })
       setArchivo(null)
+      setDocumentoId('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No fue posible subir el soporte.')
     }
@@ -157,14 +215,24 @@ export function PanelDocumentos({
                     </span>
                   </button>
 
-                  <figcaption className="flex items-center gap-1.5 border-t border-border px-2 py-1">
-                    <FileText className="size-3 shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate text-[11px]" title={a.nombre_archivo}>
-                      {a.nombre_archivo}
-                    </span>
-                    <span className="shrink-0 rounded bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
-                      {ETIQUETA_MOMENTO[a.momento]}
-                    </span>
+                  <figcaption className="border-t border-border px-2 py-1">
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="size-3 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate text-[11px]" title={a.nombre_archivo}>
+                        {a.nombre_archivo}
+                      </span>
+                      <span className="shrink-0 rounded bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
+                        {ETIQUETA_MOMENTO[a.momento]}
+                      </span>
+                    </div>
+                    {/* Qué documento es, no solo cómo se llama el archivo:
+                        «escaneo_001.pdf» no dice si es la incapacidad o la
+                        prueba de parentesco. */}
+                    {a.documento && (
+                      <p className="mt-0.5 truncate text-[10px] text-[var(--acento-teal)]" title={a.documento.nombre}>
+                        {a.documento.nombre}
+                      </p>
+                    )}
                   </figcaption>
                 </figure>
               )
@@ -173,7 +241,7 @@ export function PanelDocumentos({
         </div>
 
         {/* ------------------------------------------------ Gestión del soporte */}
-        {(nota || puedeEntregar || enRevision || puedeValidar || error) && (
+        {(nota || puedeEntregar || enRevision || puedeValidar || error || faltaEntregar) && (
           <div className="shrink-0 space-y-2 border-t border-[var(--tinte-azul-borde)] p-2.5">
             {nota && (
               <div
@@ -205,8 +273,50 @@ export function PanelDocumentos({
               </p>
             )}
 
+            {/* La lista de verificación se muestra también a Talento Humano:
+                al validar necesita saber qué documentos debía haber. */}
+            {(faltaEntregar || enRevision) && checklist.documentos.length > 0 && (
+              <ListaDocumentos documentos={checklist.documentos} momento="posterior" conEstado />
+            )}
+
+            {vencimiento && (
+              <p
+                className={cn(
+                  'rounded-md border p-2 text-xs',
+                  vencimiento.vencido
+                    ? 'border-[var(--tinte-rojo-borde)] bg-[var(--tinte-rojo)] text-[var(--error)]'
+                    : 'border-[var(--tinte-ambar-borde)] bg-[var(--tinte-ambar)] text-[var(--acento-ambar)]'
+                )}
+              >
+                {vencimiento.mensaje}
+              </p>
+            )}
+
             {puedeEntregar && (
               <>
+                {/* Etiquetar el archivo es lo que permite saber cuál de los
+                    documentos exigidos acaba de llegar. */}
+                {checklist.documentos.length > 1 && (
+                  <Select
+                    value={documentoElegido ? String(documentoElegido.documentoId) : ''}
+                    onValueChange={setDocumentoId}
+                  >
+                    <SelectTrigger className="h-9" aria-label="Documento que estás entregando">
+                      <SelectValue placeholder="¿Qué documento estás entregando?" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {checklist.documentos
+                        .filter((d) => d.exigible || d.obligatorio)
+                        .map((d) => (
+                          <SelectItem key={d.documentoId} value={String(d.documentoId)}>
+                            {d.nombre}
+                            {d.entregado ? ' · ya entregado' : ''}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
                 <CampoArchivo id="soporte-posterior" archivo={archivo} onCambio={setArchivo} obligatorio />
                 <Button
                   size="sm"
@@ -215,14 +325,18 @@ export function PanelDocumentos({
                   cargando={entregar.isPending}
                   onClick={() => void entregarSoporte()}
                 >
-                  {!entregar.isPending && <Upload />} Guardar y enviar a Talento Humano
+                  {!entregar.isPending && <Upload />}{' '}
+                  {checklist.faltantes.length > 1 ? 'Guardar documento' : 'Guardar y enviar a Talento Humano'}
                 </Button>
                 {/* Decir qué pasa después evita que se quede esperando un
                     cierre que no depende de él. */}
                 <p className="text-[11px] leading-snug text-muted-foreground">
-                  {archivo
-                    ? 'Al guardarlo, Talento Humano lo revisa y cierra la solicitud.'
-                    : 'Adjunta la constancia de asistencia para poder cerrar la solicitud.'}
+                  {checklist.faltantes.length > 1
+                    ? `Faltan ${checklist.faltantes.length} documentos. La solicitud pasa a Talento Humano cuando estén todos.`
+                    : archivo
+                      ? 'Al guardarlo, Talento Humano lo revisa y cierra la solicitud.'
+                      : (checklist.mensaje ??
+                        'Adjunta el soporte correspondiente para poder cerrar la solicitud.')}
                 </p>
               </>
             )}

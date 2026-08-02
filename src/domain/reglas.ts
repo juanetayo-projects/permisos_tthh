@@ -7,10 +7,12 @@
  */
 
 import {
+  aISO,
   contarDiasCalendario,
   contarDiasHabiles,
   desdeISO,
   siguienteDiaHabil,
+  sumarDias,
   sumarDiasHabiles,
   type FechaISO,
 } from './festivos'
@@ -68,8 +70,9 @@ function aMinutos(hora: string): number {
   return (h ?? 0) * 60 + (m ?? 0)
 }
 
-function redondear(n: number): number {
-  return Math.round(n * 100) / 100
+function redondear(n: number, decimales = 2): number {
+  const f = 10 ** decimales
+  return Math.round(n * f) / f
 }
 
 // -----------------------------------------------------------------------------
@@ -186,6 +189,14 @@ export function evaluarSoporte(params: {
   diasPermiso: number
   fechaFin: FechaISO
   plazoDiasHabiles?: number
+  /**
+   * Plazo propio del motivo. Manda sobre el global porque los plazos legales
+   * son muy distintos entre sí: tres días hábiles para transcribir una
+   * incapacidad y un mes para el certificado electoral (Ley 403 de 1997).
+   */
+  plazoDelMotivo?: number | null
+  /** `false` cuenta el plazo en días calendario, como los plazos largos. */
+  plazoEnHabiles?: boolean
 }): ExigenciaSoporte {
   const previo = params.requiereSoportePrevio
     ? {
@@ -198,13 +209,12 @@ export function evaluarSoporte(params: {
 
   const umbral = params.umbralDias ?? null
   const superaUmbral = umbral === null || params.diasPermiso > umbral
-  const plazo = params.plazoDiasHabiles ?? 5
 
   return {
     previo,
     posterior: {
       obligatorio: superaUmbral,
-      fechaLimite: superaUmbral ? sumarDiasHabiles(params.fechaFin, plazo) : null,
+      fechaLimite: superaUmbral ? fechaLimiteSoporte(params) : null,
       mensaje: superaUmbral
         ? umbral === null
           ? 'Al regresar deberás adjuntar el soporte correspondiente.'
@@ -212,6 +222,27 @@ export function evaluarSoporte(params: {
         : `Si el ausentismo llega a superar ${umbral} días, deberás adjuntar el soporte al regresar.`,
     },
   }
+}
+
+/**
+ * Fecha tope para entregar el soporte posterior.
+ *
+ * Se cuenta desde el día siguiente al regreso. En hábiles por defecto —así se
+ * expresan los plazos internos— y en calendario cuando la norma habla de meses,
+ * porque «un mes» no significa «treinta días hábiles» en ninguna parte.
+ */
+export function fechaLimiteSoporte(params: {
+  fechaFin: FechaISO
+  plazoDelMotivo?: number | null
+  plazoEnHabiles?: boolean
+  plazoDiasHabiles?: number
+}): FechaISO {
+  const plazo = params.plazoDelMotivo ?? params.plazoDiasHabiles ?? 5
+  const enHabiles = params.plazoEnHabiles ?? true
+
+  return enHabiles
+    ? sumarDiasHabiles(params.fechaFin, plazo)
+    : aISO(sumarDias(desdeISO(params.fechaFin), plazo))
 }
 
 // -----------------------------------------------------------------------------
@@ -282,5 +313,166 @@ export function validarSaldos(params: {
   return {
     coherente: false,
     advertencia: `Los días a disfrutar (${diasADisfrutar}) más los pendientes (${diasPendientes}) suman ${suma}, y registraste ${diasCorresponden} días que corresponden.`,
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Qué fechas admite cada motivo
+// -----------------------------------------------------------------------------
+
+/**
+ * Lo que el dominio necesita saber de un motivo para decidir.
+ *
+ * Es un subconjunto de `permisos_tipos` a propósito: así estas funciones se
+ * pueden probar con un objeto literal, sin arrastrar la fila entera ni la
+ * dependencia de Supabase.
+ */
+export interface ReglasDelMotivo {
+  nombre?: string
+  diasMaxRetroactivo?: number | null
+  diasMaxFuturo?: number | null
+  duracionMaximaDias?: number | null
+  duracionMinimaDias?: number | null
+  permiteHoras?: boolean
+  diasCalendario?: boolean
+  maxPorPeriodo?: number | null
+  periodoControl?: 'ninguno' | 'mes' | 'semestre' | 'anio'
+}
+
+export interface RangoFechas {
+  min: FechaISO
+  max: FechaISO | null
+  /** Explica el límite en el idioma del colaborador, no en el del esquema. */
+  ayuda: string
+}
+
+/**
+ * Ventana de fechas que acepta un motivo.
+ *
+ * Es la regla que faltaba y que más ruido generaba en la práctica. El
+ * formulario solo sabía «no antes de hoy, salvo calamidad y luto», así que:
+ * una incapacidad expedida el viernes no se podía registrar el lunes, y un
+ * permiso para dentro de tres años se aceptaba sin pestañear.
+ *
+ * Cada motivo declara ahora cuánto admite hacia atrás y hacia adelante. Al
+ * contrario que la antelación, esto **sí** acota el selector: una fecha fuera
+ * de rango no es una solicitud extemporánea, es un dato equivocado.
+ */
+export function rangoFechasPermitido(
+  reglas: ReglasDelMotivo | null | undefined,
+  hoy: FechaISO
+): RangoFechas {
+  // Sin motivo elegido todavía no se puede acotar nada: se deja el
+  // comportamiento conservador de siempre.
+  if (!reglas) {
+    return { min: hoy, max: null, ayuda: 'Elige primero el motivo para ver las fechas que admite.' }
+  }
+
+  const retro = reglas.diasMaxRetroactivo ?? 0
+  const futuro = reglas.diasMaxFuturo ?? null
+
+  const min = retro > 0 ? aISO(sumarDias(desdeISO(hoy), -retro)) : hoy
+  const max = futuro !== null ? aISO(sumarDias(desdeISO(hoy), futuro)) : null
+
+  const partes: string[] = []
+  partes.push(
+    retro > 0
+      ? `Admite registrar hasta ${retro} día${retro === 1 ? '' : 's'} hacia atrás.`
+      : 'No admite fechas anteriores a hoy.'
+  )
+  if (futuro !== null) partes.push(`Como máximo, ${futuro} días hacia adelante.`)
+
+  return { min, max, ayuda: partes.join(' ') }
+}
+
+export interface AvisoDuracion {
+  excede: boolean
+  mensaje: string | null
+}
+
+/**
+ * Contrasta la duración pedida contra el tope del motivo.
+ *
+ * Advierte y deja continuar: la prórroga de una incapacidad supera el tope con
+ * toda normalidad, y bloquearla obligaría a partirla en dos solicitudes que
+ * después nadie sabe que eran la misma.
+ */
+export function evaluarDuracion(
+  reglas: ReglasDelMotivo | null | undefined,
+  dias: number
+): AvisoDuracion {
+  const tope = reglas?.duracionMaximaDias ?? null
+  if (tope === null || dias <= tope) return { excede: false, mensaje: null }
+
+  return {
+    excede: true,
+    mensaje: `Este motivo contempla hasta ${tope} día${tope === 1 ? '' : 's'} y estás pidiendo ${redondear(dias, 1)}. Puedes enviarla, pero Talento Humano tendrá que sustentar la diferencia.`,
+  }
+}
+
+export interface AvisoCupo {
+  excedido: boolean
+  usados: number
+  mensaje: string | null
+}
+
+/** Etiqueta del periodo al que pertenece una fecha, según el control del motivo. */
+export function periodoDe(fecha: FechaISO, control: ReglasDelMotivo['periodoControl']): string {
+  const [anio, mes] = fecha.split('-').map(Number)
+
+  switch (control) {
+    case 'mes':
+      return `${anio}-${String(mes).padStart(2, '0')}`
+    case 'semestre':
+      return `${anio}-S${mes <= 6 ? 1 : 2}`
+    case 'anio':
+      return String(anio)
+    default:
+      return 'sin-control'
+  }
+}
+
+/**
+ * ¿Queda cupo del motivo en el periodo?
+ *
+ * El día de la familia es semestral (Ley 1857 de 2017, art. 3) y hasta ahora el
+ * único control era que alguien se acordara. Se cuentan solo las solicitudes que
+ * siguen vivas: una rechazada o cancelada no consume el beneficio.
+ */
+export function evaluarCupo(params: {
+  reglas: ReglasDelMotivo | null | undefined
+  fechaInicio: FechaISO
+  /** Fechas de inicio de las solicitudes vigentes del mismo motivo. */
+  previas: FechaISO[]
+}): AvisoCupo {
+  const { reglas } = params
+  const cupo = reglas?.maxPorPeriodo ?? null
+  const control = reglas?.periodoControl ?? 'ninguno'
+
+  if (cupo === null || control === 'ninguno') {
+    return { excedido: false, usados: 0, mensaje: null }
+  }
+
+  const periodo = periodoDe(params.fechaInicio, control)
+  const usados = params.previas.filter((f) => periodoDe(f, control) === periodo).length
+
+  const nombrePeriodo =
+    control === 'mes' ? 'este mes' : control === 'semestre' ? 'este semestre' : 'este año'
+
+  if (usados < cupo) {
+    return {
+      excedido: false,
+      usados,
+      mensaje:
+        usados === 0
+          ? null
+          : `Ya usaste este beneficio ${usados} vez${usados === 1 ? '' : 'ces'} ${nombrePeriodo}; el cupo es de ${cupo}.`,
+    }
+  }
+
+  return {
+    excedido: true,
+    usados,
+    mensaje: `Ya agotaste el cupo de este motivo ${nombrePeriodo} (${usados} de ${cupo}). Talento Humano tendrá que autorizarlo como excepción.`,
   }
 }

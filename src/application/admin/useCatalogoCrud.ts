@@ -13,6 +13,8 @@ export type TablaCatalogo =
   | 'permisos_categorias'
   | 'permisos_tipos'
   | 'permisos_tramites'
+  | 'permisos_documentos'
+  | 'permisos_tipos_documentos'
   // Compartidos con Cambio de Turnos: editarlos afecta a las dos aplicaciones.
   | 'coordinadores'
   | 'areas'
@@ -36,6 +38,8 @@ function invalidar(qc: ReturnType<typeof useQueryClient>, tabla: TablaCatalogo) 
   void qc.invalidateQueries({ queryKey: ['categorias'] })
   void qc.invalidateQueries({ queryKey: ['tipos'] })
   void qc.invalidateQueries({ queryKey: ['tramites'] })
+  void qc.invalidateQueries({ queryKey: ['documentos'] })
+  void qc.invalidateQueries({ queryKey: ['tipos-documentos'] })
   void qc.invalidateQueries({ queryKey: ['coordinadores'] })
   void qc.invalidateQueries({ queryKey: ['areas'] })
   void qc.invalidateQueries({ queryKey: ['cargos'] })

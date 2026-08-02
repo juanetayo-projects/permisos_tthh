@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { AlertCircle, Save, Send } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
+  documentosDelTipo,
   useAreas,
   useCargos,
   useCategorias,
@@ -9,16 +10,33 @@ import {
   useCoordinadores,
   etiquetaCoordinador,
   useEmpresas,
+  useMatrizDocumentos,
   useTipos,
   useTramite,
 } from '@/application/catalogos/useCatalogos'
 import { crearSolicitud, guardarDocumentoPropio, subirSoporte } from '@/application/solicitudes/api'
-import { calcularDuracion, evaluarAntelacion, evaluarSoporte } from '@/domain/reglas'
+import {
+  usePeriodosOcupados,
+  usePeriodosSuspendidos,
+  useSolicitudes,
+} from '@/application/solicitudes/useSolicitudes'
+import {
+  calcularDuracion,
+  evaluarAntelacion,
+  evaluarCupo,
+  evaluarDuracion,
+  evaluarSoporte,
+  rangoFechasPermitido,
+} from '@/domain/reglas'
+import { evaluarSolapamiento } from '@/domain/concurrencia'
+import { documentosDelMomento } from '@/domain/soportes'
 import { aISO } from '@/domain/festivos'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
+import { AvisoCruce } from '@/presentation/components/AvisoCruce'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
 import { CampoFecha } from '@/presentation/components/CampoFecha'
+import { ListaDocumentos } from '@/presentation/components/ListaDocumentos'
 import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
 import { DialogoConfirmarJefe } from '@/presentation/components/DialogoConfirmarJefe'
 import {
@@ -52,6 +70,10 @@ export default function SolicitudPermiso() {
   const { data: categorias } = useCategorias()
   const { data: tipos } = useTipos()
   const { data: config } = useConfig()
+  const { data: matriz } = useMatrizDocumentos()
+  const { data: ocupados } = usePeriodosOcupados(perfil?.user_id)
+  const { data: suspendidos } = usePeriodosSuspendidos(perfil?.user_id)
+  const { data: propias } = useSolicitudes({ soloPropias: true }, perfil?.user_id)
 
   const [form, setForm] = useState({
     empresaId: '',
@@ -113,14 +135,34 @@ export default function SolicitudPermiso() {
   const coordinador = coordinadores?.find((c) => String(c.id) === coordinadorId)
 
   /**
-   * Fecha mínima seleccionable.
+   * Ventana de fechas del motivo.
    *
-   * Por defecto no se permite pedir un permiso para un día que ya pasó. La
-   * excepción son los motivos exentos de antelación —calamidad y luto—: ocurren
-   * de un momento a otro y se formalizan después, así que bloquearlos impediría
-   * registrar el caso real.
+   * Antes la única regla era «no antes de hoy, salvo calamidad y luto». Con eso
+   * una incapacidad expedida el viernes no se podía registrar el lunes, y un
+   * permiso para dentro de tres años se aceptaba sin más. Ahora cada motivo
+   * declara cuánto admite hacia atrás y hacia adelante, y **aquí sí se acota el
+   * selector**: una fecha fuera de rango no es una solicitud extemporánea, es
+   * un dato equivocado.
    */
-  const fechaMinima = tipo?.exento_antelacion ? undefined : HOY
+  const rangoFechas = useMemo(
+    () =>
+      rangoFechasPermitido(
+        tipo
+          ? {
+              nombre: tipo.nombre,
+              diasMaxRetroactivo: tipo.dias_max_retroactivo,
+              diasMaxFuturo: tipo.dias_max_futuro,
+              duracionMaximaDias: tipo.duracion_maxima_dias,
+              permiteHoras: tipo.permite_horas,
+              diasCalendario: tipo.dias_calendario,
+              maxPorPeriodo: tipo.max_por_periodo,
+              periodoControl: tipo.periodo_control,
+            }
+          : null,
+        HOY
+      ),
+    [tipo]
+  )
 
   /**
    * Qué días admite este motivo.
@@ -131,6 +173,17 @@ export default function SolicitudPermiso() {
    * motivo (`dias_calendario`), configurable desde Administración.
    */
   const admiteNoHabiles = Boolean(tipo?.dias_calendario || tipo?.exento_antelacion)
+
+  /**
+   * ¿Este motivo se puede pedir por horas?
+   *
+   * Una licencia de maternidad o una incapacidad se miden en días completos, y
+   * preguntar por la hora de salida y de regreso no solo sobra: hacía que la
+   * duración se calculara como una jornada parcial cuando el permiso era de un
+   * solo día. Mientras no haya motivo elegido se dejan las horas visibles, que
+   * es el caso más común.
+   */
+  const permiteHoras = tipo ? tipo.permite_horas : true
 
   const coordinadoresDelArea = useMemo(
     () => coordinadores?.filter((c) => String(c.area_id) === areaId) ?? [],
@@ -146,10 +199,10 @@ export default function SolicitudPermiso() {
       calcularDuracion({
         fechaInicio: form.fechaInicio,
         fechaFin: form.fechaFin,
-        horaSalida: form.horaSalida,
-        horaRegreso: form.horaRegreso,
+        horaSalida: permiteHoras ? form.horaSalida : null,
+        horaRegreso: permiteHoras ? form.horaRegreso : null,
       }),
-    [form.fechaInicio, form.fechaFin, form.horaSalida, form.horaRegreso]
+    [form.fechaInicio, form.fechaFin, form.horaSalida, form.horaRegreso, permiteHoras]
   )
 
   const antelacion = useMemo(
@@ -157,13 +210,13 @@ export default function SolicitudPermiso() {
       tramite
         ? evaluarAntelacion({
             fechaInicio: form.fechaInicio,
-            horaSalida: form.horaSalida,
+            horaSalida: permiteHoras ? form.horaSalida : null,
             antelacionMinima: tramite.antelacion_minima,
             unidad: tramite.unidad_antelacion,
             exento: tipo?.exento_antelacion,
           })
         : null,
-    [tramite, form.fechaInicio, form.horaSalida, tipo]
+    [tramite, form.fechaInicio, form.horaSalida, tipo, permiteHoras]
   )
 
   const soporteExigido = useMemo(
@@ -176,10 +229,79 @@ export default function SolicitudPermiso() {
             diasPermiso: duracion.dias,
             fechaFin: form.fechaFin,
             plazoDiasHabiles: Number(config?.dias_plazo_soporte_posterior ?? 5),
+            plazoDelMotivo: tipo.plazo_soporte_dias,
+            plazoEnHabiles: tipo.plazo_soporte_habiles,
           })
         : null,
     [tipo, duracion.dias, form.fechaFin, config]
   )
+
+  /** Documentos concretos que exige el motivo, con su norma. */
+  const docsDelTipo = useMemo(() => documentosDelTipo(matriz, tipo?.id), [matriz, tipo])
+
+  const docsPrevios = useMemo(
+    () => documentosDelMomento({ matriz: docsDelTipo, momento: 'previo', diasPermiso: duracion.dias }),
+    [docsDelTipo, duracion.dias]
+  )
+  const docsPosteriores = useMemo(
+    () => documentosDelMomento({ matriz: docsDelTipo, momento: 'posterior', diasPermiso: duracion.dias }),
+    [docsDelTipo, duracion.dias]
+  )
+
+  /**
+   * Documento que se está adjuntando ahora.
+   *
+   * El formulario acepta un archivo, así que se etiqueta con el primer
+   * documento previo obligatorio: es el que la matriz declara imprescindible.
+   * Los demás se entregan desde el detalle, donde ya hay lista de verificación.
+   */
+  const documentoDelAdjunto = useMemo(
+    () => docsPrevios.find((d) => d.exigible && d.obligatorio) ?? docsPrevios[0] ?? null,
+    [docsPrevios]
+  )
+
+  const avisoDuracion = useMemo(
+    () =>
+      evaluarDuracion(tipo ? { duracionMaximaDias: tipo.duracion_maxima_dias } : null, duracion.dias),
+    [tipo, duracion.dias]
+  )
+
+  /** Cupo del motivo en el periodo: el día de la familia es semestral. */
+  const avisoCupo = useMemo(() => {
+    if (!tipo?.max_por_periodo) return null
+
+    const previas = (propias ?? [])
+      .filter(
+        (s) =>
+          s.detalle_permiso?.tipo?.id === tipo.id &&
+          !s.estado.startsWith('RECHAZADA') &&
+          s.estado !== 'CANCELADA' &&
+          s.estado !== 'BORRADOR'
+      )
+      .map((s) => s.fecha_inicio)
+
+    return evaluarCupo({
+      reglas: { maxPorPeriodo: tipo.max_por_periodo, periodoControl: tipo.periodo_control },
+      fechaInicio: form.fechaInicio,
+      previas,
+    })
+  }, [tipo, propias, form.fechaInicio])
+
+  /** Cruces con periodos que este colaborador ya tiene ocupados. */
+  const cruces = useMemo(() => {
+    if (!tipo) return null
+
+    return evaluarSolapamiento({
+      nuevo: {
+        fechaInicio: form.fechaInicio,
+        fechaFin: form.fechaFin,
+        motivo: tipo.nombre,
+        prioridad: tipo.prioridad,
+        interrumpeOtros: tipo.interrumpe_otros,
+      },
+      ocupados: ocupados ?? [],
+    })
+  }, [tipo, form.fechaInicio, form.fechaFin, ocupados])
 
   const avisos = useMemo(() => {
     const lista: Aviso[] = []
@@ -196,10 +318,27 @@ export default function SolicitudPermiso() {
         texto: soporteExigido.posterior.mensaje,
       })
     }
+    if (avisoDuracion.mensaje) {
+      lista.push({ tono: 'advertencia', texto: avisoDuracion.mensaje })
+    }
+    if (avisoCupo?.mensaje) {
+      lista.push({ tono: avisoCupo.excedido ? 'advertencia' : 'info', texto: avisoCupo.mensaje })
+    }
+    // Un periodo suspendido que nadie reprograma se queda pendiente para
+    // siempre; el momento de recordarlo es justo cuando se pide otro permiso.
+    for (const s of suspendidos ?? []) {
+      lista.push({
+        tono: 'info',
+        texto: `Tienes ${s.dias_pendientes_reprogramar ?? 0} días pendientes de reprogramar de ${s.consecutivo ?? 'un periodo interrumpido'}.`,
+      })
+    }
     if (tipo?.ruta_aprobacion === 'gerente_th_directo') {
       lista.push({
         tono: 'info',
-        texto: 'Este trámite va directo a la Gerencia de Talento Humano, sin pasar por tu jefe directo.',
+        texto:
+          tipo.naturaleza === 'tramite'
+            ? 'Es un trámite, no un permiso: va directo a la Gerencia de Talento Humano y no cuenta como ausencia.'
+            : 'Este trámite va directo a la Gerencia de Talento Humano, sin pasar por tu jefe directo.',
       })
     }
     if (!coordinador && tipo?.ruta_aprobacion !== 'gerente_th_directo') {
@@ -216,7 +355,17 @@ export default function SolicitudPermiso() {
       })
     }
     return lista
-  }, [antelacion, soporteExigido, tipo, coordinador, perfil, areaId])
+  }, [
+    antelacion,
+    soporteExigido,
+    tipo,
+    coordinador,
+    perfil,
+    areaId,
+    avisoDuracion,
+    avisoCupo,
+    suspendidos,
+  ])
 
   async function guardar(enviar: boolean) {
     setError(null)
@@ -268,8 +417,8 @@ export default function SolicitudPermiso() {
           categoria_id: form.categoriaId ? Number(form.categoriaId) : null,
           tipo_id: form.tipoId ? Number(form.tipoId) : null,
           tipo_otro: form.tipoOtro.trim() || null,
-          hora_salida: form.horaSalida || null,
-          hora_regreso: form.horaRegreso || null,
+          hora_salida: permiteHoras ? form.horaSalida || null : null,
+          hora_regreso: permiteHoras ? form.horaRegreso || null : null,
           horas_permiso: duracion.horas,
           dias_permiso: duracion.dias,
           remunerado: form.remunerado,
@@ -288,6 +437,7 @@ export default function SolicitudPermiso() {
           momento: 'previo',
           usuarioId: session.user.id,
           maxMB: Number(config?.max_mb_adjunto ?? 10),
+          documentoId: documentoDelAdjunto?.documentoId ?? null,
         })
       }
 
@@ -484,7 +634,24 @@ export default function SolicitudPermiso() {
                     onValueChange={(v) => {
                       set('tipoId', v)
                       const t = tipos?.find((x) => String(x.id) === v)
-                      if (t) set('remunerado', t.remunerado_por_defecto)
+                      if (!t) return
+
+                      set('remunerado', t.remunerado_por_defecto)
+
+                      // Cada motivo trae su propia ventana de fechas. Si la que
+                      // había queda fuera, se recoloca en vez de dejar un dato
+                      // que el propio formulario ya no admite.
+                      const rango = rangoFechasPermitido(
+                        {
+                          diasMaxRetroactivo: t.dias_max_retroactivo,
+                          diasMaxFuturo: t.dias_max_futuro,
+                        },
+                        HOY
+                      )
+                      if (form.fechaInicio < rango.min || (rango.max && form.fechaInicio > rango.max)) {
+                        set('fechaInicio', HOY)
+                        set('fechaFin', HOY)
+                      }
                     }}
                     disabled={!form.categoriaId}
                   >
@@ -501,12 +668,26 @@ export default function SolicitudPermiso() {
                   </Select>
                 </div>
 
+                {/* La norma que respalda el motivo, a la vista: es lo que evita
+                    la conversación de «¿y esto por qué me lo piden?». */}
+                {tipo?.fundamento_legal && (
+                  <p className="rounded-md border border-border bg-card/70 p-2 text-[11px] leading-snug text-muted-foreground">
+                    {tipo.fundamento_legal}
+                  </p>
+                )}
+
+                <ListaDocumentos documentos={docsPrevios} momento="previo" />
+
                 <CampoArchivo
                   archivo={soporte}
                   onCambio={setSoporte}
                   maxMB={Number(config?.max_mb_adjunto ?? 10)}
                   obligatorio={Boolean(soporteExigido?.previo?.obligatorio)}
                 />
+
+                {docsPosteriores.length > 0 && (
+                  <ListaDocumentos documentos={docsPosteriores} momento="posterior" />
+                )}
               </div>
             </section>
 
@@ -517,7 +698,8 @@ export default function SolicitudPermiso() {
                   <Label htmlFor="desde">Desde</Label>
                   <CampoFecha
                     id="desde"
-                    min={fechaMinima}
+                    min={rangoFechas.min}
+                    max={rangoFechas.max ?? undefined}
                     valor={form.fechaInicio}
                     soloHabiles={!admiteNoHabiles}
                     onCambio={(f) => {
@@ -536,25 +718,37 @@ export default function SolicitudPermiso() {
                     onCambio={(f) => set('fechaFin', f)}
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label htmlFor="salida">Hora de salida</Label>
-                  <Input
-                    id="salida"
-                    type="time"
-                    value={form.horaSalida}
-                    onChange={(e) => set('horaSalida', e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="regreso">Hora de regreso</Label>
-                  <Input
-                    id="regreso"
-                    type="time"
-                    value={form.horaRegreso}
-                    onChange={(e) => set('horaRegreso', e.target.value)}
-                  />
-                </div>
+                {/* Preguntar por la hora de salida en una licencia de 18 semanas
+                    no significa nada: lo decide el motivo. */}
+                {permiteHoras && (
+                  <>
+                    <div className="space-y-1">
+                      <Label htmlFor="salida">Hora de salida</Label>
+                      <Input
+                        id="salida"
+                        type="time"
+                        value={form.horaSalida}
+                        onChange={(e) => set('horaSalida', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="regreso">Hora de regreso</Label>
+                      <Input
+                        id="regreso"
+                        type="time"
+                        value={form.horaRegreso}
+                        onChange={(e) => set('horaRegreso', e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
+
+              <p className="mt-2 text-[11px] leading-snug text-muted-foreground">{rangoFechas.ayuda}</p>
+
+              {cruces && cruces.cruces.length > 0 && (
+                <AvisoCruce cruces={cruces.cruces} className="mt-2.5" />
+              )}
 
               <LineaTiempoPeriodo
                 className="mt-3"

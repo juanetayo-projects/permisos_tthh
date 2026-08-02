@@ -2,6 +2,87 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.3.0] — 2026-08-01
+
+Revisión de la aplicación frente al Código Sustantivo del Trabajo. El detalle
+para Talento Humano, con las once decisiones que quedan a su criterio, está en
+[`INFORME_CODIGO_LABORAL.md`](./INFORME_CODIGO_LABORAL.md).
+
+### Añadido
+
+- **Documentos soporte con nombre propio.** `permisos_documentos` (catálogo con
+  la norma que respalda cada documento) y `permisos_tipos_documentos` (qué exige
+  cada motivo y en qué momento). Antes había dos booleanos que decían *si* hacía
+  falta un soporte pero nunca *cuál*: el colaborador subía lo que creía, TH lo
+  devolvía, y el trámite daba una vuelta completa por una diferencia que estaba
+  clara desde el principio.
+- **Lista de verificación al finalizar.** La solicitud pasa a validación de TH
+  solo cuando no falta ningún documento obligatorio. El luto exige registro de
+  defunción *y* prueba de parentesco; con el modelo anterior, el primero cerraba
+  el paso y había que devolverlo para pedir el segundo.
+- `permisos_adjuntos.documento_id`: cada archivo sabe qué documento es. Sin eso,
+  una solicitud con tres documentos exigidos y dos adjuntos no se podía cerrar
+  porque nadie sabía cuál faltaba.
+- **Diecisiete motivos nuevos**, con su fundamento legal a la vista del
+  colaborador: cargo transitorio de forzosa aceptación y comisión sindical
+  —enumerados en el art. 57 num. 6 CST y que nunca existieron—, citación
+  judicial, jurado de votación (Ley 1475 de 2011, distinto de votar), las cinco
+  licencias parentales por separado, incapacidad por accidente de trabajo y por
+  enfermedad laboral (el Decreto 1072 de 2015 obliga a separarlas de la
+  enfermedad general), control prenatal, donación de sangre, acompañamiento a
+  familiar, formación o estudio, permiso no remunerado y capacitación
+  institucional. Cuatro entran desactivados a la espera del visto bueno de TH.
+- **Ventana de fechas por motivo.** Cada uno declara cuánto admite hacia atrás y
+  hacia adelante. Antes la única regla era «no antes de hoy, salvo calamidad y
+  luto»: una incapacidad expedida el viernes no se podía registrar el lunes, y
+  un permiso para dentro de tres años se aceptaba sin objeción. A diferencia de
+  la antelación, esto sí acota el selector —una fecha fuera de rango no es una
+  solicitud extemporánea, es un dato equivocado—.
+- **Duración máxima y cupo por periodo.** El luto son 5 días hábiles (Ley 1280
+  de 2009) y el día de la familia es semestral (Ley 1857 de 2017): el sistema
+  lleva la cuenta en vez de confiar en que alguien se acuerde. La duración
+  advierte y no bloquea, porque la prórroga de una incapacidad existe.
+- **Plazo del soporte por motivo**, en días hábiles o calendario. Un único
+  plazo global obligaba a elegir entre los tres días hábiles de una incapacidad
+  y el mes del certificado electoral; y «un mes» no son treinta días hábiles en
+  ninguna norma.
+- **Interrupción de periodos (art. 187 CST).** Estado `SUSPENDIDA`, RPC
+  `permisos_interrumpir` y `permisos_reprogramar`, y detección de cruces en el
+  formulario. Cuando una incapacidad cae dentro de unas vacaciones, el periodo
+  se suspende y los días no disfrutados quedan pendientes; antes se cerraban las
+  vacaciones completas y esos días se perdían sin dejar rastro.
+- **Módulo de ausentismo** (`/ausentismo`): vista `permisos_v_ausentismo`,
+  indicadores de la GTC 3701 y la Resolución 0312 de 2019, cortes por
+  colaborador, proceso, motivo y cargo, mapa de calor, filtros por todo lo
+  pedido y exportación a Excel y PDF. Va aparte del panel ejecutivo porque
+  responde a otra pregunta: aquel mide el flujo de solicitudes y este, tiempo no
+  laborado.
+- Secciones **Documentos** y **Documentos exigidos** en Administración, y los
+  campos nuevos del motivo en su editor.
+
+### Cambiado
+
+- **Los trámites dejan de contar como ausentismo.** El retiro parcial de
+  cesantías se firma en este formato pero no es una falta al trabajo, y aparecía
+  en las estadísticas como si el colaborador hubiera faltado. Lo mismo con la
+  comisión sindical y la capacitación institucional, donde se está cumpliendo
+  una función. Se distingue por la columna `naturaleza` del motivo.
+- **Las horas de salida y regreso solo aparecen si el motivo las admite.** El
+  formulario las pedía incluso en una licencia de maternidad de 18 semanas,
+  donde no significan nada y además distorsionaban el cálculo de la duración.
+- `requiere_soporte_previo` y `requiere_soporte_posterior` pasan a derivarse de
+  la matriz por trigger: ya no puede haber un motivo que diga «no pide soporte»
+  con tres documentos obligatorios configurados.
+- «Licencia de maternidad o paternidad» queda desactivada —no borrada, para no
+  romper las solicitudes ya radicadas— en favor de los motivos específicos.
+
+### Seguridad
+
+- `permisos_sincronizar_flags_soporte` es un trigger, no una API. Postgres
+  concede `EXECUTE` a `public` por defecto y PostgREST la publicaba en
+  `/rest/v1/rpc`, de modo que cualquiera sin sesión podía invocar una función
+  `SECURITY DEFINER`. Se revoca; el trigger sigue disparando igual.
+
 ## [0.2.2] — 2026-08-01
 
 ### Añadido

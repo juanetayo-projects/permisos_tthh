@@ -3,6 +3,8 @@ import {
   BriefcaseBusiness,
   Building2,
   FileCog,
+  FileStack,
+  FileText,
   ListTree,
   Network,
   ScrollText,
@@ -86,6 +88,8 @@ type Seccion =
   | 'tramites'
   | 'categorias'
   | 'tipos'
+  | 'documentos'
+  | 'matriz'
   | 'empresas'
   | 'parametros'
   | 'auditoria'
@@ -98,6 +102,8 @@ const SECCIONES: { clave: Seccion; etiqueta: string; icono: typeof Users }[] = [
   { clave: 'tramites', etiqueta: 'Trámites y formatos', icono: FileCog },
   { clave: 'categorias', etiqueta: 'Categorías', icono: Tags },
   { clave: 'tipos', etiqueta: 'Motivos de permiso', icono: ListTree },
+  { clave: 'documentos', etiqueta: 'Documentos', icono: FileText },
+  { clave: 'matriz', etiqueta: 'Documentos exigidos', icono: FileStack },
   { clave: 'empresas', etiqueta: 'Empresas', icono: Building2 },
   { clave: 'parametros', etiqueta: 'Parámetros', icono: SlidersHorizontal },
   { clave: 'auditoria', etiqueta: 'Auditoría', icono: ScrollText },
@@ -118,6 +124,13 @@ export default function Administracion() {
   const { data: areasAdmin } = useCatalogo<{ id: number; nombre: string; activo: boolean }>(
     'areas',
     'nombre'
+  )
+  // La matriz de documentos referencia motivos y documentos por identificador.
+  const { data: tiposAdmin } = useCatalogo<{ id: number; nombre: string; activo: boolean }>(
+    'permisos_tipos'
+  )
+  const { data: documentosAdmin } = useCatalogo<{ id: number; nombre: string; activo: boolean }>(
+    'permisos_documentos'
   )
 
   const camposCoordinador: CampoCatalogo[] = [
@@ -151,6 +164,20 @@ export default function Administracion() {
       opciones: (categorias ?? []).map((c) => ({ valor: String(c.id), etiqueta: c.nombre })),
     },
     {
+      clave: 'naturaleza',
+      etiqueta: 'Naturaleza',
+      tipo: 'seleccion',
+      ancho: 'w-32',
+      opciones: [
+        { valor: 'permiso', etiqueta: 'Permiso del empleador' },
+        { valor: 'licencia', etiqueta: 'Licencia de ley' },
+        { valor: 'incapacidad', etiqueta: 'Incapacidad' },
+        { valor: 'tramite', etiqueta: 'Trámite (sin ausencia)' },
+      ],
+      ayuda:
+        'Un trámite no genera ausencia: el retiro parcial de cesantías se firma en este formato pero no es una falta al trabajo.',
+    },
+    {
       clave: 'ruta_aprobacion',
       etiqueta: 'Ruta de aprobación',
       tipo: 'seleccion',
@@ -162,16 +189,33 @@ export default function Administracion() {
     },
     { clave: 'remunerado_por_defecto', etiqueta: 'Remunerado', tipo: 'booleano', ancho: 'w-28' },
     {
+      clave: 'fundamento_legal',
+      etiqueta: 'Fundamento legal',
+      tipo: 'texto',
+      soloEnFormulario: true,
+      ayuda: 'La norma que respalda el motivo. Se le muestra al colaborador al solicitar.',
+    },
+    {
+      clave: 'genera_ausentismo',
+      etiqueta: 'Cuenta como ausentismo',
+      tipo: 'booleano',
+      soloEnFormulario: true,
+      ayuda:
+        'No para trámites, comisiones sindicales y capacitaciones: ahí el colaborador cumple una función, no falta.',
+    },
+    {
       clave: 'requiere_soporte_previo',
       etiqueta: 'Soporte al solicitar',
       tipo: 'booleano',
       soloEnFormulario: true,
+      ayuda: 'Se recalcula solo a partir de los documentos configurados en «Documentos exigidos».',
     },
     {
       clave: 'requiere_soporte_posterior',
       etiqueta: 'Soporte al regresar',
       tipo: 'booleano',
       soloEnFormulario: true,
+      ayuda: 'También se recalcula solo desde la matriz de documentos.',
     },
     {
       clave: 'soporte_obligatorio_desde_dias',
@@ -179,6 +223,84 @@ export default function Administracion() {
       tipo: 'numero',
       soloEnFormulario: true,
       ayuda: 'Por ejemplo, la cita médica lo exige a partir de 2 días.',
+    },
+    {
+      clave: 'plazo_soporte_dias',
+      etiqueta: 'Plazo del soporte (días)',
+      tipo: 'numero',
+      soloEnFormulario: true,
+      ayuda:
+        'Vacío usa el parámetro global. La incapacidad tiene 3 días hábiles; el certificado electoral, un mes.',
+    },
+    {
+      clave: 'plazo_soporte_habiles',
+      etiqueta: 'Plazo en días hábiles',
+      tipo: 'booleano',
+      soloEnFormulario: true,
+      ayuda: 'Desactívalo cuando la norma hable de meses: «un mes» no son treinta días hábiles.',
+    },
+    {
+      clave: 'dias_max_retroactivo',
+      etiqueta: 'Días hacia atrás',
+      tipo: 'numero',
+      soloEnFormulario: true,
+      ayuda:
+        'Cuántos días antes de hoy admite la fecha de inicio. Una incapacidad se registra después de ocurrir; una diligencia, no.',
+    },
+    {
+      clave: 'dias_max_futuro',
+      etiqueta: 'Días hacia adelante',
+      tipo: 'numero',
+      soloEnFormulario: true,
+      ayuda: 'Vacío = sin tope. Evita el permiso pedido para dentro de dos años.',
+    },
+    {
+      clave: 'duracion_maxima_dias',
+      etiqueta: 'Duración máxima (días)',
+      tipo: 'numero',
+      soloEnFormulario: true,
+      ayuda: 'Solo advierte. El luto son 5 días hábiles (Ley 1280 de 2009).',
+    },
+    {
+      clave: 'permite_horas',
+      etiqueta: 'Se puede pedir por horas',
+      tipo: 'booleano',
+      soloEnFormulario: true,
+      ayuda: 'No para licencias e incapacidades, que se miden en días completos.',
+    },
+    {
+      clave: 'max_por_periodo',
+      etiqueta: 'Cupo por periodo',
+      tipo: 'numero',
+      soloEnFormulario: true,
+      ayuda: 'El día de la familia es 1 por semestre (Ley 1857 de 2017).',
+    },
+    {
+      clave: 'periodo_control',
+      etiqueta: 'Periodo del cupo',
+      tipo: 'seleccion',
+      soloEnFormulario: true,
+      opciones: [
+        { valor: 'ninguno', etiqueta: 'Sin control' },
+        { valor: 'mes', etiqueta: 'Mensual' },
+        { valor: 'semestre', etiqueta: 'Semestral' },
+        { valor: 'anio', etiqueta: 'Anual' },
+      ],
+    },
+    {
+      clave: 'interrumpe_otros',
+      etiqueta: 'Interrumpe otros permisos',
+      tipo: 'booleano',
+      soloEnFormulario: true,
+      ayuda:
+        'Sí para incapacidades: si caen dentro de unas vacaciones, las suspenden y los días quedan pendientes (art. 187 CST).',
+    },
+    {
+      clave: 'prioridad',
+      etiqueta: 'Prioridad ante cruces',
+      tipo: 'numero',
+      soloEnFormulario: true,
+      ayuda: 'Gana el número mayor. Incapacidad 30 · luto 20 · calamidad 15 · vacaciones 10.',
     },
     {
       clave: 'exento_antelacion',
@@ -195,6 +317,66 @@ export default function Administracion() {
       ayuda:
         'Sí para incapacidades y licencias: pueden empezar cualquier día y los fines de semana cuentan. No para citas y diligencias, que solo van en días hábiles.',
     },
+    { clave: 'orden', etiqueta: 'Orden', tipo: 'numero', ancho: 'w-20' },
+    { clave: 'activo', etiqueta: 'Activo', tipo: 'booleano', ancho: 'w-24' },
+  ]
+
+  const camposDocumento: CampoCatalogo[] = [
+    {
+      clave: 'codigo',
+      etiqueta: 'Código',
+      tipo: 'texto',
+      requerido: true,
+      ancho: 'w-48',
+      ayuda: 'Identificador estable en minúsculas, p. ej. certificado_incapacidad.',
+    },
+    { clave: 'nombre', etiqueta: 'Documento', tipo: 'texto', requerido: true },
+    {
+      clave: 'norma',
+      etiqueta: 'Norma',
+      tipo: 'texto',
+      ayuda: 'Se le muestra al colaborador: es lo que sustenta que se le pida.',
+    },
+    { clave: 'descripcion', etiqueta: 'Descripción', tipo: 'texto', soloEnFormulario: true },
+    { clave: 'orden', etiqueta: 'Orden', tipo: 'numero', ancho: 'w-20' },
+    { clave: 'activo', etiqueta: 'Activo', tipo: 'booleano', ancho: 'w-24' },
+  ]
+
+  const camposMatriz: CampoCatalogo[] = [
+    {
+      clave: 'tipo_id',
+      etiqueta: 'Motivo',
+      tipo: 'seleccion',
+      requerido: true,
+      opciones: (tiposAdmin ?? []).map((t) => ({ valor: String(t.id), etiqueta: t.nombre })),
+    },
+    {
+      clave: 'documento_id',
+      etiqueta: 'Documento',
+      tipo: 'seleccion',
+      requerido: true,
+      opciones: (documentosAdmin ?? []).map((d) => ({ valor: String(d.id), etiqueta: d.nombre })),
+    },
+    {
+      clave: 'momento',
+      etiqueta: 'Momento',
+      tipo: 'seleccion',
+      requerido: true,
+      ancho: 'w-36',
+      opciones: [
+        { valor: 'previo', etiqueta: 'Al solicitar' },
+        { valor: 'posterior', etiqueta: 'Al finalizar' },
+      ],
+    },
+    { clave: 'obligatorio', etiqueta: 'Obligatorio', tipo: 'booleano', ancho: 'w-28' },
+    {
+      clave: 'desde_dias',
+      etiqueta: 'Solo desde (días)',
+      tipo: 'numero',
+      ancho: 'w-32',
+      ayuda: 'Vacío = se exige siempre. La constancia de cita médica, a partir de 2 días.',
+    },
+    { clave: 'nota', etiqueta: 'Nota para el colaborador', tipo: 'texto', soloEnFormulario: true },
     { clave: 'orden', etiqueta: 'Orden', tipo: 'numero', ancho: 'w-20' },
     { clave: 'activo', etiqueta: 'Activo', tipo: 'booleano', ancho: 'w-24' },
   ]
@@ -289,6 +471,27 @@ export default function Administracion() {
           titulo="Motivos de permiso"
           descripcion="El detalle dentro de cada categoría, con sus reglas de soporte y su ruta de aprobación."
           valoresPorDefecto={{ ruta_aprobacion: 'coordinador_th', remunerado_por_defecto: true }}
+        />
+      )}
+
+      {seccion === 'documentos' && (
+        <EditorCatalogo
+          tabla="permisos_documentos"
+          campos={camposDocumento}
+          titulo="Catálogo de documentos"
+          descripcion="Los documentos que puede exigir un motivo, con la norma que los respalda. Aquí solo se definen; qué motivo pide cuál se configura en «Documentos exigidos»."
+          valoresPorDefecto={{ activo: true }}
+        />
+      )}
+
+      {seccion === 'matriz' && (
+        <EditorCatalogo
+          tabla="permisos_tipos_documentos"
+          campos={camposMatriz}
+          titulo="Documentos exigidos por motivo"
+          descripcion="Qué documento pide cada motivo y en qué momento: al solicitar o al finalizar. Es lo que ve el colaborador en el formulario y lo que Talento Humano verifica al cerrar."
+          advertencia="Los interruptores «Soporte al solicitar» y «Soporte al regresar» del motivo se recalculan solos a partir de esta tabla: no hace falta tocarlos a mano."
+          valoresPorDefecto={{ activo: true, obligatorio: true, momento: 'previo', orden: 1 }}
         />
       )}
 

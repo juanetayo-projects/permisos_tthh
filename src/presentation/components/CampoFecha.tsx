@@ -21,6 +21,7 @@ export function CampoFecha({
   valor,
   onCambio,
   min,
+  max,
   soloHabiles = true,
   disabled,
   'aria-label': ariaLabel,
@@ -29,6 +30,8 @@ export function CampoFecha({
   valor: FechaISO
   onCambio: (f: FechaISO) => void
   min?: string
+  /** Tope superior: lo fija el motivo, que declara cuánto admite hacia adelante. */
+  max?: string
   /** `false` en los motivos que pueden caer cualquier día. */
   soloHabiles?: boolean
   disabled?: boolean
@@ -50,6 +53,7 @@ export function CampoFecha({
         type="date"
         value={valor}
         min={min}
+        max={max}
         disabled={disabled}
         aria-label={ariaLabel}
         onChange={(e) => cambiar(e.target.value)}

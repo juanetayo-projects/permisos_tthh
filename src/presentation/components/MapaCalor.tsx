@@ -15,12 +15,15 @@ export function MapaCalor({
   maximo,
   oscuro,
   onCelda,
+  /** Qué se está contando. El módulo de ausentismo mide días, no solicitudes. */
+  unidad = ['solicitud', 'solicitudes'],
 }: {
   areas: string[]
   celdas: CeldaCalor[]
   maximo: number
   oscuro: boolean
   onCelda?: (area: string, mesIndice: number) => void
+  unidad?: [singular: string, plural: string]
 }) {
   const opciones = useMemo(() => {
     const textoColor = oscuro ? '#cbd5e1' : '#475569'
@@ -30,7 +33,7 @@ export function MapaCalor({
         position: 'top',
         formatter: (p: { data: [number, number, number] }) => {
           const [mes, area, valor] = p.data
-          return `<b>${areas[area]}</b><br/>${MESES[mes]}: ${valor} solicitud${valor === 1 ? '' : 'es'}`
+          return `<b>${areas[area]}</b><br/>${MESES[mes]}: ${valor} ${valor === 1 ? unidad[0] : unidad[1]}`
         },
       },
       grid: { left: 8, right: 16, top: 8, bottom: 28, containLabel: true },
@@ -79,12 +82,12 @@ export function MapaCalor({
         },
       ],
     }
-  }, [areas, celdas, maximo, oscuro])
+  }, [areas, celdas, maximo, oscuro, unidad])
 
   if (areas.length === 0) {
     return (
       <p className="py-12 text-center text-sm text-muted-foreground">
-        No hay solicitudes en el periodo seleccionado.
+        No hay datos en el periodo seleccionado.
       </p>
     )
   }

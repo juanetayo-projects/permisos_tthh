@@ -14,6 +14,7 @@ export const ESTADOS = [
   'APROBADA_TH',
   'PENDIENTE_SOPORTE',
   'SOPORTE_EN_VALIDACION',
+  'SUSPENDIDA',
   'FINALIZADA',
   'ARCHIVADA',
   'RECHAZADA_COORDINADOR',
@@ -51,6 +52,7 @@ export type Accion =
   | 'registrar_soporte'
   | 'validar_soporte'
   | 'devolver_soporte'
+  | 'interrumpir'
   | 'archivar'
   | 'cancelar'
   | 'vencer'
@@ -123,8 +125,26 @@ export const TRANSICIONES: Record<Accion, Transicion> = {
     exigeMotivo: true,
     etiqueta: 'Devolver soporte',
   },
+  // Art. 187 CST: una incapacidad que cae dentro de unas vacaciones las
+  // suspende, y los días no disfrutados quedan pendientes de reprogramar. Solo
+  // sobre periodos ya autorizados: interrumpir algo que aún no se disfruta no
+  // es interrumpir, es rechazar.
+  interrumpir: {
+    desde: ['APROBADA_TH', 'PENDIENTE_SOPORTE', 'FINALIZADA'],
+    hacia: 'SUSPENDIDA',
+    roles: ['coordinador', 'analista_th', 'gerente_th', 'administrador'],
+    exigeMotivo: true,
+    etiqueta: 'Interrumpir el periodo',
+  },
   archivar: {
-    desde: ['FINALIZADA', 'RECHAZADA_COORDINADOR', 'RECHAZADA_TH', 'CANCELADA', 'VENCIDA'],
+    desde: [
+      'FINALIZADA',
+      'SUSPENDIDA',
+      'RECHAZADA_COORDINADOR',
+      'RECHAZADA_TH',
+      'CANCELADA',
+      'VENCIDA',
+    ],
     // Nota: SOPORTE_EN_VALIDACION no se archiva; primero se valida o se devuelve.
     hacia: 'ARCHIVADA',
     roles: ['analista_th', 'gerente_th', 'administrador'],
@@ -178,6 +198,10 @@ export function puedeEjecutar(accion: Accion, ctx: ContextoAccion): boolean {
     case 'aprobar_coordinador':
     case 'rechazar_coordinador':
       return ctx.coordinaElArea || ctx.rol === 'administrador'
+    case 'interrumpir':
+      // El jefe directo también puede: es quien se entera primero de que un
+      // colaborador de vacaciones acaba de recibir una incapacidad.
+      return ctx.coordinaElArea || t.roles.includes(ctx.rol)
     default:
       return t.roles.includes(ctx.rol)
   }
@@ -205,6 +229,7 @@ export const ETIQUETA_ESTADO: Record<Estado, string> = {
   APROBADA_TH: 'Aprobada',
   PENDIENTE_SOPORTE: 'Autorizada, pendiente de justificar el soporte',
   SOPORTE_EN_VALIDACION: 'Soporte en validación de Talento Humano',
+  SUSPENDIDA: 'Interrumpida, con días por reprogramar',
   FINALIZADA: 'Cerrada',
   ARCHIVADA: 'Archivada',
   RECHAZADA_COORDINADOR: 'Rechazada por el jefe directo',
@@ -222,6 +247,7 @@ export const TONO_ESTADO: Record<Estado, TonoEstado> = {
   APROBADA_TH: 'exito',
   PENDIENTE_SOPORTE: 'advertencia',
   SOPORTE_EN_VALIDACION: 'info',
+  SUSPENDIDA: 'advertencia',
   FINALIZADA: 'exito',
   ARCHIVADA: 'neutro',
   RECHAZADA_COORDINADOR: 'error',

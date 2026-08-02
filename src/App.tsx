@@ -25,6 +25,9 @@ import SinPermiso from '@/presentation/pages/SinPermiso'
  */
 const Dashboard = lazy(() => import('@/presentation/pages/Dashboard'))
 
+/** Comparte el peso de Recharts y ECharts con el dashboard: también va perezoso. */
+const Ausentismo = lazy(() => import('@/presentation/pages/Ausentismo'))
+
 /** Solo la usa el administrador: no tiene por qué pesar en el arranque de todos. */
 const Administracion = lazy(() => import('@/presentation/pages/Administracion'))
 const Validaciones = lazy(() => import('@/presentation/pages/Validaciones'))
@@ -139,6 +142,16 @@ function Rutas() {
               <RutaPorRol roles={['coordinador', 'analista_th', 'gerente_th', 'administrador']}>
                 <Suspense fallback={<Cargando />}>
                   <Dashboard />
+                </Suspense>
+              </RutaPorRol>
+            }
+          />
+          <Route
+            path="/ausentismo"
+            element={
+              <RutaPorRol roles={['coordinador', 'analista_th', 'gerente_th', 'administrador']}>
+                <Suspense fallback={<Cargando />}>
+                  <Ausentismo />
                 </Suspense>
               </RutaPorRol>
             }

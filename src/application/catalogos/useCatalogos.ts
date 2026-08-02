@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/infrastructure/supabase/client'
+import type { DocumentoExigido } from '@/domain/soportes'
 
 export interface Empresa {
   id: number
@@ -50,8 +51,46 @@ export interface Tipo {
   exento_antelacion: boolean
   /** Se cuenta por días calendario: incapacidades y licencias. */
   dias_calendario: boolean
+  /** Qué es en derecho: de ello dependen el soporte y el cómputo. */
+  naturaleza: 'permiso' | 'licencia' | 'incapacidad' | 'vacaciones' | 'tramite'
+  /** Los trámites y el tiempo de representación no restan tiempo laborado. */
+  genera_ausentismo: boolean
+  fundamento_legal: string | null
+  dias_max_retroactivo: number
+  dias_max_futuro: number | null
+  duracion_maxima_dias: number | null
+  duracion_minima_dias: number | null
+  permite_horas: boolean
+  plazo_soporte_dias: number | null
+  plazo_soporte_habiles: boolean
+  max_por_periodo: number | null
+  periodo_control: 'ninguno' | 'mes' | 'semestre' | 'anio'
+  interrumpe_otros: boolean
+  prioridad: number
   descripcion: string | null
   orden: number
+}
+
+export interface Documento {
+  id: number
+  codigo: string
+  nombre: string
+  descripcion: string | null
+  norma: string | null
+  orden: number
+}
+
+/** Fila de la matriz motivo × documento × momento, con el documento resuelto. */
+export interface TipoDocumento {
+  id: number
+  tipo_id: number
+  documento_id: number
+  momento: 'previo' | 'posterior'
+  obligatorio: boolean
+  desde_dias: number | null
+  nota: string | null
+  orden: number
+  documento: Documento | null
 }
 export interface Tramite {
   id: number
@@ -150,6 +189,14 @@ export function useCategorias() {
   })
 }
 
+const CAMPOS_TIPO =
+  'id, categoria_id, nombre, remunerado_por_defecto, requiere_soporte_previo, ' +
+  'requiere_soporte_posterior, soporte_obligatorio_desde_dias, ruta_aprobacion, ' +
+  'exento_antelacion, dias_calendario, naturaleza, genera_ausentismo, fundamento_legal, ' +
+  'dias_max_retroactivo, dias_max_futuro, duracion_maxima_dias, duracion_minima_dias, ' +
+  'permite_horas, plazo_soporte_dias, plazo_soporte_habiles, max_por_periodo, ' +
+  'periodo_control, interrumpe_otros, prioridad, descripcion, orden'
+
 export function useTipos() {
   return useQuery({
     queryKey: ['tipos'],
@@ -157,13 +204,74 @@ export function useTipos() {
     queryFn: async (): Promise<Tipo[]> => {
       const { data, error } = await supabase
         .from('permisos_tipos')
-        .select(
-          'id, categoria_id, nombre, remunerado_por_defecto, requiere_soporte_previo, requiere_soporte_posterior, soporte_obligatorio_desde_dias, ruta_aprobacion, exento_antelacion, dias_calendario, descripcion, orden'
-        )
+        .select(CAMPOS_TIPO)
+        .eq('activo', true)
+        .order('orden')
+      if (error) throw error
+      return (data ?? []) as unknown as Tipo[]
+    },
+  })
+}
+
+/**
+ * Todos los motivos, incluidos los desactivados.
+ *
+ * El informe para Talento Humano y la pantalla de Administración necesitan ver
+ * también los que están apagados: justamente son los que hay que revisar.
+ */
+export function useTodosLosTipos() {
+  return useQuery({
+    queryKey: ['tipos', 'todos'],
+    ...OPCIONES_CATALOGO,
+    queryFn: async (): Promise<(Tipo & { activo: boolean })[]> => {
+      const { data, error } = await supabase
+        .from('permisos_tipos')
+        .select(`${CAMPOS_TIPO}, activo`)
+        .order('orden')
+      if (error) throw error
+      return (data ?? []) as unknown as (Tipo & { activo: boolean })[]
+    },
+  })
+}
+
+export function useDocumentos() {
+  return useQuery({
+    queryKey: ['documentos'],
+    ...OPCIONES_CATALOGO,
+    queryFn: async (): Promise<Documento[]> => {
+      const { data, error } = await supabase
+        .from('permisos_documentos')
+        .select('id, codigo, nombre, descripcion, norma, orden')
         .eq('activo', true)
         .order('orden')
       if (error) throw error
       return data ?? []
+    },
+  })
+}
+
+/**
+ * Matriz completa de documentos exigidos.
+ *
+ * Se trae entera en una sola consulta y se filtra por motivo en memoria: son
+ * unas decenas de filas y así el formulario no dispara una consulta cada vez
+ * que alguien cambia el desplegable del motivo.
+ */
+export function useMatrizDocumentos() {
+  return useQuery({
+    queryKey: ['tipos-documentos'],
+    ...OPCIONES_CATALOGO,
+    queryFn: async (): Promise<TipoDocumento[]> => {
+      const { data, error } = await supabase
+        .from('permisos_tipos_documentos')
+        .select(
+          'id, tipo_id, documento_id, momento, obligatorio, desde_dias, nota, orden, ' +
+            'documento:permisos_documentos(id, codigo, nombre, descripcion, norma, orden)'
+        )
+        .eq('activo', true)
+        .order('orden')
+      if (error) throw error
+      return (data ?? []) as unknown as TipoDocumento[]
     },
   })
 }
@@ -189,6 +297,35 @@ export function useTramites() {
 export function useTramite(codigo: 'permiso' | 'vacaciones') {
   const { data, ...resto } = useTramites()
   return { ...resto, data: data?.find((t) => t.codigo === codigo) }
+}
+
+/**
+ * Traduce la matriz de la base al vocabulario del dominio.
+ *
+ * El dominio no conoce PostgREST ni sus alias anidados; recibir aquí la forma
+ * plana permite probar las reglas de soporte con objetos literales.
+ */
+export function documentosDelTipo(
+  matriz: TipoDocumento[] | undefined,
+  tipoId: number | null | undefined
+): DocumentoExigido[] {
+  if (!matriz || !tipoId) return []
+
+  return matriz
+    .filter((m) => m.tipo_id === tipoId && m.documento)
+    .map((m) => ({
+      id: m.id,
+      documentoId: m.documento_id,
+      codigo: m.documento!.codigo,
+      nombre: m.documento!.nombre,
+      descripcion: m.documento!.descripcion,
+      norma: m.documento!.norma,
+      momento: m.momento,
+      obligatorio: m.obligatorio,
+      desdeDias: m.desde_dias,
+      nota: m.nota,
+      orden: m.orden,
+    }))
 }
 
 /** Parámetros editables sin desplegar (`permisos_config`). */

@@ -6,8 +6,10 @@ import {
   CalendarRange,
   CheckCircle2,
   Clock,
+  GitBranch,
   MessageSquareQuote,
   Palmtree,
+  Scale,
   Stethoscope,
   UserCheck,
   UserRound,
@@ -15,7 +17,12 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/application/auth/AuthProvider'
-import { useDecidir, useHistorial, useSolicitud } from '@/application/solicitudes/useSolicitudes'
+import {
+  useDecidir,
+  useHistorial,
+  useInterrumpir,
+  useSolicitud,
+} from '@/application/solicitudes/useSolicitudes'
 import { notificar, tipoNotificacionPara } from '@/application/solicitudes/api'
 import {
   ETIQUETA_ESTADO,
@@ -31,6 +38,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { Card } from '@/presentation/components/ui/card'
 import { Skeleton } from '@/presentation/components/ui/skeleton'
 import { DialogoDecision, type TipoDecision } from '@/presentation/components/DialogoDecision'
+import { DialogoInterrumpir } from '@/presentation/components/DialogoInterrumpir'
 import { PanelDocumentos } from '@/presentation/components/PanelDocumentos'
 
 function Dato({ etiqueta, valor }: { etiqueta: string; valor: React.ReactNode }) {
@@ -96,12 +104,14 @@ export default function DetalleSolicitud() {
   const { data: s, isLoading } = useSolicitud(id)
   const { data: historial } = useHistorial(id)
   const decidir = useDecidir()
+  const interrumpir = useInterrumpir()
 
   const [dialogo, setDialogo] = useState<{
     tipo: TipoDecision
     destino: Estado
     etiqueta: string
   } | null>(null)
+  const [interrumpiendo, setInterrumpiendo] = useState(false)
 
   if (isLoading || !s) {
     return (
@@ -127,6 +137,22 @@ export default function DetalleSolicitud() {
   const puedeAprobarTh = puedeEjecutar('aprobar_th', ctx)
   const puedeCancelar = puedeEjecutar('cancelar', ctx)
   const puedeValidarSoporte = puedeEjecutar('validar_soporte', ctx)
+
+  /**
+   * Interrumpir un periodo ya autorizado.
+   *
+   * Es la operación del art. 187 CST: si una incapacidad cae dentro de unas
+   * vacaciones, el descanso se suspende y los días quedan pendientes. Solo
+   * tiene sentido sobre un periodo autorizado y de más de un día; con un
+   * permiso de un solo día no hay nada que partir.
+   */
+  const puedeInterrumpir =
+    (perfil?.rol === 'analista_th' ||
+      perfil?.rol === 'gerente_th' ||
+      perfil?.rol === 'administrador' ||
+      coordinaElArea) &&
+    ['APROBADA_TH', 'PENDIENTE_SOPORTE', 'FINALIZADA'].includes(s.estado) &&
+    s.fecha_fin > s.fecha_inicio
 
   const tono = TONO_ESTADO[s.estado]
   const esDevolucion = dialogo?.destino === 'PENDIENTE_SOPORTE'
@@ -301,6 +327,11 @@ export default function DetalleSolicitud() {
                 <Ban /> Cancelar
               </Button>
             )}
+            {puedeInterrumpir && (
+              <Button variant="outline" size="sm" onClick={() => setInterrumpiendo(true)}>
+                <GitBranch /> Interrumpir
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -372,6 +403,15 @@ export default function DetalleSolicitud() {
                 </Parrafo>
               )}
 
+              {/* La norma que respalda el motivo: es lo que sustenta la
+                  exigencia documental frente al colaborador y frente a la ARL. */}
+              {s.detalle_permiso.tipo?.fundamento_legal && (
+                <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
+                  <Scale className="mt-px size-3 shrink-0" />
+                  {s.detalle_permiso.tipo.fundamento_legal}
+                </p>
+              )}
+
               {/* El aviso de soporte pendiente vive en el bloque de Soportes,
                   que además ofrece dónde entregarlo. */}
             </Bloque>
@@ -410,6 +450,45 @@ export default function DetalleSolicitud() {
 
           {/* La causa del rechazo y la observación de quien autoriza son cosas
               opuestas: nunca deben compartir color ni título. */}
+          {/* Un periodo suspendido sin este bloque parecía simplemente «raro»:
+              el estado decía SUSPENDIDA y no había forma de saber por qué ni
+              cuántos días habían quedado sin disfrutar. */}
+          {s.estado === 'SUSPENDIDA' && (
+            <Bloque titulo="Periodo interrumpido" icono={GitBranch} tinte="violeta">
+              <dl className="grid gap-3 sm:grid-cols-3">
+                <Dato
+                  etiqueta="Se disfrutó hasta"
+                  valor={
+                    s.fecha_interrupcion
+                      ? formatearFecha(diaAnterior(s.fecha_interrupcion))
+                      : null
+                  }
+                />
+                <Dato
+                  etiqueta="Días por reprogramar"
+                  valor={
+                    s.dias_pendientes_reprogramar != null ? (
+                      <span className="tabular font-semibold text-[var(--acento-violeta)]">
+                        {s.dias_pendientes_reprogramar}
+                      </span>
+                    ) : null
+                  }
+                />
+                <Dato
+                  etiqueta="Reprogramado"
+                  valor={s.reprograma_a_id ? 'Sí, en otra solicitud' : 'Pendiente'}
+                />
+              </dl>
+              {s.nota_interrupcion && (
+                <Parrafo etiqueta="Motivo de la interrupción">{s.nota_interrupcion}</Parrafo>
+              )}
+              <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
+                Art. 187 CST: los días no disfrutados no se pierden. El colaborador debe radicar una
+                solicitud nueva por ese saldo.
+              </p>
+            </Bloque>
+          )}
+
           {s.motivo_rechazo && (
             <Bloque titulo="Causa del rechazo" icono={XCircle} tinte="rojo">
               <p className="whitespace-pre-wrap text-sm">{s.motivo_rechazo}</p>
@@ -513,6 +592,31 @@ export default function DetalleSolicitud() {
         }
         onConfirmar={aplicar}
       />
+
+      <DialogoInterrumpir
+        solicitud={s}
+        abierto={interrumpiendo}
+        procesando={interrumpir.isPending}
+        onCerrar={() => setInterrumpiendo(false)}
+        onConfirmar={async ({ fecha, dias, nota }) => {
+          await interrumpir.mutateAsync({
+            solicitudId: s.id,
+            // La solicitud que la interrumpe se enlaza desde su propio detalle
+            // cuando existe; aquí basta con dejar constancia del corte.
+            interruptoraId: null,
+            fecha,
+            diasPendientes: dias,
+            nota,
+          })
+          setInterrumpiendo(false)
+        }}
+      />
     </div>
   )
+}
+
+function diaAnterior(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
 }

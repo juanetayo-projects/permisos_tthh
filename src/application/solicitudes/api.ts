@@ -226,6 +226,13 @@ export async function subirSoporte(params: {
   momento: 'previo' | 'posterior'
   usuarioId: string
   maxMB?: number
+  /**
+   * Qué documento de la matriz es este archivo.
+   *
+   * Sin él, una solicitud con tres documentos exigidos y dos adjuntos no se
+   * puede cerrar: nadie sabe cuál de los tres falta.
+   */
+  documentoId?: number | null
 }): Promise<void> {
   const maxBytes = (params.maxMB ?? 10) * 1024 * 1024
 
@@ -248,6 +255,7 @@ export async function subirSoporte(params: {
   const { error } = await supabase.from('permisos_adjuntos').insert({
     solicitud_id: params.solicitudId,
     momento: params.momento,
+    documento_id: params.documentoId ?? null,
     nombre_archivo: params.archivo.name,
     ruta_storage: ruta,
     mime: params.archivo.type,
