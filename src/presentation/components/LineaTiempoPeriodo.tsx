@@ -31,6 +31,7 @@ export function LineaTiempoPeriodo({
   fin,
   reintegro,
   porCalendario = false,
+  compacto = false,
   className,
 }: {
   inicio: FechaISO
@@ -39,6 +40,15 @@ export function LineaTiempoPeriodo({
   reintegro?: FechaISO | null
   /** Incapacidades y licencias: cuentan todos los días, no solo los hábiles. */
   porCalendario?: boolean
+  /**
+   * Hitos en una sola fila y sin leyenda.
+   *
+   * En el formulario esta pieza costaba unos 130 px de alto y era lo que hacía
+   * que el formato dejara de caber en un portátil. El dato que hay que ver ahí
+   * es cuántos días son y en qué caen; el resto se lee igual en el detalle de
+   * la solicitud, que sí tiene sitio.
+   */
+  compacto?: boolean
   className?: string
 }) {
   if (!inicio || !fin || fin < inicio) return null
@@ -53,8 +63,13 @@ export function LineaTiempoPeriodo({
       : []
 
   return (
-    <section className={cn('bloque-datos bloque-azul p-3', className)}>
-      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+    <section className={cn('bloque-datos bloque-azul', compacto ? 'p-2.5' : 'p-3', className)}>
+      <div
+        className={cn(
+          'flex flex-wrap items-center justify-between gap-2',
+          compacto ? 'mb-1.5' : 'mb-2.5'
+        )}
+      >
         <h3 className="bloque-titulo flex items-center gap-1.5">
           <CalendarDays className="size-3.5" />
           Periodo solicitado
@@ -81,15 +96,26 @@ export function LineaTiempoPeriodo({
         </div>
       </div>
 
-      {/* Hitos */}
-      <ol className="flex items-stretch gap-2 text-xs">
-        <Hito icono={CalendarDays} etiqueta="Inicio" fecha={inicio} tono="azul" />
-        <span className="mt-4 h-px flex-1 self-start bg-[var(--tinte-azul-borde)]" />
-        <Hito icono={CalendarClock} etiqueta="Fin" fecha={fin} tono="azul" />
+      {/* Hitos. En compacto van en una sola línea: el círculo con el icono y
+          la etiqueta debajo cuestan tres filas de alto para decir dos fechas. */}
+      <ol className={cn('flex text-xs', compacto ? 'items-center gap-2' : 'items-stretch gap-2')}>
+        <Hito icono={CalendarDays} etiqueta="Inicio" fecha={inicio} tono="azul" compacto={compacto} />
+        <span
+          className={cn('h-px flex-1 bg-[var(--tinte-azul-borde)]', !compacto && 'mt-4 self-start')}
+        />
+        <Hito icono={CalendarClock} etiqueta="Fin" fecha={fin} tono="azul" compacto={compacto} />
         {reintegro && (
           <>
-            <span className="mt-4 h-px flex-1 self-start bg-[var(--tinte-azul-borde)]" />
-            <Hito icono={CalendarCheck} etiqueta="Reintegro" fecha={reintegro} tono="verde" />
+            <span
+              className={cn('h-px flex-1 bg-[var(--tinte-azul-borde)]', !compacto && 'mt-4 self-start')}
+            />
+            <Hito
+              icono={CalendarCheck}
+              etiqueta="Reintegro"
+              fecha={reintegro}
+              tono="verde"
+              compacto={compacto}
+            />
           </>
         )}
       </ol>
@@ -98,7 +124,7 @@ export function LineaTiempoPeriodo({
           fin de semana y en rojo el festivo, porque no son lo mismo y ver cuál
           es cuál explica el número de días hábiles sin tener que contar. */}
       {dias.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1">
+        <div className={cn('flex flex-wrap gap-1', compacto ? 'mt-2' : 'mt-3')}>
           {dias.map((d) => {
             const festivo = esFestivo(d)
             const finde = esFinDeSemana(d)
@@ -108,7 +134,8 @@ export function LineaTiempoPeriodo({
                 key={d}
                 title={`${formatearFecha(d)}${festivo ? ' · festivo' : finde ? ' · fin de semana' : ''}`}
                 className={cn(
-                  'flex size-7 flex-col items-center justify-center rounded border text-[10px] leading-none',
+                  'flex flex-col items-center justify-center rounded border text-[10px] leading-none',
+                  compacto ? 'size-6' : 'size-7',
                   festivo
                     ? 'border-[var(--tinte-rojo-borde)] bg-[var(--tinte-rojo)] text-[var(--error)]'
                     : finde
@@ -122,16 +149,20 @@ export function LineaTiempoPeriodo({
             )
           })}
 
-          <span className="ml-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="size-2 rounded-sm bg-[var(--tinte-ambar)] ring-1 ring-[var(--tinte-ambar-borde)]" />
-              fin de semana
+          {/* La leyenda se cae en compacto: los colores ya se explican solos en
+              el `title` de cada día y aquí cuesta una fila entera. */}
+          {!compacto && (
+            <span className="ml-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="size-2 rounded-sm bg-[var(--tinte-ambar)] ring-1 ring-[var(--tinte-ambar-borde)]" />
+                fin de semana
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="size-2 rounded-sm bg-[var(--tinte-rojo)] ring-1 ring-[var(--tinte-rojo-borde)]" />
+                festivo
+              </span>
             </span>
-            <span className="flex items-center gap-1">
-              <span className="size-2 rounded-sm bg-[var(--tinte-rojo)] ring-1 ring-[var(--tinte-rojo-borde)]" />
-              festivo
-            </span>
-          </span>
+          )}
         </div>
       )}
     </section>
@@ -143,12 +174,28 @@ function Hito({
   etiqueta,
   fecha,
   tono,
+  compacto = false,
 }: {
   icono: typeof CalendarDays
   etiqueta: string
   fecha: FechaISO
   tono: 'azul' | 'verde'
+  compacto?: boolean
 }) {
+  if (compacto) {
+    return (
+      <li className="flex min-w-0 items-center gap-1.5" title={etiqueta}>
+        <Icono
+          className={cn(
+            'size-3.5 shrink-0',
+            tono === 'azul' ? 'text-[var(--cac-azul-600)] dark:text-[var(--cac-azul-300)]' : 'text-[var(--exito)]'
+          )}
+        />
+        <span className="whitespace-nowrap font-medium tabular">{formatearFecha(fecha)}</span>
+      </li>
+    )
+  }
+
   return (
     <li className="flex min-w-0 flex-col items-center gap-1 text-center">
       <span

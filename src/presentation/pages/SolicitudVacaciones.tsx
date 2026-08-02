@@ -519,7 +519,8 @@ export default function SolicitudVacaciones() {
             </div>
 
             <LineaTiempoPeriodo
-              className="mt-3"
+              className="mt-2.5"
+              compacto
               inicio={form.fechaInicio}
               fin={fechaFin}
               reintegro={reintegro}

@@ -2,6 +2,26 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.3.3] — 2026-08-02
+
+### Cambiado
+
+- **Los formatos vuelven a caber sin desplazarse.** La revisión del Código
+  Laboral añadió al formulario la lista de documentos, el fundamento legal y el
+  aviso de cruces, y entre las tres piezas el TH-F-002 dejó de caber en un
+  portátil: aparecía una barra de desplazamiento donde antes no la había.
+  - Los documentos exigidos pasan a **una línea por documento**, con los dos
+    momentos en el mismo bloque y el detalle en el tooltip. La versión
+    desplegada —descripción y norma bajo cada documento— se queda donde de
+    verdad hace falta: la validación de Talento Humano, que sí tiene sitio.
+  - La línea de tiempo estrena modo compacto: hitos en una sola fila, sin los
+    círculos ni la leyenda. Costaba unos 130 px para decir dos fechas.
+  - El fundamento legal es ahora una línea con el texto completo en el tooltip.
+
+  El desplazamiento interno de la columna se mantiene como red de seguridad: sin
+  él, un motivo con muchos soportes volvería a dejar los botones fuera de
+  alcance en pantallas pequeñas.
+
 ## [0.3.2] — 2026-08-02
 
 ### Corregido

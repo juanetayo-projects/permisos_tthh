@@ -116,3 +116,80 @@ export function ListaDocumentos({
     </div>
   )
 }
+
+/**
+ * Los mismos documentos, en una línea cada uno.
+ *
+ * La versión desplegada —con la descripción y la norma debajo de cada
+ * documento— es la que necesita Talento Humano al validar, donde hay sitio de
+ * sobra. En el formulario de solicitud cuesta unos 60 px por documento, y un
+ * motivo con tres soportes empujaba el resto del formato fuera de la pantalla.
+ *
+ * Aquí cada documento ocupa una línea y el detalle vive en el `title`: quien
+ * quiera saber qué norma lo exige pasa el cursor por encima, y quien solo
+ * necesita saber qué va a tener que llevar lo ve de un vistazo.
+ */
+export function ResumenDocumentos({
+  previos,
+  posteriores,
+  className,
+}: {
+  previos: DocumentoConEstado[]
+  posteriores: DocumentoConEstado[]
+  className?: string
+}) {
+  const filas = [
+    ...previos.filter((d) => d.exigible || d.obligatorio).map((d) => ({ d, momento: 'previo' as const })),
+    ...posteriores
+      .filter((d) => d.exigible || d.obligatorio)
+      .map((d) => ({ d, momento: 'posterior' as const })),
+  ]
+
+  if (filas.length === 0) {
+    return (
+      <p className={cn('text-[11px] leading-snug text-muted-foreground', className)}>
+        Este motivo no exige documentos soporte.
+      </p>
+    )
+  }
+
+  return (
+    <div className={cn('space-y-1', className)}>
+      <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
+        Documentos que exige este motivo
+      </p>
+      <ul className="space-y-0.5">
+        {filas.map(({ d, momento }) => (
+          <li
+            key={`${d.id}-${momento}`}
+            title={[d.nota, d.norma].filter(Boolean).join(' · ') || undefined}
+            className="flex items-center gap-1.5 text-[11px] leading-tight"
+          >
+            <FileText
+              className={cn(
+                'size-3 shrink-0',
+                d.exigible && d.obligatorio ? 'text-[var(--acento-ambar)]' : 'text-muted-foreground'
+              )}
+            />
+            <span className="min-w-0 flex-1 truncate">{d.nombre}</span>
+            <span
+              className={cn(
+                'shrink-0 rounded px-1 py-px text-[9px] font-semibold uppercase',
+                momento === 'previo'
+                  ? 'bg-[var(--tinte-azul)] text-[var(--info)] dark:text-[var(--cac-azul-300)]'
+                  : 'bg-muted text-muted-foreground'
+              )}
+            >
+              {momento === 'previo' ? 'al solicitar' : 'al volver'}
+            </span>
+            {d.exigible && d.obligatorio && (
+              <span className="shrink-0 text-[var(--error)]" title="Obligatorio">
+                *
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}

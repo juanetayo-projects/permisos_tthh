@@ -38,7 +38,7 @@ import { AvisoCruce } from '@/presentation/components/AvisoCruce'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
 import { CampoFecha } from '@/presentation/components/CampoFecha'
 import { DialogoProblemas } from '@/presentation/components/DialogoProblemas'
-import { ListaDocumentos } from '@/presentation/components/ListaDocumentos'
+import { ResumenDocumentos } from '@/presentation/components/ListaDocumentos'
 import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
 import { DialogoConfirmarJefe } from '@/presentation/components/DialogoConfirmarJefe'
 import {
@@ -692,15 +692,21 @@ export default function SolicitudPermiso() {
                   </Select>
                 </div>
 
-                {/* La norma que respalda el motivo, a la vista: es lo que evita
-                    la conversación de «¿y esto por qué me lo piden?». */}
+                {/* La norma que respalda el motivo. En una línea con el texto
+                    completo en el `title`: desplegada costaba tres renglones y
+                    es un dato de consulta, no algo que se lea cada vez. */}
                 {tipo?.fundamento_legal && (
-                  <p className="rounded-md border border-border bg-card/70 p-2 text-[11px] leading-snug text-muted-foreground">
+                  <p
+                    className="truncate text-[11px] leading-snug text-muted-foreground"
+                    title={tipo.fundamento_legal}
+                  >
                     {tipo.fundamento_legal}
                   </p>
                 )}
 
-                <ListaDocumentos documentos={docsPrevios} momento="previo" />
+                {tipo && (
+                  <ResumenDocumentos previos={docsPrevios} posteriores={docsPosteriores} />
+                )}
 
                 <CampoArchivo
                   archivo={soporte}
@@ -708,10 +714,6 @@ export default function SolicitudPermiso() {
                   maxMB={Number(config?.max_mb_adjunto ?? 10)}
                   obligatorio={Boolean(soporteExigido?.previo?.obligatorio)}
                 />
-
-                {docsPosteriores.length > 0 && (
-                  <ListaDocumentos documentos={docsPosteriores} momento="posterior" />
-                )}
               </div>
             </section>
 
@@ -775,7 +777,8 @@ export default function SolicitudPermiso() {
               )}
 
               <LineaTiempoPeriodo
-                className="mt-3"
+                className="mt-2.5"
+                compacto
                 inicio={form.fechaInicio}
                 fin={form.fechaFin}
                 porCalendario={admiteNoHabiles}
