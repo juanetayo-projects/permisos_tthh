@@ -98,7 +98,8 @@ export default function SolicitudPermiso() {
     planCompensacion: '',
     justificacion: '',
   })
-  const [soporte, setSoporte] = useState<File | null>(null)
+  /** Varios: casi ningún soporte real viene en un solo archivo. */
+  const [soportes, setSoportes] = useState<File[]>([])
   /** Lo que impide enviar. Se muestra en modal, con la causa y su motivo. */
   const [problemas, setProblemas] = useState<Problema[]>([])
   const [enviando, setEnviando] = useState(false)
@@ -262,18 +263,6 @@ export default function SolicitudPermiso() {
     [docsDelTipo, duracion.dias]
   )
 
-  /**
-   * Documento que se está adjuntando ahora.
-   *
-   * El formulario acepta un archivo, así que se etiqueta con el primer
-   * documento previo obligatorio: es el que la matriz declara imprescindible.
-   * Los demás se entregan desde el detalle, donde ya hay lista de verificación.
-   */
-  const documentoDelAdjunto = useMemo(
-    () => docsPrevios.find((d) => d.exigible && d.obligatorio) ?? docsPrevios[0] ?? null,
-    [docsPrevios]
-  )
-
   const avisoDuracion = useMemo(
     () =>
       evaluarDuracion(tipo ? { duracionMaximaDias: tipo.duracion_maxima_dias } : null, duracion.dias),
@@ -396,7 +385,8 @@ export default function SolicitudPermiso() {
       cargoId,
       tipoId: form.tipoId,
       justificacion: form.justificacion,
-      faltaSoportePrevio: Boolean(soporteExigido?.previo?.obligatorio) && !soporte,
+      faltaSoportePrevio:
+        Boolean(soporteExigido?.previo?.obligatorio) && soportes.length === 0,
       vaDirectoAGerencia: tipo?.ruta_aprobacion === 'gerente_th_directo',
       tieneCoordinador: Boolean(coordinador),
     })
@@ -450,14 +440,17 @@ export default function SolicitudPermiso() {
         },
       })
 
-      if (soporte) {
+      // Cada archivo se etiqueta con el documento que le toca, en el orden en
+      // que la matriz los pide. Los sobrantes suben sin etiqueta y Talento
+      // Humano los clasifica al validar: es mejor que rechazarlos.
+      for (const [i, archivo] of soportes.entries()) {
         await subirSoporte({
           solicitudId: id,
-          archivo: soporte,
+          archivo,
           momento: 'previo',
           usuarioId: session.user.id,
           maxMB: Number(config?.max_mb_adjunto ?? 10),
-          documentoId: documentoDelAdjunto?.documentoId ?? null,
+          documentoId: docsPrevios[i]?.documentoId ?? null,
         })
       }
 
@@ -480,7 +473,12 @@ export default function SolicitudPermiso() {
           },
           { etiqueta: 'Duración', valor: `${duracion.horas} h · ${duracion.dias} días` },
           { etiqueta: 'Jefe directo', valor: coordinador?.nombre ?? 'Sin asignar' },
-          { etiqueta: 'Soporte adjunto', valor: soporte ? soporte.name : 'Ninguno' },
+          {
+            etiqueta: 'Soportes adjuntos',
+            valor: soportes.length
+              ? `${soportes.length} archivo${soportes.length === 1 ? '' : 's'}`
+              : 'Ninguno',
+          },
         ],
       })
     } catch (err) {
@@ -709,8 +707,8 @@ export default function SolicitudPermiso() {
                 )}
 
                 <CampoArchivo
-                  archivo={soporte}
-                  onCambio={setSoporte}
+                  archivos={soportes}
+                  onCambio={setSoportes}
                   maxMB={Number(config?.max_mb_adjunto ?? 10)}
                   obligatorio={Boolean(soporteExigido?.previo?.obligatorio)}
                 />

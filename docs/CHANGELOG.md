@@ -2,6 +2,46 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [0.4.0] — 2026-08-02
+
+### Cambiado
+
+- **Permisos estrena proyecto Supabase propio** (`hvbatymkcpsxhuzkagoi`). Vivía
+  dentro del de Cambio de Turnos y compartía con él `auth.users`, `areas`,
+  `cargos` y `coordinadores` (decisión D2). Lo que costó esa convivencia:
+
+  - Las plantillas de correo de Auth son del proyecto, no de la app: tocarlas
+    para Permisos habría roto la otra, y por eso existe la Edge Function
+    `permisos-recuperar-clave`.
+  - Un cambio en una app podía romper la otra. Pasó: la policy `sol_insert` de
+    Cambio de Turnos dejaba insertar a un usuario de Permisos.
+  - Media Administración avisaba «este catálogo lo comparten las dos apps».
+
+  Se separó ahora porque Permisos tenía 4 perfiles y 3 solicitudes frente a los
+  26 usuarios y 7.584 solicitudes de la otra: cada colaborador que se registre
+  encarece la migración. Se copiaron los 57 registros de catálogos y se
+  recrearon las 4 cuentas; el esquema se reproduce desde `supabase/migrations/`.
+  La migración que endurecía la tabla de Cambio de Turnos se movió a
+  `supabase/migraciones_cambiodeturnos/`: no debe replicarse.
+- **Los adjuntos aceptan varios archivos.** Casi ningún soporte real viene en
+  uno solo: el luto pide registro de defunción **y** prueba de parentesco, y una
+  incapacidad escaneada llega en varias fotos. Antes había que elegir cuál subir
+  y Talento Humano devolvía la solicitud para pedir el resto. Los archivos se
+  acumulan —adjuntar de dos en dos desde el celular no pierde lo anterior—, se
+  etiquetan con el documento que les toca en el orden de la matriz, y en la
+  entrega posterior el estado solo cambia con el último: si cambiara antes, la
+  policy dejaría de permitir subir los que faltan.
+
+### Corregido
+
+- **El consecutivo ignoraba el prefijo del trámite.** Al corregir
+  `gen_random_bytes` (migración 013) la función quedó con un `CASE` fijo a
+  `VA`/`PL`, así que el trámite de cesantías se habría numerado `PL-…` en vez de
+  `CE-…`. Vuelve a leer `prefijo_consecutivo` del catálogo.
+- Las Edge Functions leían la clave de Resend del Vault de Cambio de Turnos
+  (`public.get_secret`) y `permisos-crear-usuario` buscaba usuarios existentes en
+  su tabla `profiles`. Ninguna de las dos cosas existe en el proyecto propio.
+
 ## [0.3.3] — 2026-08-02
 
 ### Cambiado

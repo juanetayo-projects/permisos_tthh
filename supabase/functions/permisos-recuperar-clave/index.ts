@@ -111,8 +111,9 @@ Deno.serve(async (req) => {
     const enlace = `${BASE}/#/establecer-clave?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`
     const asunto = "Restablece tu contrasena - Permisos y Vacaciones"
 
-    const { data: apiKey } = await sb.rpc("get_secret", { p_name: "RESEND_API_KEY" })
-    const RESEND_API_KEY = (apiKey as string) || Deno.env.get("RESEND_API_KEY") || ""
+    // La clave vive en los secretos de este proyecto. Antes se leia tambien del
+    // Vault de Cambio de Turnos con public.get_secret(), que no existe aqui.
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || ""
     if (!RESEND_API_KEY) {
       console.error("RESEND_API_KEY no disponible; no se envio la recuperacion.")
       return ok()

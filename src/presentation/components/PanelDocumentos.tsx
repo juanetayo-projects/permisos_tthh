@@ -82,7 +82,8 @@ export function PanelDocumentos({
   const entregar = useEntregarSoporte()
 
   const [ampliado, setAmpliado] = useState<Adjunto | null>(null)
-  const [archivo, setArchivo] = useState<File | null>(null)
+  /** Varios: el luto pide registro de defunción **y** prueba de parentesco. */
+  const [archivos, setArchivos] = useState<File[]>([])
   const [documentoId, setDocumentoId] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
 
@@ -131,24 +132,38 @@ export function PanelDocumentos({
     null
 
   async function entregarSoporte() {
-    if (!archivo || !session) return
+    if (archivos.length === 0 || !session) return
     setError(null)
 
-    // ¿Este archivo cierra la lista? Se resuelve antes de subir porque después
-    // el estado ya habrá cambiado y el colaborador no podría corregirlo.
-    const pendientesTrasEste = checklist.faltantes.filter(
-      (d) => d.documentoId !== documentoElegido?.documentoId
+    // A qué documento corresponde cada archivo. El primero va al elegido en el
+    // desplegable —o al primero que falte— y los siguientes cubren el resto de
+    // pendientes en orden. Así, subir de una vez el registro de defunción y la
+    // prueba de parentesco cierra el paso sin dos viajes.
+    const elegidos = [
+      documentoElegido,
+      ...checklist.faltantes.filter((d) => d.documentoId !== documentoElegido?.documentoId),
+    ].filter(Boolean)
+
+    // ¿Estos archivos cierran la lista? Se resuelve antes de subir porque
+    // después el estado habrá cambiado y el colaborador ya no podría corregir.
+    const cubiertos = new Set(
+      elegidos.slice(0, archivos.length).map((d) => d!.documentoId)
     )
+    const completa = checklist.faltantes.every((d) => cubiertos.has(d.documentoId))
 
     try {
-      await entregar.mutateAsync({
-        solicitudId: solicitud.id,
-        archivo,
-        usuarioId: session.user.id,
-        documentoId: documentoElegido?.documentoId ?? null,
-        completa: pendientesTrasEste.length === 0,
-      })
-      setArchivo(null)
+      for (const [i, archivo] of archivos.entries()) {
+        await entregar.mutateAsync({
+          solicitudId: solicitud.id,
+          archivo,
+          usuarioId: session.user.id,
+          documentoId: elegidos[i]?.documentoId ?? null,
+          // El estado solo cambia con el último: si cambiara antes, la policy
+          // dejaría de permitirle subir los que faltan.
+          completa: completa && i === archivos.length - 1,
+        })
+      }
+      setArchivos([])
       setDocumentoId('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No fue posible subir el soporte.')
@@ -301,8 +316,8 @@ export function PanelDocumentos({
                     value={documentoElegido ? String(documentoElegido.documentoId) : ''}
                     onValueChange={setDocumentoId}
                   >
-                    <SelectTrigger className="h-9" aria-label="Documento que estás entregando">
-                      <SelectValue placeholder="¿Qué documento estás entregando?" />
+                    <SelectTrigger className="h-9" aria-label="Documento del primer archivo">
+                      <SelectValue placeholder="¿Con qué documento empieza?" />
                     </SelectTrigger>
                     <SelectContent>
                       {checklist.documentos
@@ -317,24 +332,31 @@ export function PanelDocumentos({
                   </Select>
                 )}
 
-                <CampoArchivo id="soporte-posterior" archivo={archivo} onCambio={setArchivo} obligatorio />
+                <CampoArchivo
+                  id="soporte-posterior"
+                  archivos={archivos}
+                  onCambio={setArchivos}
+                  obligatorio
+                />
                 <Button
                   size="sm"
                   className="w-full"
-                  disabled={!archivo}
+                  disabled={archivos.length === 0}
                   cargando={entregar.isPending}
                   onClick={() => void entregarSoporte()}
                 >
                   {!entregar.isPending && <Upload />}{' '}
-                  {checklist.faltantes.length > 1 ? 'Guardar documento' : 'Guardar y enviar a Talento Humano'}
+                  {archivos.length < checklist.faltantes.length
+                    ? 'Guardar documentos'
+                    : 'Guardar y enviar a Talento Humano'}
                 </Button>
                 {/* Decir qué pasa después evita que se quede esperando un
                     cierre que no depende de él. */}
                 <p className="text-[11px] leading-snug text-muted-foreground">
-                  {checklist.faltantes.length > 1
-                    ? `Faltan ${checklist.faltantes.length} documentos. La solicitud pasa a Talento Humano cuando estén todos.`
-                    : archivo
-                      ? 'Al guardarlo, Talento Humano lo revisa y cierra la solicitud.'
+                  {checklist.faltantes.length > 1 && archivos.length < checklist.faltantes.length
+                    ? `Faltan ${checklist.faltantes.length} documentos y llevas ${archivos.length}. Puedes adjuntarlos todos de una vez: la solicitud pasa a Talento Humano cuando estén completos.`
+                    : archivos.length > 0
+                      ? 'Al guardarlos, Talento Humano los revisa y cierra la solicitud.'
                       : (checklist.mensaje ??
                         'Adjunta el soporte correspondiente para poder cerrar la solicitud.')}
                 </p>

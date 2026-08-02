@@ -1,6 +1,8 @@
 # Base de datos
 
-Proyecto Supabase `rykondrasrvnuurolqqk` (`cambiodeturnos`), Postgres 17.
+Proyecto Supabase propio `hvbatymkcpsxhuzkagoi` (`permisos_tthh`), Postgres 17.
+Hasta el 2026-08-02 vivió dentro del proyecto de Cambio de Turnos; ver la
+migración `20260728000100_catalogos_propios.sql` para el porqué de la separación.
 Ver el diagrama en [ERD.md](ERD.md) y las policies en [SECURITY.md](SECURITY.md).
 
 ## Tablas propias
@@ -141,15 +143,19 @@ llevan el motivo en la cabecera:
 
 | Migración | Qué corrige |
 |---|---|
-| 010 | Endurece `sol_insert` de Cambio de Turnos |
+| 20260728000100 | Catálogos propios: la app deja de compartir proyecto con Cambio de Turnos |
 | 012 | Cierra el escalamiento de privilegios en perfiles |
 | 013 | `gen_random_bytes` fuera del `search_path` — bloqueaba toda solicitud |
 | 015 | Elimina la doble emisión de eventos |
 | 016 | La auditoría no encontraba la clave de las tablas de detalle |
 | 017 | La bandeja sigue al jefe elegido, no solo al área |
-| 018 | El admin de Permisos puede gestionar los catálogos compartidos |
 | 20260801000200–600 | Revisión frente al Código Sustantivo del Trabajo: reglas por motivo, documentos soporte, motivos faltantes, interrupción de periodos y vista de ausentismo |
 | 20260802000100 | El retiro parcial de cesantías deja de ser un motivo del formulario de permisos y pasa a ser trámite propio |
+| 20260802000300 | El consecutivo volvía a `PL` para cualquier trámite que no fuera vacaciones: regresión de la 013 |
+
+Lo que hay en `supabase/migraciones_cambiodeturnos/` **no se replica**: son
+cambios que esta app hizo sobre la base de datos de la otra mientras
+compartieron proyecto. Ver el README de esa carpeta.
 
 ## Storage
 

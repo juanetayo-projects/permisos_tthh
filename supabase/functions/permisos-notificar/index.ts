@@ -10,8 +10,7 @@
 //   'rechazada_th'         -> aviso al solicitante con el motivo (incluye cesantias)
 //   'perfil_validado'      -> aviso al colaborador: ya puede solicitar
 //
-// Credenciales: se leen desde Supabase Vault via la funcion public.get_secret()
-//   RESEND_API_KEY -> ya configurada y compartida con Cambio de Turnos
+// Credenciales: RESEND_API_KEY en los secretos de este proyecto Supabase.
 // El remitente es propio de esta app (no se reutiliza RESEND_FROM de la otra).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
@@ -84,8 +83,9 @@ Deno.serve(async (req) => {
     const { tipo, solicitud_id, preview } = await req.json()
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!)
 
-    const { data: apiKey } = await sb.rpc("get_secret", { p_name: "RESEND_API_KEY" })
-    const RESEND_API_KEY = (apiKey as string) || Deno.env.get("RESEND_API_KEY") || ""
+    // La clave vive en los secretos de este proyecto. Antes se leia tambien del
+    // Vault de Cambio de Turnos con public.get_secret(), que no existe aqui.
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || ""
 
     const previsualizados: { destinatario: string; asunto: string; html: string }[] = []
 

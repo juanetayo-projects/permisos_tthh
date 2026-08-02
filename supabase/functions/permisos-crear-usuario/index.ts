@@ -125,9 +125,8 @@ Deno.serve(async (req) => {
     }
 
     // ------------------------------------------------- La cuenta de auth
-    // El correo puede existir ya: las dos aplicaciones comparten `auth.users`,
-    // asi que alguien de Cambio de Turnos ya tiene cuenta aunque no tenga
-    // perfil aqui. En ese caso se reutiliza en vez de fallar.
+    // El correo puede existir ya: alguien pudo registrarse por su cuenta y
+    // quedar sin perfil. En ese caso se reutiliza la cuenta en vez de fallar.
     let userId: string | null = null
     let yaExistia = false
 
@@ -145,15 +144,15 @@ Deno.serve(async (req) => {
         return responder({ error: "No fue posible crear la cuenta." }, 500)
       }
 
-      // `listUsers` no filtra por correo, asi que se busca en el perfil de la
-      // otra aplicacion, que comparte el mismo `auth.users`.
-      const { data: existente } = await sb
-        .from("profiles")
-        .select("id")
-        .ilike("correo", correo)
-        .maybeSingle()
+      // `listUsers` no filtra por correo. Antes se buscaba en `profiles`, la
+      // tabla de Cambio de Turnos, que ya no existe en este proyecto:
+      // `generateLink` devuelve el usuario y de paso sirve para el correo.
+      const { data: existente } = await sb.auth.admin.generateLink({
+        type: "recovery",
+        email: correo,
+      })
 
-      userId = existente?.id ?? null
+      userId = existente?.user?.id ?? null
       yaExistia = true
 
       if (!userId) {
@@ -211,8 +210,9 @@ Deno.serve(async (req) => {
     const tokenHash = enlaceDatos?.properties?.hashed_token
 
     if (tokenHash) {
-      const { data: apiKey } = await sb.rpc("get_secret", { p_name: "RESEND_API_KEY" })
-      const RESEND_API_KEY = (apiKey as string) || Deno.env.get("RESEND_API_KEY") || ""
+      // La clave vive en los secretos de este proyecto. Antes se leia tambien del
+      // Vault de Cambio de Turnos con public.get_secret(), que no existe aqui.
+      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || ""
 
       if (RESEND_API_KEY) {
         const enlace = `${BASE}/#/establecer-clave?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`

@@ -87,7 +87,8 @@ export default function SolicitudCesantias() {
     monto: '',
     justificacion: '',
   })
-  const [soporte, setSoporte] = useState<File | null>(null)
+  /** Varios: el retiro pide el formato y el soporte de la destinación. */
+  const [soportes, setSoportes] = useState<File[]>([])
   /** Lo que impide enviar. Se muestra en modal, con la causa y su motivo. */
   const [problemas, setProblemas] = useState<Problema[]>([])
   const [enviando, setEnviando] = useState(false)
@@ -115,7 +116,6 @@ export default function SolicitudCesantias() {
     () => documentosDelMomento({ matriz: docsDelTipo, momento: 'previo', diasPermiso: 0 }),
     [docsDelTipo]
   )
-  const documentoDelAdjunto = docsPrevios.find((d) => d.obligatorio) ?? docsPrevios[0] ?? null
 
   const avisos = useMemo(() => {
     const lista: Aviso[] = [
@@ -151,7 +151,7 @@ export default function SolicitudCesantias() {
         areaId,
         cargoId,
         destino: form.destino,
-        tieneSoporte: Boolean(soporte),
+        tieneSoporte: soportes.length > 0,
       })
 
       if (encontrados.length > 0) {
@@ -206,14 +206,17 @@ export default function SolicitudCesantias() {
         },
       })
 
-      if (soporte) {
+      // El retiro pide dos documentos —el formato y el soporte de la
+      // destinación—, así que se etiquetan en el orden en que la matriz los
+      // declara y los sobrantes suben sin etiqueta.
+      for (const [i, archivo] of soportes.entries()) {
         await subirSoporte({
           solicitudId: id,
-          archivo: soporte,
+          archivo,
           momento: 'previo',
           usuarioId: session.user.id,
           maxMB: Number(config?.max_mb_adjunto ?? 10),
-          documentoId: documentoDelAdjunto?.documentoId ?? null,
+          documentoId: docsPrevios[i]?.documentoId ?? null,
         })
       }
 
@@ -226,7 +229,12 @@ export default function SolicitudCesantias() {
         filas: [
           { etiqueta: 'Destinación', valor: destino },
           { etiqueta: 'Monto', valor: form.monto ? formatearMoneda(Number(form.monto)) : 'Sin indicar' },
-          { etiqueta: 'Soporte adjunto', valor: soporte ? soporte.name : 'Ninguno' },
+          {
+            etiqueta: 'Soportes adjuntos',
+            valor: soportes.length
+              ? `${soportes.length} archivo${soportes.length === 1 ? '' : 's'}`
+              : 'Ninguno',
+          },
         ],
       })
     } catch (err) {
@@ -377,8 +385,8 @@ export default function SolicitudCesantias() {
                 <ListaDocumentos documentos={docsPrevios} momento="previo" />
 
                 <CampoArchivo
-                  archivo={soporte}
-                  onCambio={setSoporte}
+                  archivos={soportes}
+                  onCambio={setSoportes}
                   maxMB={Number(config?.max_mb_adjunto ?? 10)}
                   obligatorio
                 />
@@ -408,7 +416,12 @@ export default function SolicitudCesantias() {
             { etiqueta: 'Área', valor: nombreArea ?? '—' },
             { etiqueta: 'Destinación', valor: nombreDestino ?? '—', destacado: true },
             { etiqueta: 'Monto', valor: form.monto ? formatearMoneda(Number(form.monto)) : '—' },
-            { etiqueta: 'Soporte', valor: soporte ? soporte.name : 'Sin adjuntar' },
+            {
+              etiqueta: 'Soportes',
+              valor: soportes.length
+                ? `${soportes.length} archivo${soportes.length === 1 ? '' : 's'}`
+                : 'Sin adjuntar',
+            },
             { etiqueta: 'Aprueba', valor: 'Gerencia de TH' },
           ]}
           avisos={avisos}
