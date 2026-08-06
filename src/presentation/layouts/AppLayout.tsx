@@ -226,8 +226,8 @@ export function AppLayout() {
   const entradasMenu = useMemo(() => construirMenu(enlaces), [enlaces])
 
   /** Grupo del acordeón que contiene la ruta activa, o `null` si es una suelta. */
-  const grupoDeLaRuta = (grupos: EntradaMenu[]): GrupoMenu | null => {
-    for (const entrada of grupos) {
+  const grupoDeLaRuta = useMemo((): GrupoMenu | null => {
+    for (const entrada of entradasMenu) {
       if (entrada.tipo !== 'grupo') continue
       const esta = entrada.modulos.some(
         (m) => ubicacion.pathname === m.ruta || (m.ruta !== '/' && ubicacion.pathname.startsWith(`${m.ruta}/`))
@@ -235,7 +235,7 @@ export function AppLayout() {
       if (esta) return entrada.grupo.clave
     }
     return null
-  }
+  }, [entradasMenu, ubicacion.pathname])
 
   const [gruposAbiertos, setGruposAbiertos] = useState<Set<GrupoMenu>>(
     () => new Set(GRUPOS_MENU.map((g) => g.clave))
@@ -254,9 +254,10 @@ export function AppLayout() {
   // colapsado, se reabre: si no, el enlace activo desaparecería de la vista.
   useEffect(() => {
     setMenuAbierto(false)
-    const grupoActivo = grupoDeLaRuta(entradasMenu)
-    if (grupoActivo) setGruposAbiertos((previo) => (previo.has(grupoActivo) ? previo : new Set(previo).add(grupoActivo)))
-  }, [ubicacion.pathname, entradasMenu])
+    if (grupoDeLaRuta) {
+      setGruposAbiertos((previo) => (previo.has(grupoDeLaRuta) ? previo : new Set(previo).add(grupoDeLaRuta)))
+    }
+  }, [grupoDeLaRuta])
 
   return (
     // Altura fija y sin scroll de página en escritorio: la ventana no se mueve
