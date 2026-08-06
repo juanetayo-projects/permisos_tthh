@@ -28,6 +28,7 @@ export type Estado = (typeof ESTADOS)[number]
 export const ROLES = [
   'colaborador',
   'coordinador',
+  'coordinador_sst',
   'analista_th',
   'gerente_th',
   'administrador',
@@ -38,10 +39,14 @@ export type Rol = (typeof ROLES)[number]
 export const ETIQUETA_ROL: Record<Rol, string> = {
   colaborador: 'Colaborador',
   coordinador: 'Coordinador (jefe directo)',
+  coordinador_sst: 'Coordinador de SST',
   analista_th: 'Analista de Talento Humano',
-  gerente_th: 'Gerente de Talento Humano',
+  gerente_th: 'Directora de Talento Humano',
   administrador: 'Administrador',
 }
+
+/** Todos los roles: para los enlaces y acciones que no distinguen a nadie. */
+export const TODOS_LOS_ROLES: Rol[] = [...ROLES]
 
 export type Accion =
   | 'enviar'
@@ -69,7 +74,7 @@ export const TRANSICIONES: Record<Accion, Transicion> = {
   enviar: {
     desde: ['BORRADOR'],
     hacia: 'PENDIENTE_COORDINADOR',
-    roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'],
+    roles: TODOS_LOS_ROLES,
     etiqueta: 'Enviar solicitud',
   },
   aprobar_coordinador: {
@@ -108,7 +113,7 @@ export const TRANSICIONES: Record<Accion, Transicion> = {
   registrar_soporte: {
     desde: ['PENDIENTE_SOPORTE'],
     hacia: 'SOPORTE_EN_VALIDACION',
-    roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'],
+    roles: TODOS_LOS_ROLES,
     etiqueta: 'Entregar soporte',
   },
   validar_soporte: {
@@ -153,7 +158,7 @@ export const TRANSICIONES: Record<Accion, Transicion> = {
   cancelar: {
     desde: ['BORRADOR', 'PENDIENTE_COORDINADOR', 'APROBADA_COORDINADOR', 'PENDIENTE_TH', 'PENDIENTE_GERENCIA_TH'],
     hacia: 'CANCELADA',
-    roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'],
+    roles: TODOS_LOS_ROLES,
     exigeMotivo: true,
     etiqueta: 'Cancelar',
   },
@@ -165,9 +170,21 @@ export const TRANSICIONES: Record<Accion, Transicion> = {
   },
 }
 
-/** Estado inicial al enviar: las cesantías saltan al coordinador (Paso 4). */
-export function estadoAlEnviar(rutaAprobacion: 'coordinador_th' | 'gerente_th_directo'): Estado {
-  return rutaAprobacion === 'gerente_th_directo' ? 'PENDIENTE_GERENCIA_TH' : 'PENDIENTE_COORDINADOR'
+/** Por dónde entra una solicitud según su trámite. */
+export type RutaAprobacion = 'coordinador_th' | 'gerente_th_directo' | 'th_directo'
+
+/**
+ * Estado inicial al enviar.
+ *
+ * Dos trámites se saltan al jefe directo, por motivos distintos: las cesantías
+ * porque las autoriza la Dirección de Talento Humano, y la incapacidad porque
+ * la radica el propio jefe y pedirle que se autorice a sí mismo es un paso
+ * vacío.
+ */
+export function estadoAlEnviar(rutaAprobacion: RutaAprobacion): Estado {
+  if (rutaAprobacion === 'gerente_th_directo') return 'PENDIENTE_GERENCIA_TH'
+  if (rutaAprobacion === 'th_directo') return 'PENDIENTE_TH'
+  return 'PENDIENTE_COORDINADOR'
 }
 
 /** Tras el visto bueno de TH: a soporte pendiente o directo a finalizada. */
@@ -197,6 +214,10 @@ export function puedeEjecutar(accion: Accion, ctx: ContextoAccion): boolean {
       return ctx.esSolicitante
     case 'aprobar_coordinador':
     case 'rechazar_coordinador':
+      // Se mira quién coordina el servicio, no el rol. Por eso `coordinador_sst`
+      // no aparece en ninguna lista de roles y aun así autoriza cuando figura
+      // en el catálogo de jefes directos: la facultad viene del servicio a
+      // cargo, no del cargo de SST.
       return ctx.coordinaElArea || ctx.rol === 'administrador'
     case 'interrumpir':
       // El jefe directo también puede: es quien se entera primero de que un
@@ -225,7 +246,7 @@ export const ETIQUETA_ESTADO: Record<Estado, string> = {
   PENDIENTE_COORDINADOR: 'Pendiente del jefe directo',
   APROBADA_COORDINADOR: 'Autorizada por el jefe directo',
   PENDIENTE_TH: 'Pendiente de Talento Humano',
-  PENDIENTE_GERENCIA_TH: 'Pendiente de Gerencia de TH',
+  PENDIENTE_GERENCIA_TH: 'Pendiente de Dirección de TTHH',
   APROBADA_TH: 'Aprobada',
   PENDIENTE_SOPORTE: 'Autorizada, pendiente de justificar el soporte',
   SOPORTE_EN_VALIDACION: 'Soporte en validación de Talento Humano',
@@ -287,7 +308,15 @@ export function esSoporteDevuelto(
   )
 }
 
-/** Estados que ocupan una bandeja: lo que está esperando una decisión. */
+/**
+ * Estados sobre los que la bandeja ofrece decidir.
+ *
+ * Ojo: **no** es lo mismo que lo que la bandeja muestra. La del área lista
+ * todo lo del servicio en cualquier estado —el jefe pedía ver qué pasó con lo
+ * que ya autorizó, no solo lo que le falta por firmar— y usa esta lista solo
+ * para saber sobre qué filas tienen sentido los botones de autorizar y
+ * rechazar.
+ */
 export const ESTADOS_BANDEJA: Record<'coordinador' | 'th' | 'gerencia', Estado[]> = {
   coordinador: ['PENDIENTE_COORDINADOR'],
   // `PENDIENTE_SOPORTE` queda fuera a propósito: ahí la pelota la tiene el
@@ -296,3 +325,31 @@ export const ESTADOS_BANDEJA: Record<'coordinador' | 'th' | 'gerencia', Estado[]
   th: ['PENDIENTE_TH', 'SOPORTE_EN_VALIDACION'],
   gerencia: ['PENDIENTE_GERENCIA_TH'],
 }
+
+/**
+ * Los tres montones en que se agrupa un listado largo.
+ *
+ * Viven aquí y no en cada pantalla porque «Mis solicitudes» y la bandeja del
+ * área tienen que estar de acuerdo en qué cuenta como resuelto: si una pinta
+ * `SUSPENDIDA` como cerrada y la otra como en trámite, los números de las
+ * pestañas dejan de cuadrar entre sí.
+ */
+export const ESTADOS_EN_TRAMITE: Estado[] = [
+  'BORRADOR',
+  'PENDIENTE_COORDINADOR',
+  'APROBADA_COORDINADOR',
+  'PENDIENTE_TH',
+  'PENDIENTE_GERENCIA_TH',
+  'PENDIENTE_SOPORTE',
+  'SOPORTE_EN_VALIDACION',
+]
+
+/** `SUSPENDIDA` va aquí: el periodo se autorizó, aunque quedaran días sueltos. */
+export const ESTADOS_APROBADOS: Estado[] = ['APROBADA_TH', 'FINALIZADA', 'SUSPENDIDA', 'ARCHIVADA']
+
+export const ESTADOS_NEGADOS: Estado[] = [
+  'RECHAZADA_COORDINADOR',
+  'RECHAZADA_TH',
+  'CANCELADA',
+  'VENCIDA',
+]

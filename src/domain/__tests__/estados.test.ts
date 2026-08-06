@@ -4,6 +4,11 @@ import {
   estadoAlEnviar,
   estadoTrasVistoBueno,
   puedeEjecutar,
+  ESTADOS,
+  ESTADOS_APROBADOS,
+  ESTADOS_BANDEJA,
+  ESTADOS_EN_TRAMITE,
+  ESTADOS_NEGADOS,
   type ContextoAccion,
 } from '../estados'
 
@@ -19,7 +24,7 @@ describe('ruta de aprobación al enviar', () => {
     expect(estadoAlEnviar('coordinador_th')).toBe('PENDIENTE_COORDINADOR')
   })
 
-  it('manda las cesantías directo a la Gerencia de TH', () => {
+  it('manda las cesantías directo a la Dirección de TTHH', () => {
     // Paso 4 del prompt: las cesantías no pasan por el coordinador.
     expect(estadoAlEnviar('gerente_th_directo')).toBe('PENDIENTE_GERENCIA_TH')
   })
@@ -78,5 +83,52 @@ describe('quién puede hacer qué', () => {
     const acciones = accionesDisponibles({ ...base, estado: 'BORRADOR', esSolicitante: true })
     expect(acciones).toContain('enviar')
     expect(acciones).toContain('cancelar')
+  })
+})
+
+describe('coordinador de SST', () => {
+  it('no autoriza permisos por el hecho de ser SST', () => {
+    const sst: ContextoAccion = { ...base, rol: 'coordinador_sst' }
+    expect(puedeEjecutar('aprobar_coordinador', sst)).toBe(false)
+    expect(puedeEjecutar('rechazar_coordinador', sst)).toBe(false)
+    expect(puedeEjecutar('aprobar_th', { ...sst, estado: 'PENDIENTE_TH' })).toBe(false)
+    expect(puedeEjecutar('archivar', { ...sst, estado: 'FINALIZADA' })).toBe(false)
+  })
+
+  it('sí autoriza cuando además es el jefe directo del servicio', () => {
+    const jefe: ContextoAccion = { ...base, rol: 'coordinador_sst', coordinaElArea: true }
+    expect(puedeEjecutar('aprobar_coordinador', jefe)).toBe(true)
+    // Y sigue sin poder dar el visto bueno de Talento Humano: ser jefe de un
+    // servicio no lo mete en el segundo paso del flujo.
+    expect(puedeEjecutar('aprobar_th', { ...jefe, estado: 'PENDIENTE_TH' })).toBe(false)
+  })
+
+  it('puede pedir sus propios permisos', () => {
+    const suyo: ContextoAccion = {
+      ...base,
+      estado: 'BORRADOR',
+      rol: 'coordinador_sst',
+      esSolicitante: true,
+    }
+    expect(puedeEjecutar('enviar', suyo)).toBe(true)
+    expect(puedeEjecutar('cancelar', { ...suyo, estado: 'PENDIENTE_COORDINADOR' })).toBe(true)
+  })
+})
+
+describe('montones de estados de las pestañas', () => {
+  it('reparten todos los estados sin dejarse ninguno', () => {
+    const repartidos = [...ESTADOS_EN_TRAMITE, ...ESTADOS_APROBADOS, ...ESTADOS_NEGADOS]
+    expect([...repartidos].sort()).toEqual([...ESTADOS].sort())
+  })
+
+  it('no ponen el mismo estado en dos montones', () => {
+    const repartidos = [...ESTADOS_EN_TRAMITE, ...ESTADOS_APROBADOS, ...ESTADOS_NEGADOS]
+    expect(new Set(repartidos).size).toBe(repartidos.length)
+  })
+
+  it('lo que la bandeja del área deja decidir sigue esperando decisión', () => {
+    for (const estado of ESTADOS_BANDEJA.coordinador) {
+      expect(ESTADOS_EN_TRAMITE).toContain(estado)
+    }
   })
 })

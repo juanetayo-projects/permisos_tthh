@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   calcularDuracion,
   calcularVacaciones,
+  diasPendientesDeDisfrutar,
   evaluarAntelacion,
+  evaluarAntelacionVacaciones,
   evaluarSoporte,
   validarSaldos,
 } from '../reglas'
@@ -218,5 +220,66 @@ describe('vacaciones', () => {
   it('no se queja si aún faltan saldos por digitar', () => {
     expect(validarSaldos({ diasCorresponden: null, diasADisfrutar: 6, diasPendientes: 9 }).coherente)
       .toBe(true)
+  })
+})
+
+// -----------------------------------------------------------------------------
+// Las reglas duras del TH-F-005
+// -----------------------------------------------------------------------------
+
+describe('antelación de vacaciones', () => {
+  it('cumple justo a los 20 días corridos', () => {
+    const r = evaluarAntelacionVacaciones({ hoy: '2026-08-03', fechaInicio: '2026-08-23' })
+    expect(r.diasDeAntelacion).toBe(20)
+    expect(r.cumple).toBe(true)
+  })
+
+  it('no cumple con 19', () => {
+    const r = evaluarAntelacionVacaciones({ hoy: '2026-08-03', fechaInicio: '2026-08-22' })
+    expect(r.diasDeAntelacion).toBe(19)
+    expect(r.cumple).toBe(false)
+  })
+
+  it('cuenta días corridos, no hábiles: los fines de semana suman', () => {
+    // Del 3 al 23 de agosto hay tres fines de semana por medio; si se contaran
+    // hábiles no llegaría a 20 y la regla exigiría casi un mes.
+    expect(
+      evaluarAntelacionVacaciones({ hoy: '2026-08-03', fechaInicio: '2026-08-23' }).cumple
+    ).toBe(true)
+  })
+
+  it('dice hasta cuándo se pudo radicar y desde cuándo se puede empezar', () => {
+    const r = evaluarAntelacionVacaciones({ hoy: '2026-08-03', fechaInicio: '2026-08-10' })
+    expect(r.cumple).toBe(false)
+    expect(r.fechaLimite).toBe('2026-07-21')
+    expect(r.primeraValida).toBe('2026-08-23')
+  })
+
+  it('marca en negativo una fecha de inicio que ya pasó', () => {
+    const r = evaluarAntelacionVacaciones({ hoy: '2026-08-03', fechaInicio: '2026-08-01' })
+    expect(r.diasDeAntelacion).toBeLessThan(0)
+    expect(r.cumple).toBe(false)
+  })
+})
+
+describe('días pendientes de disfrutar', () => {
+  it('resta los días a disfrutar', () => {
+    expect(diasPendientesDeDisfrutar({ diasCorresponden: 15, diasADisfrutar: 6 })).toBe(9)
+  })
+
+  it('los compensados también descuentan: se pagan, no quedan pendientes', () => {
+    expect(
+      diasPendientesDeDisfrutar({ diasCorresponden: 15, diasADisfrutar: 8, diasCompensados: 7 })
+    ).toBe(0)
+  })
+
+  it('nunca devuelve un saldo negativo', () => {
+    expect(
+      diasPendientesDeDisfrutar({ diasCorresponden: 10, diasADisfrutar: 8, diasCompensados: 7 })
+    ).toBe(0)
+  })
+
+  it('sin días que corresponden no hay nada que calcular', () => {
+    expect(diasPendientesDeDisfrutar({ diasCorresponden: null, diasADisfrutar: 6 })).toBeNull()
   })
 })

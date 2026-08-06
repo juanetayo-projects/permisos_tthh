@@ -32,9 +32,12 @@ const Ausentismo = lazy(() => import('@/presentation/pages/Ausentismo'))
 /** Solo la usa el administrador: no tiene por qué pesar en el arranque de todos. */
 const Administracion = lazy(() => import('@/presentation/pages/Administracion'))
 const Validaciones = lazy(() => import('@/presentation/pages/Validaciones'))
+/** Solo lo abren los jefes directos y Talento Humano. */
+const ReporteIncapacidad = lazy(() => import('@/presentation/pages/ReporteIncapacidad'))
 /** Histórico completo: solo lo abren Talento Humano y administración. */
 const TodasSolicitudes = lazy(() => import('@/presentation/pages/TodasSolicitudes'))
-import type { Rol } from '@/domain/estados'
+import type { Modulo } from '@/domain/modulos'
+import { useModulosDelRol } from '@/application/admin/useAccesos'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,9 +68,20 @@ function RutaPrivada() {
   return <Outlet />
 }
 
-function RutaPorRol({ roles, children }: { roles: Rol[]; children: React.ReactNode }) {
+/**
+ * Puerta de una pantalla.
+ *
+ * Ya no lleva una lista de roles escrita a mano: pregunta por el módulo, y
+ * quién entra a cada módulo se reparte desde Administración. Es la barrera de
+ * navegación —lo que impide llegar tecleando la URL—, no la de los datos: esa
+ * la siguen poniendo las policies, y por eso una casilla mal marcada aquí
+ * enseña una pantalla, nunca información de más.
+ */
+function RutaPorModulo({ modulo, children }: { modulo: Modulo; children: React.ReactNode }) {
   const { perfil } = useAuth()
-  if (!perfil || !roles.includes(perfil.rol)) return <SinPermiso />
+  const modulos = useModulosDelRol(perfil?.rol)
+
+  if (!perfil || !modulos.includes(modulo)) return <SinPermiso />
   return <>{children}</>
 }
 
@@ -88,84 +102,133 @@ function Rutas() {
 
       <Route element={<RutaPrivada />}>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Inicio />} />
-          <Route path="/solicitar/permiso" element={<SolicitudPermiso />} />
-          <Route path="/solicitar/vacaciones" element={<SolicitudVacaciones />} />
-          <Route path="/solicitar/cesantias" element={<SolicitudCesantias />} />
-          <Route path="/mis-solicitudes" element={<MisSolicitudes />} />
+          <Route
+            path="/"
+            element={
+              <RutaPorModulo modulo="inicio">
+                <Inicio />
+              </RutaPorModulo>
+            }
+          />
+          <Route
+            path="/solicitar/permiso"
+            element={
+              <RutaPorModulo modulo="solicitar_permiso">
+                <SolicitudPermiso />
+              </RutaPorModulo>
+            }
+          />
+          <Route
+            path="/solicitar/vacaciones"
+            element={
+              <RutaPorModulo modulo="solicitar_vacaciones">
+                <SolicitudVacaciones />
+              </RutaPorModulo>
+            }
+          />
+          <Route
+            path="/solicitar/cesantias"
+            element={
+              <RutaPorModulo modulo="solicitar_cesantias">
+                <SolicitudCesantias />
+              </RutaPorModulo>
+            }
+          />
+          <Route
+            path="/incapacidades"
+            element={
+              <RutaPorModulo modulo="incapacidades">
+                <Suspense fallback={<Cargando />}>
+                  <ReporteIncapacidad />
+                </Suspense>
+              </RutaPorModulo>
+            }
+          />
+          <Route
+            path="/mis-solicitudes"
+            element={
+              <RutaPorModulo modulo="mis_solicitudes">
+                <MisSolicitudes />
+              </RutaPorModulo>
+            }
+          />
+          {/* El detalle no se reparte por casillas: se llega a él desde
+              cualquier listado, y quién puede abrirlo ya lo decide la policy
+              de la solicitud. Ponerle módulo propio solo daría la forma de
+              dejar a alguien con una lista de enlaces que no puede abrir. */}
           <Route path="/solicitud/:id" element={<DetalleSolicitud />} />
           <Route
             path="/bandeja/coordinador"
             element={
-              <RutaPorRol roles={['coordinador', 'administrador']}>
+              <RutaPorModulo modulo="bandeja_area">
                 <Bandeja vista="coordinador" />
-              </RutaPorRol>
+              </RutaPorModulo>
             }
           />
           <Route
             path="/bandeja/th"
             element={
-              <RutaPorRol roles={['analista_th', 'gerente_th', 'administrador']}>
+              <RutaPorModulo modulo="bandeja_th">
                 <Bandeja vista="th" />
-              </RutaPorRol>
+              </RutaPorModulo>
             }
           />
           <Route
             path="/bandeja/gerencia"
             element={
-              <RutaPorRol roles={['gerente_th']}>
+              <RutaPorModulo modulo="bandeja_cesantias">
                 <Bandeja vista="gerencia" />
-              </RutaPorRol>
+              </RutaPorModulo>
             }
           />
           <Route
             path="/solicitudes"
             element={
-              <RutaPorRol roles={['analista_th', 'gerente_th', 'administrador']}>
+              <RutaPorModulo modulo="todas_solicitudes">
                 <Suspense fallback={<Cargando />}>
                   <TodasSolicitudes />
                 </Suspense>
-              </RutaPorRol>
+              </RutaPorModulo>
             }
           />
           <Route
             path="/validaciones"
             element={
-              <RutaPorRol roles={['analista_th', 'gerente_th', 'administrador']}>
+              <RutaPorModulo modulo="validaciones">
                 <Suspense fallback={<Cargando />}>
                   <Validaciones />
                 </Suspense>
-              </RutaPorRol>
+              </RutaPorModulo>
             }
           />
           <Route
             path="/dashboard"
             element={
-              <RutaPorRol roles={['coordinador', 'analista_th', 'gerente_th', 'administrador']}>
+              <RutaPorModulo modulo="dashboard">
                 <Suspense fallback={<Cargando />}>
                   <Dashboard />
                 </Suspense>
-              </RutaPorRol>
+              </RutaPorModulo>
             }
           />
           <Route
             path="/ausentismo"
             element={
-              <RutaPorRol roles={['coordinador', 'analista_th', 'gerente_th', 'administrador']}>
+              <RutaPorModulo modulo="ausentismo">
                 <Suspense fallback={<Cargando />}>
                   <Ausentismo />
                 </Suspense>
-              </RutaPorRol>
+              </RutaPorModulo>
             }
           />
           <Route
             path="/administracion"
             element={
-              <RutaPorRol roles={['administrador']}>
+              <RutaPorModulo modulo="administracion">
                 <Suspense fallback={<Cargando />}>
                   <Administracion />
                 </Suspense>
-              </RutaPorRol>
+              </RutaPorModulo>
             }
           />
         </Route>

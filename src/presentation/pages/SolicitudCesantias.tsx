@@ -40,15 +40,21 @@ import {
 
 const HOY = new Date().toISOString().slice(0, 10)
 
-/** Destinos que admite el retiro parcial (art. 102 CST · Ley 1071 de 2006). */
+/**
+ * Destinos que admite el retiro parcial.
+ *
+ * El art. 102 CST y la Ley 1071 de 2006 admiten vivienda **y educación**, pero
+ * Talento Humano decidió no tramitar aquí los retiros para estudio: los
+ * gestiona por fuera de la aplicación. Se retiran del desplegable a petición
+ * suya, no porque la ley los excluya —conviene saberlo si algún día piden
+ * devolverlos—.
+ */
 const DESTINOS = [
   { valor: 'vivienda_compra', etiqueta: 'Compra de vivienda' },
   { valor: 'vivienda_construccion', etiqueta: 'Construcción de vivienda' },
   { valor: 'vivienda_mejora', etiqueta: 'Mejora o remodelación de vivienda' },
   { valor: 'vivienda_liberacion', etiqueta: 'Liberación de gravamen hipotecario' },
   { valor: 'vivienda_impuestos', etiqueta: 'Pago de impuestos de la vivienda' },
-  { valor: 'educacion_trabajador', etiqueta: 'Educación del trabajador' },
-  { valor: 'educacion_familiar', etiqueta: 'Educación del cónyuge o de los hijos' },
 ] as const
 
 /**
@@ -62,10 +68,10 @@ const DESTINOS = [
  * no tiene inicio ni antelación que cumplir.
  *
  * Lo que sí importa es el destino y sus soportes: el art. 102 CST y la Ley 1071
- * de 2006 solo admiten vivienda y educación, y la Gerencia de Talento Humano
- * tiene que verificarlo antes de tramitarlo ante la administradora.
+ * de 2006 acotan el destino, y la Dirección de Talento Humano tiene que
+ * verificarlo antes de tramitarlo ante la administradora.
  *
- * Va directo a la Gerencia de TH —no pasa por el jefe directo—, así que esta
+ * Va directo a la Dirección de TTHH —no pasa por el jefe directo—, así que esta
  * pantalla tampoco pide jefe autorizador.
  */
 export default function SolicitudCesantias() {
@@ -122,7 +128,7 @@ export default function SolicitudCesantias() {
       {
         tono: 'info',
         texto:
-          'Este trámite va directo a la Gerencia de Talento Humano y no cuenta como ausencia: no descuenta tiempo ni aparece en tu ausentismo.',
+          'Este trámite va directo a la Dirección de Talento Humano y no cuenta como ausencia: no descuenta tiempo ni aparece en tu ausentismo.',
       },
     ]
 
@@ -130,7 +136,7 @@ export default function SolicitudCesantias() {
       lista.push({
         tono: 'advertencia',
         texto:
-          'Adjunta el soporte de la destinación. Sin él, la Gerencia no puede verificar que el retiro va a vivienda o educación.',
+          'Adjunta el soporte de la destinación. Sin él, la Dirección de Talento Humano no puede verificar que el retiro va a vivienda.',
       })
     }
     if (!form.destino) {
@@ -224,7 +230,7 @@ export default function SolicitudCesantias() {
         id,
         consecutivo,
         siguiente: enviar
-          ? 'Queda en la bandeja de la Gerencia de Talento Humano para su verificación.'
+          ? 'Queda en la bandeja de la Dirección de Talento Humano para su verificación.'
           : 'Puedes retomarla cuando quieras desde Mis solicitudes.',
         filas: [
           { etiqueta: 'Destinación', valor: destino },
@@ -354,7 +360,8 @@ export default function SolicitudCesantias() {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    El art. 102 CST y la Ley 1071 de 2006 solo admiten vivienda y educación.
+                    Por esta aplicación se tramitan los retiros destinados a vivienda (art. 102
+                    CST y Ley 1071 de 2006). Para estudio, escribe a Talento Humano.
                   </p>
                 </div>
 
@@ -422,7 +429,7 @@ export default function SolicitudCesantias() {
                 ? `${soportes.length} archivo${soportes.length === 1 ? '' : 's'}`
                 : 'Sin adjuntar',
             },
-            { etiqueta: 'Aprueba', valor: 'Gerencia de TH' },
+            { etiqueta: 'Aprueba', valor: 'Dirección de TTHH' },
           ]}
           avisos={avisos}
           pie={tramite?.nota_pie}

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import {
   AlertCircle,
+  CalendarClock,
+  CheckCircle2,
   ExternalLink,
   FileCheck2,
   FileText,
@@ -15,6 +17,7 @@ import { useAuth } from '@/application/auth/AuthProvider'
 import {
   abrirSoporte,
   useAdjuntos,
+  useAjustarPeriodoReal,
   useEntregarSoporte,
   useUrlsAdjuntos,
   type Adjunto,
@@ -23,8 +26,11 @@ import { documentosDelTipo, useMatrizDocumentos } from '@/application/catalogos/
 import type { SolicitudLista } from '@/application/solicitudes/useSolicitudes'
 import { avisoDeVencimiento, evaluarChecklist } from '@/domain/soportes'
 import { aISO } from '@/domain/festivos'
+import { calcularDuracion } from '@/domain/reglas'
 import { Button } from '@/presentation/components/ui/button'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
+import { Input } from '@/presentation/components/ui/input'
+import { Label } from '@/presentation/components/ui/label'
 import { ListaDocumentos } from '@/presentation/components/ListaDocumentos'
 import {
   Dialog,
@@ -80,12 +86,20 @@ export function PanelDocumentos({
   const { data: urls } = useUrlsAdjuntos(adjuntos)
   const { data: matriz } = useMatrizDocumentos()
   const entregar = useEntregarSoporte()
+  const ajustarPeriodo = useAjustarPeriodoReal()
 
   const [ampliado, setAmpliado] = useState<Adjunto | null>(null)
   /** Varios: el luto pide registro de defunción **y** prueba de parentesco. */
   const [archivos, setArchivos] = useState<File[]>([])
   const [documentoId, setDocumentoId] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
+
+  // La hora de salida y regreso que se escribieron al pedir el permiso son un
+  // cálculo: «calculo que regreso a las 4». La certificación que trae el
+  // soporte dice la hora real, y casi nunca coincide exacta.
+  const [fechaFinReal, setFechaFinReal] = useState(solicitud.fecha_fin)
+  const [horaRegresoReal, setHoraRegresoReal] = useState(solicitud.detalle_permiso?.hora_regreso ?? '')
+  const [periodoGuardado, setPeriodoGuardado] = useState(false)
 
   const lista = adjuntos ?? []
   const urlAmpliada = ampliado ? urls?.[ampliado.ruta_storage] : undefined
@@ -98,6 +112,50 @@ export function PanelDocumentos({
   // El mismo texto significa cosas distintas segun de donde venga el paso: al
   // dar el visto bueno es una nota, al devolver es lo que hay que corregir.
   const nota = faltaEntregar ? solicitud.observacion_decision : null
+
+  /**
+   * ¿Este permiso se mide en horas?
+   *
+   * Solo tiene sentido corregir la hora de regreso en los motivos que se
+   * pidieron por horas —una cita médica, una diligencia—. Una incapacidad o
+   * una licencia se miden en días completos y no tienen hora de regreso que
+   * ajustar.
+   */
+  const puedeAjustarPeriodo = puedeEntregar && Boolean(solicitud.detalle_permiso?.hora_salida)
+
+  const duracionReal = useMemo(
+    () =>
+      solicitud.detalle_permiso?.hora_salida && horaRegresoReal
+        ? calcularDuracion({
+            fechaInicio: solicitud.fecha_inicio,
+            fechaFin: fechaFinReal,
+            horaSalida: solicitud.detalle_permiso.hora_salida,
+            horaRegreso: horaRegresoReal,
+          })
+        : null,
+    [solicitud.fecha_inicio, solicitud.detalle_permiso?.hora_salida, fechaFinReal, horaRegresoReal]
+  )
+
+  const periodoCambio =
+    fechaFinReal !== solicitud.fecha_fin || horaRegresoReal !== (solicitud.detalle_permiso?.hora_regreso ?? '')
+
+  async function guardarPeriodoReal() {
+    if (!horaRegresoReal || !duracionReal) return
+    setError(null)
+    setPeriodoGuardado(false)
+    try {
+      await ajustarPeriodo.mutateAsync({
+        solicitudId: solicitud.id,
+        fechaFin: fechaFinReal,
+        horaRegreso: horaRegresoReal,
+        horasPermiso: duracionReal.horas,
+        diasPermiso: duracionReal.dias,
+      })
+      setPeriodoGuardado(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No fue posible guardar la duración real.')
+    }
+  }
 
   /**
    * Lista de verificación de lo que falta al regresar.
@@ -305,6 +363,73 @@ export function PanelDocumentos({
               >
                 {vencimiento.mensaje}
               </p>
+            )}
+
+            {puedeAjustarPeriodo && (
+              <div className="space-y-2 rounded-md border border-[var(--tinte-azul-borde)] bg-[var(--tinte-azul)] p-2">
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--info)] dark:text-[var(--cac-azul-300)]">
+                  <CalendarClock className="size-3.5 shrink-0" />
+                  Periodo real de tu ausencia
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Corrige la hora de regreso con lo que diga tu certificación, si no coincide con lo
+                  que calculaste al pedir el permiso.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="fecha-regreso-real" className="text-xs">Fecha de regreso</Label>
+                    <Input
+                      id="fecha-regreso-real"
+                      type="date"
+                      min={solicitud.fecha_inicio}
+                      value={fechaFinReal}
+                      onChange={(e) => {
+                        setFechaFinReal(e.target.value)
+                        setPeriodoGuardado(false)
+                      }}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="hora-regreso-real" className="text-xs">Hora de regreso</Label>
+                    <Input
+                      id="hora-regreso-real"
+                      type="time"
+                      value={horaRegresoReal}
+                      onChange={(e) => {
+                        setHoraRegresoReal(e.target.value)
+                        setPeriodoGuardado(false)
+                      }}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {duracionReal && (
+                  <p className="text-xs text-muted-foreground">
+                    Con estas horas, el permiso queda en <b>{duracionReal.horas} h</b>.
+                  </p>
+                )}
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  disabled={!horaRegresoReal || !periodoCambio}
+                  cargando={ajustarPeriodo.isPending}
+                  onClick={() => void guardarPeriodoReal()}
+                >
+                  {!ajustarPeriodo.isPending && <CalendarClock />} Guardar duración real
+                </Button>
+
+                {periodoGuardado && !periodoCambio && (
+                  <p className="flex items-center gap-1.5 text-xs text-[var(--exito)]">
+                    <CheckCircle2 className="size-3.5 shrink-0" /> Duración actualizada.
+                  </p>
+                )}
+              </div>
             )}
 
             {puedeEntregar && (

@@ -3,28 +3,25 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { CalendarDays, CheckCircle2, FileText, Plus } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import { useSolicitudes } from '@/application/solicitudes/useSolicitudes'
-import { ESTADOS, type Estado } from '@/domain/estados'
+import {
+  ESTADOS,
+  ESTADOS_APROBADOS,
+  ESTADOS_EN_TRAMITE,
+  ESTADOS_NEGADOS,
+} from '@/domain/estados'
 import { cn } from '@/lib/utils'
 import { Pantalla } from '@/presentation/layouts/Pantalla'
 import { TablaSolicitudes } from '@/presentation/components/TablaSolicitudes'
 import { Button } from '@/presentation/components/ui/button'
 
-const ACTIVOS: Estado[] = [
-  'BORRADOR',
-  'PENDIENTE_COORDINADOR',
-  'APROBADA_COORDINADOR',
-  'PENDIENTE_TH',
-  'PENDIENTE_GERENCIA_TH',
-  'PENDIENTE_SOPORTE',
-  'SOPORTE_EN_VALIDACION',
-]
-const RESUELTAS: Estado[] = ['APROBADA_TH', 'FINALIZADA', 'ARCHIVADA']
-const NEGADAS: Estado[] = ['RECHAZADA_COORDINADOR', 'RECHAZADA_TH', 'CANCELADA', 'VENCIDA']
-
+// Los montones salen del dominio y no de aquí: la bandeja del área usa los
+// mismos, y si cada pantalla decidiera por su cuenta qué cuenta como resuelto,
+// los contadores dejarían de cuadrar entre una y otra. De paso, `SUSPENDIDA`
+// se quedaba fuera de las tres pestañas y solo asomaba en «Todas».
 const PESTANAS = [
-  { clave: 'activas', etiqueta: 'En trámite', estados: ACTIVOS },
-  { clave: 'resueltas', etiqueta: 'Aprobadas', estados: RESUELTAS },
-  { clave: 'negadas', etiqueta: 'Rechazadas', estados: NEGADAS },
+  { clave: 'activas', etiqueta: 'En trámite', estados: ESTADOS_EN_TRAMITE },
+  { clave: 'resueltas', etiqueta: 'Aprobadas', estados: ESTADOS_APROBADOS },
+  { clave: 'negadas', etiqueta: 'Rechazadas', estados: ESTADOS_NEGADOS },
   { clave: 'todas', etiqueta: 'Todas', estados: [...ESTADOS] },
 ] as const
 

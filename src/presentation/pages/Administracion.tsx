@@ -8,6 +8,7 @@ import {
   ListTree,
   Network,
   ScrollText,
+  ShieldCheck,
   SlidersHorizontal,
   Tags,
   UserCog,
@@ -16,9 +17,11 @@ import {
 import { cn } from '@/lib/utils'
 import { EditorCatalogo, type CampoCatalogo } from '@/presentation/components/admin/EditorCatalogo'
 import { PanelUsuarios } from '@/presentation/components/admin/PanelUsuarios'
+import { PanelAccesos } from '@/presentation/components/admin/PanelAccesos'
 import { PanelParametros } from '@/presentation/components/admin/PanelParametros'
 import { PanelAuditoria } from '@/presentation/components/admin/PanelAuditoria'
 import { useCatalogo } from '@/application/admin/useCatalogoCrud'
+import { useAuth } from '@/application/auth/AuthProvider'
 
 const CAMPOS_EMPRESA: CampoCatalogo[] = [
   { clave: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true },
@@ -82,6 +85,7 @@ const CAMPOS_TRAMITE: CampoCatalogo[] = [
 
 type Seccion =
   | 'usuarios'
+  | 'accesos'
   | 'coordinadores'
   | 'areas'
   | 'cargos'
@@ -94,8 +98,16 @@ type Seccion =
   | 'parametros'
   | 'auditoria'
 
-const SECCIONES: { clave: Seccion; etiqueta: string; icono: typeof Users }[] = [
+/**
+ * `soloAdmin` marca lo que la base de datos le niega al analista de Talento
+ * Humano: la auditoría solo la lee Gerencia y Administración. Se oculta en vez
+ * de dejarla fallar al abrirla.
+ */
+const SECCIONES: { clave: Seccion; etiqueta: string; icono: typeof Users; soloAdmin?: boolean }[] = [
   { clave: 'usuarios', etiqueta: 'Usuarios y roles', icono: Users },
+  // Repartir accesos es del administrador: la policy solo le deja escribir a
+  // él, así que al analista se le oculta en vez de dejarla fallar al guardar.
+  { clave: 'accesos', etiqueta: 'Accesos por rol', icono: ShieldCheck, soloAdmin: true },
   { clave: 'coordinadores', etiqueta: 'Jefes directos', icono: UserCog },
   { clave: 'areas', etiqueta: 'Procesos y áreas', icono: Network },
   { clave: 'cargos', etiqueta: 'Cargos', icono: BriefcaseBusiness },
@@ -106,15 +118,15 @@ const SECCIONES: { clave: Seccion; etiqueta: string; icono: typeof Users }[] = [
   { clave: 'matriz', etiqueta: 'Documentos exigidos', icono: FileStack },
   { clave: 'empresas', etiqueta: 'Empresas', icono: Building2 },
   { clave: 'parametros', etiqueta: 'Parámetros', icono: SlidersHorizontal },
-  { clave: 'auditoria', etiqueta: 'Auditoría', icono: ScrollText },
+  { clave: 'auditoria', etiqueta: 'Auditoría', icono: ScrollText, soloAdmin: true },
 ]
 
-/** Lo que cambie aquí también lo ve Cambio de Turnos: comparten las tablas. */
-const AVISO_COMPARTIDO =
-  'Este catálogo lo comparten Permisos y Cambio de Turnos: lo que cambies aquí afecta a las dos aplicaciones.'
-
 export default function Administracion() {
+  const { perfil } = useAuth()
   const [seccion, setSeccion] = useState<Seccion>('usuarios')
+
+  const esAdmin = perfil?.rol === 'administrador'
+  const secciones = SECCIONES.filter((s) => !s.soloAdmin || esAdmin)
 
   // Los motivos necesitan la lista de categorías para su desplegable.
   const { data: categorias } = useCatalogo<{ id: number; nombre: string; activo: boolean }>(
@@ -183,7 +195,7 @@ export default function Administracion() {
       tipo: 'seleccion',
       opciones: [
         { valor: 'coordinador_th', etiqueta: 'Jefe directo → Talento Humano' },
-        { valor: 'gerente_th_directo', etiqueta: 'Directo a Gerencia de TH' },
+        { valor: 'gerente_th_directo', etiqueta: 'Directo a Dirección de TTHH' },
       ],
       ayuda: 'Las cesantías van directo a la Gerencia, sin pasar por el jefe directo.',
     },
@@ -391,7 +403,7 @@ export default function Administracion() {
       </header>
 
       <nav className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1">
-        {SECCIONES.map(({ clave, etiqueta, icono: Icono }) => (
+        {secciones.map(({ clave, etiqueta, icono: Icono }) => (
           <button
             key={clave}
             onClick={() => setSeccion(clave)}
@@ -410,6 +422,8 @@ export default function Administracion() {
 
       {seccion === 'usuarios' && <PanelUsuarios />}
 
+      {seccion === 'accesos' && <PanelAccesos />}
+
       {seccion === 'coordinadores' && (
         <EditorCatalogo
           tabla="coordinadores"
@@ -417,7 +431,6 @@ export default function Administracion() {
           orden="nombre"
           titulo="Jefes directos"
           descripcion="Quiénes pueden autorizar solicitudes y de qué servicio. Es la lista que ve el colaborador al solicitar."
-          advertencia={AVISO_COMPARTIDO}
           valoresPorDefecto={{ activo: true }}
         />
       )}
@@ -429,7 +442,6 @@ export default function Administracion() {
           orden="nombre"
           titulo="Procesos y áreas"
           descripcion="La lista que elige el colaborador al registrarse y al solicitar. Agrega aquí el proceso que falte."
-          advertencia={AVISO_COMPARTIDO}
           valoresPorDefecto={{ activo: true }}
         />
       )}
@@ -441,7 +453,6 @@ export default function Administracion() {
           orden="nombre"
           titulo="Cargos"
           descripcion="Los cargos del desplegable del registro. Agrega aquí el que falte para que nadie se quede sin poder crear su cuenta."
-          advertencia={AVISO_COMPARTIDO}
           valoresPorDefecto={{ activo: true }}
         />
       )}

@@ -7,15 +7,25 @@ import {
   useConfig,
   useCoordinadores,
   etiquetaCoordinador,
+  useDocumentos,
   useEmpresas,
   useTramite,
 } from '@/application/catalogos/useCatalogos'
-import { crearSolicitud, guardarDocumentoPropio } from '@/application/solicitudes/api'
-import { calcularVacaciones, evaluarAntelacion, validarSaldos } from '@/domain/reglas'
+import { crearSolicitud, guardarDocumentoPropio, subirSoporte } from '@/application/solicitudes/api'
+import {
+  calcularVacaciones,
+  diasPendientesDeDisfrutar,
+  evaluarAntelacionVacaciones,
+  validarSaldos,
+  VACACIONES_ANTELACION_DIAS,
+  VACACIONES_DIAS_MINIMOS,
+  VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS,
+} from '@/domain/reglas'
 import { problemaAlGuardar, validarVacaciones, type Problema } from '@/domain/validacion'
 import { aISO, fechaFinPorDiasHabiles } from '@/domain/festivos'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
+import { CampoArchivo } from '@/presentation/components/CampoArchivo'
 import { CampoFecha } from '@/presentation/components/CampoFecha'
 import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
 import { DialogoConfirmarJefe } from '@/presentation/components/DialogoConfirmarJefe'
@@ -50,8 +60,16 @@ export default function SolicitudVacaciones() {
   const { data: cargos } = useCargos()
   const { data: coordinadores } = useCoordinadores()
   const { data: config } = useConfig()
+  const { data: documentos } = useDocumentos()
 
   const periodoCompleto = Number(config?.dias_vacaciones_periodo_completo ?? 15)
+
+  // Se busca por código y no por nombre: Talento Humano puede renombrar el
+  // documento desde Administración sin que esta pantalla deje de encontrarlo.
+  const docCartaCompensados = useMemo(
+    () => documentos?.find((d) => d.codigo === 'carta_dias_compensados'),
+    [documentos]
+  )
 
   const [form, setForm] = useState({
     empresaId: '',
@@ -63,7 +81,9 @@ export default function SolicitudVacaciones() {
     documento: '',
     diasCorresponden: '',
     diasADisfrutar: '',
-    diasPendientes: '',
+    /** Parte del periodo que se paga en dinero en vez de disfrutarse. */
+    compensaDias: false,
+    diasCompensados: '',
     fechaInicio: HOY,
     /** Vacío = la app calcula la fecha final desde los días a disfrutar. */
     fechaFinManual: '',
@@ -71,6 +91,8 @@ export default function SolicitudVacaciones() {
     observaciones: '',
     declaracion: false,
   })
+  /** La carta firmada que justifica los días compensados. */
+  const [cartaCompensados, setCartaCompensados] = useState<File[]>([])
   /** Lo que impide enviar. Se muestra en modal, con la causa y su motivo. */
   const [problemas, setProblemas] = useState<Problema[]>([])
   const [enviando, setEnviando] = useState(false)
@@ -110,6 +132,36 @@ export default function SolicitudVacaciones() {
   )
 
   const aDisfrutar = form.diasADisfrutar === '' ? null : Number(form.diasADisfrutar)
+  const corresponden = form.diasCorresponden === '' ? null : Number(form.diasCorresponden)
+
+  /**
+   * Los compensados solo cuentan con la casilla marcada.
+   *
+   * Sin esta comprobación, desmarcarla dejaba el número escrito y la solicitud
+   * salía con días compensados que el colaborador ya había descartado.
+   */
+  const compensados = form.compensaDias
+    ? form.diasCompensados === ''
+      ? null
+      : Number(form.diasCompensados)
+    : 0
+
+  /**
+   * Los días pendientes ya no se escriben: se calculan.
+   *
+   * Era el campo que más se equivocaba, porque pedía hacer una resta a mano y
+   * el resultado tenía que cuadrar con los otros dos o la solicitud salía
+   * incoherente.
+   */
+  const diasPendientes = useMemo(
+    () =>
+      diasPendientesDeDisfrutar({
+        diasCorresponden: corresponden,
+        diasADisfrutar: aDisfrutar,
+        diasCompensados: compensados,
+      }),
+    [corresponden, aDisfrutar, compensados]
+  )
 
   /**
    * La fecha final la calcula la app a partir de los días hábiles a disfrutar,
@@ -140,30 +192,42 @@ export default function SolicitudVacaciones() {
   const saldos = useMemo(
     () =>
       validarSaldos({
-        diasCorresponden: form.diasCorresponden === '' ? null : Number(form.diasCorresponden),
-        diasADisfrutar: aDisfrutar,
-        diasPendientes: form.diasPendientes === '' ? null : Number(form.diasPendientes),
+        diasCorresponden: corresponden,
+        // Los compensados se cuentan del lado de lo consumido: si no, la
+        // comprobación de coherencia dispararía siempre que se compense algo.
+        diasADisfrutar: aDisfrutar == null ? null : aDisfrutar + (compensados ?? 0),
+        diasPendientes,
       }),
-    [form.diasCorresponden, form.diasPendientes, aDisfrutar]
+    [corresponden, aDisfrutar, compensados, diasPendientes]
   )
 
+  /**
+   * Antelación de vacaciones: 20 días **corridos** y bloquea el envío.
+   *
+   * No usa `evaluarAntelacion`, que es la de permisos: aquella lee la
+   * configuración del trámite, se mide en horas o días hábiles y solo advierte.
+   */
   const antelacion = useMemo(
-    () =>
-      tramite
-        ? evaluarAntelacion({
-            fechaInicio: form.fechaInicio,
-            antelacionMinima: tramite.antelacion_minima,
-            unidad: tramite.unidad_antelacion,
-          })
-        : null,
-    [tramite, form.fechaInicio]
+    () => evaluarAntelacionVacaciones({ fechaInicio: form.fechaInicio, hoy: HOY }),
+    [form.fechaInicio]
   )
 
   const reintegro = form.reintegroManual || calculo.fechaReintegro
 
   const avisos = useMemo(() => {
     const lista: Aviso[] = []
-    if (antelacion?.mensaje) lista.push({ tono: 'advertencia', texto: antelacion.mensaje })
+
+    // El aviso sale mientras se llena, no solo al intentar enviar: enterarse de
+    // los 20 días al final obliga a rehacer las fechas.
+    if (!antelacion.cumple) {
+      lista.push({
+        tono: 'advertencia',
+        texto:
+          antelacion.diasDeAntelacion < 0
+            ? 'La fecha de inicio ya pasó.'
+            : `Faltan ${antelacion.diasDeAntelacion} días para el inicio y se exigen ${VACACIONES_ANTELACION_DIAS} corridos. La primera fecha posible radicando hoy es el ${formatearFechaLarga(antelacion.primeraValida)}.`,
+      })
+    }
     if (calculo.advertencia) lista.push({ tono: 'advertencia', texto: calculo.advertencia })
     if (saldos.advertencia) lista.push({ tono: 'advertencia', texto: saldos.advertencia })
 
@@ -216,6 +280,9 @@ export default function SolicitudVacaciones() {
       diasADisfrutar: aDisfrutar,
       declaracionAceptada: form.declaracion,
       tieneCoordinador: Boolean(coordinador),
+      antelacion,
+      diasCompensados: compensados,
+      tieneCartaCompensados: cartaCompensados.length > 0,
     })
 
     setProblemas(encontrados)
@@ -247,20 +314,36 @@ export default function SolicitudVacaciones() {
           fecha_inicio: form.fechaInicio,
           fecha_fin: fechaFin,
           observaciones: form.observaciones.trim() || null,
-          extemporanea: antelacion?.extemporanea ?? false,
+          // Enviar sin los 20 días está bloqueado, así que en la práctica solo
+          // llega marcada desde un borrador guardado antes de corregir la fecha.
+          extemporanea: !antelacion.cumple,
         },
         enviar,
         rutaAprobacion: 'coordinador_th',
         detalleVacaciones: {
-          dias_corresponden: form.diasCorresponden === '' ? null : Number(form.diasCorresponden),
+          dias_corresponden: corresponden,
           dias_a_disfrutar: aDisfrutar,
-          dias_pendientes: form.diasPendientes === '' ? null : Number(form.diasPendientes),
+          dias_pendientes: diasPendientes,
+          dias_compensados: compensados ?? 0,
           fecha_reintegro: reintegro,
           dias_habiles_calculados: calculo.diasHabiles,
           declaracion_aceptada: form.declaracion,
           fecha_constancia: aISO(new Date()),
         },
       })
+
+      // Después de crear la solicitud, porque la ruta del archivo se arma con
+      // su identificador y la policy de Storage resuelve el permiso por ahí.
+      for (const archivo of cartaCompensados) {
+        await subirSoporte({
+          solicitudId: id,
+          archivo,
+          momento: 'previo',
+          usuarioId: perfil.user_id,
+          maxMB: Number(config?.max_mb_adjunto ?? 10),
+          documentoId: docCartaCompensados?.id ?? null,
+        })
+      }
 
       setEnviada({
         id,
@@ -453,25 +536,85 @@ export default function SolicitudVacaciones() {
                 <Label htmlFor="pendientes">Días pendientes</Label>
                 <Input
                   id="pendientes"
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={form.diasPendientes}
-                  onChange={(e) => set('diasPendientes', e.target.value)}
+                  readOnly
+                  tabIndex={-1}
+                  className="bg-muted/60"
+                  value={diasPendientes ?? '—'}
                 />
+                <p className="text-xs text-muted-foreground">
+                  {corresponden == null
+                    ? 'Indica los días que corresponden y lo calculo.'
+                    : `${corresponden} − ${aDisfrutar ?? 0}${compensados ? ` − ${compensados}` : ''} = ${diasPendientes}`}
+                </p>
               </div>
             </div>
 
+            {/* -------------------------------------------- Días compensados */}
+            <div className="mt-2.5 rounded-md border border-border p-2.5">
+              <label className="flex items-start gap-2.5 text-sm">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={form.compensaDias}
+                  onCheckedChange={(v) => {
+                    set('compensaDias', v === true)
+                    if (v !== true) {
+                      set('diasCompensados', '')
+                      setCartaCompensados([])
+                    }
+                  }}
+                />
+                <span>
+                  Quiero compensar parte del periodo en dinero
+                  <span className="block text-xs text-muted-foreground">
+                    El descanso efectivo no puede bajar de{' '}
+                    {VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS} días y hay que adjuntar la carta
+                    firmada.
+                  </span>
+                </span>
+              </label>
+
+              {form.compensaDias && (
+                <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="compensados">Días a compensar<Obligatorio /></Label>
+                    <Input
+                      id="compensados"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={form.diasCompensados}
+                      onChange={(e) => set('diasCompensados', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="carta">Carta firmada<Obligatorio /></Label>
+                    <CampoArchivo
+                      id="carta"
+                      archivos={cartaCompensados}
+                      onCambio={setCartaCompensados}
+                      obligatorio
+                      max={2}
+                      maxMB={Number(config?.max_mb_adjunto ?? 10)}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Estos saldos los verifica Talento Humano contra nómina.
+              Estos saldos los verifica Talento Humano contra nómina. El periodo no puede bajar de{' '}
+              {VACACIONES_DIAS_MINIMOS} días hábiles.
             </p>
 
             <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3">
               <div className="space-y-1">
                 <Label htmlFor="inicio">Fecha de inicio</Label>
+                {/* El selector arranca ya en la primera fecha válida: es más
+                    barato no dejar elegir mal que explicar después por qué no
+                    se puede enviar. */}
                 <CampoFecha
                   id="inicio"
-                  min={HOY}
+                  min={antelacion.primeraValida}
                   valor={form.fechaInicio}
                   onCambio={(f) => {
                     set('fechaInicio', f)
@@ -479,6 +622,9 @@ export default function SolicitudVacaciones() {
                     set('reintegroManual', '')
                   }}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Se radica con {VACACIONES_ANTELACION_DIAS} días corridos de antelación.
+                </p>
               </div>
 
               <div className="space-y-1">

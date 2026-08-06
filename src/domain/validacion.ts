@@ -13,6 +13,25 @@
  * pura: se puede probar sin levantar React.
  */
 
+import {
+  VACACIONES_ANTELACION_DIAS,
+  VACACIONES_DIAS_MINIMOS,
+  VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS,
+  type AntelacionVacaciones,
+} from './reglas'
+
+/**
+ * `dd/MM/yyyy`, como lo lee la clínica.
+ *
+ * Se reimplementa aquí en vez de importar `formatearFecha` de `lib/utils`:
+ * ese módulo arrastra clsx y tailwind-merge, y esta capa no debe depender de
+ * nada de presentación para poder probarse sin levantar React.
+ */
+function enLetra(iso: string): string {
+  const [a, m, d] = iso.slice(0, 10).split('-')
+  return `${d}/${m}/${a}`
+}
+
 export interface Problema {
   /** Dónde mirar. Coincide con la etiqueta del campo en el formulario. */
   campo: string
@@ -143,10 +162,20 @@ export interface DatosVacaciones extends Identificacion {
   diasADisfrutar: number | null
   declaracionAceptada: boolean
   tieneCoordinador: boolean
+  /** Resultado de `evaluarAntelacionVacaciones`. Ausente = no se comprueba. */
+  antelacion?: AntelacionVacaciones | null
+  /** Cuántos días pide compensados en dinero; 0 o null si no compensa. */
+  diasCompensados?: number | null
+  /** Ya adjuntó la carta firmada que justifica los compensados. */
+  tieneCartaCompensados?: boolean
 }
 
 export function validarVacaciones(d: DatosVacaciones): Problema[] {
   const problemas = validarIdentificacion(d)
+
+  const compensados = d.diasCompensados ?? 0
+  const compensa = compensados > 0
+  const minimo = compensa ? VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS : VACACIONES_DIAS_MINIMOS
 
   if (d.diasADisfrutar === null || d.diasADisfrutar <= 0) {
     problemas.push({
@@ -154,6 +183,37 @@ export function validarVacaciones(d: DatosVacaciones): Problema[] {
       causa: 'No indicaste cuántos días vas a tomar.',
       motivo:
         'Con ese dato la aplicación calcula la fecha final en días hábiles y la de reintegro; sin él no hay periodo que autorizar.',
+    })
+  } else if (d.diasADisfrutar < minimo) {
+    problemas.push({
+      campo: 'Días a disfrutar',
+      causa: `Pediste ${d.diasADisfrutar} día${d.diasADisfrutar === 1 ? '' : 's'} y el mínimo son ${minimo}.`,
+      motivo: compensa
+        ? `Cuando además se compensan días en dinero, el descanso efectivo no puede bajar de ${VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS} días. Sube los días a disfrutar o quita los compensados.`
+        : `Talento Humano no tramita periodos de menos de ${VACACIONES_DIAS_MINIMOS} días. Para ausencias más cortas, usa una solicitud de permiso.`,
+    })
+  }
+
+  // La antelación en vacaciones **bloquea**, a diferencia de la de permisos.
+  // El mensaje da la fecha exacta hasta la que se pudo radicar y la primera
+  // que sí sirve hoy: sin las dos, la persona no sabe qué corregir.
+  if (d.antelacion && !d.antelacion.cumple) {
+    problemas.push({
+      campo: 'Fecha de inicio',
+      causa:
+        d.antelacion.diasDeAntelacion < 0
+          ? 'La fecha de inicio ya pasó.'
+          : `Faltan ${d.antelacion.diasDeAntelacion} días para el inicio y el formato exige ${VACACIONES_ANTELACION_DIAS} días corridos.`,
+      motivo: `Para empezar ese día tenías que radicarla a más tardar el ${enLetra(d.antelacion.fechaLimite)}. Radicando hoy, la primera fecha de inicio posible es el ${enLetra(d.antelacion.primeraValida)}.`,
+    })
+  }
+
+  if (compensa && !d.tieneCartaCompensados) {
+    problemas.push({
+      campo: 'Carta de días compensados',
+      causa: 'No adjuntaste la carta que justifica los días compensados.',
+      motivo:
+        'Compensar días en dinero exige la solicitud escrita y firmada por el colaborador. Sin ella, Talento Humano no puede tramitarlo ante nómina.',
     })
   }
 

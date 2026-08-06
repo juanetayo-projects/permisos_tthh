@@ -7,7 +7,7 @@
  * «Permiso», que es exactamente lo que se está separando.
  */
 
-export const CODIGOS_TRAMITE = ['permiso', 'vacaciones', 'cesantias'] as const
+export const CODIGOS_TRAMITE = ['permiso', 'vacaciones', 'cesantias', 'incapacidad'] as const
 
 export type CodigoTramite = (typeof CODIGOS_TRAMITE)[number]
 
@@ -15,6 +15,7 @@ export const ETIQUETA_TRAMITE: Record<CodigoTramite, string> = {
   permiso: 'Permiso',
   vacaciones: 'Vacaciones',
   cesantias: 'Cesantías',
+  incapacidad: 'Incapacidad',
 }
 
 export function etiquetaTramite(codigo: string | null | undefined): string {

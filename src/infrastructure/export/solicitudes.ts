@@ -17,6 +17,9 @@ const CAMPOS: { titulo: string; anchoExcel: number; anchoPdf?: string | number; 
   { titulo: 'Formato', anchoExcel: 14, anchoPdf: 52, valor: (s) => s.tramite?.codigo_formato ?? '' },
   { titulo: 'Solicitante', anchoExcel: 26, valor: (s) => s.solicitante?.nombre ?? '' },
   { titulo: 'Identificación', anchoExcel: 16, anchoPdf: 60, valor: (s) => s.solicitante?.documento ?? '' },
+  // Del perfil y no de la solicitud: refleja el cargo actual, no el que tenía
+  // el día que la radicó. Es lo que pide Talento Humano para nómina.
+  { titulo: 'Cargo', anchoExcel: 26, valor: (s) => s.solicitante?.cargo?.nombre ?? '' },
   { titulo: 'Empresa', anchoExcel: 20, valor: (s) => s.empresa?.nombre ?? '' },
   { titulo: 'Área o servicio', anchoExcel: 26, valor: (s) => s.area?.nombre ?? '' },
   {
@@ -52,6 +55,12 @@ const CAMPOS: { titulo: string; anchoExcel: number; anchoPdf?: string | number; 
         : s.detalle_permiso?.dias_permiso != null
           ? String(s.detalle_permiso.dias_permiso)
           : '',
+  },
+  {
+    titulo: 'Días compensados',
+    anchoExcel: 16,
+    valor: (s) =>
+      s.detalle_vacaciones?.dias_compensados ? String(s.detalle_vacaciones.dias_compensados) : '',
   },
   {
     titulo: 'Remunerado',

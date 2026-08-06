@@ -2,10 +2,13 @@
 // Envia los correos del flujo BPM de Permisos y Vacaciones.
 //
 // tipos soportados:
-//   'enviada'              -> confirmacion al solicitante + aviso al jefe directo (o a Gerencia TH si es cesantia)
+//   'enviada'              -> confirmacion al solicitante + aviso al jefe directo
+//                             (salvo cesantias e incapacidad, que van directas a TH)
 //   'aprobada_coordinador' -> aviso al solicitante: paso a Talento Humano
 //   'rechazada_coordinador'-> aviso al solicitante con el motivo
 //   'pendiente_soporte'    -> aviso al solicitante: falta entregar el soporte
+//   'recordatorio_soporte' -> insistencia diaria mientras el soporte no llegue
+//   'soporte_devuelto'     -> aviso al solicitante: TH no dio el visto bueno al soporte
 //   'finalizada'           -> aviso al solicitante con el sello de verificacion
 //   'rechazada_th'         -> aviso al solicitante con el motivo (incluye cesantias)
 //   'perfil_validado'      -> aviso al colaborador: ya puede solicitar
@@ -155,18 +158,26 @@ Deno.serve(async (req) => {
 
     const urlApp = `${BASE}/#/mis-solicitudes`
     const esCesantia = tipoMotivo?.ruta_aprobacion === "gerente_th_directo"
+    // La incapacidad tambien salta al jefe directo, pero por otro motivo: la
+    // acaba de radicar el, no tiene sentido pedirle que se autorice a si mismo.
+    // Antes solo se comprobaba `esCesantia`, y una incapacidad colaba al jefe
+    // un correo pidiendole "autorizar" algo que ya estaba en Talento Humano.
+    const esIncapacidad = tramite?.codigo === "incapacidad"
+    const vaDirectoATH = esCesantia || esIncapacidad
 
     switch (tipo) {
       case "enviada": {
         await enviar(solicitante?.correo, `Solicitud ${id} registrada`,
           plantilla("Solicitud registrada",
             `${idChip(id)}Hola <b>${solicitante?.nombre ?? ""}</b>,<br/><br/>
-             Tu solicitud de <b>${nombreMotivo}</b> fue registrada correctamente.
-             ${esCesantia ? "Un miembro de la Gerencia de Talento Humano la revisara directamente." : `Quedo en la bandeja de tu jefe directo${coordNombre ? ` <b>${coordNombre}</b>` : ""} para su autorizacion.`}
+             ${esIncapacidad
+               ? `Tu jefe directo reporto una incapacidad a tu nombre.`
+               : `Tu solicitud de <b>${nombreMotivo}</b> fue registrada correctamente.`}
+             ${vaDirectoATH ? "Un miembro de la Direccion de Talento Humano la revisara directamente." : `Quedo en la bandeja de tu jefe directo${coordNombre ? ` <b>${coordNombre}</b>` : ""} para su autorizacion.`}
              ${resumen}`,
             { texto: "Ver mis solicitudes", url: urlApp }))
 
-        if (!esCesantia && coordCorreo) {
+        if (!vaDirectoATH && coordCorreo) {
           await enviar(coordCorreo, `Nueva solicitud por autorizar ${id}`,
             plantilla("Solicitud pendiente de tu autorizacion",
               `${idChip(id)}Hola${coordNombre ? ` <b>${coordNombre}</b>` : ""},<br/><br/>
@@ -205,6 +216,41 @@ Deno.serve(async (req) => {
              Tu solicitud de <b>${nombreMotivo}</b> ya fue aprobada, pero debes adjuntar el soporte correspondiente
              ${detallePermiso?.fecha_limite_soporte ? `antes del <b>${fechaCorta(detallePermiso.fecha_limite_soporte)}</b>` : "lo antes posible"}.${resumen}`,
             { texto: "Adjuntar soporte", url: urlApp }))
+        break
+      }
+
+      // Se repite a diario mientras el soporte no llegue. Va aparte de
+      // `pendiente_soporte` —que sale una sola vez, al aprobar— para que en
+      // `permisos_notificaciones` se distinga el aviso del recordatorio: con
+      // una sola plantilla no habria forma de saber cuantas veces se insistio.
+      case "recordatorio_soporte": {
+        const limite = detallePermiso?.fecha_limite_soporte
+        const vencido = limite ? limite < new Date().toISOString().slice(0, 10) : false
+
+        await enviar(solicitante?.correo,
+          vencido ? `Vencido: falta el soporte de ${id}` : `Recordatorio: falta el soporte de ${id}`,
+          plantilla(vencido ? "El plazo del soporte ya vencio" : "Todavia falta tu soporte",
+            `${idChip(id)}${estadoChip(vencido ? "PLAZO VENCIDO" : "PENDIENTE DE SOPORTE", vencido ? ROJO : AMBAR)}Hola <b>${solicitante?.nombre}</b>,<br/><br/>
+             ${vencido
+               ? `El plazo para adjuntar el soporte de tu <b>${nombreMotivo}</b> vencio el <b>${fechaCorta(limite)}</b> y todavia no lo hemos recibido. Cargalo cuanto antes: mientras no llegue, la solicitud no se puede cerrar.`
+               : `Tu solicitud de <b>${nombreMotivo}</b> sigue esperando el soporte${limite ? `, que debe llegar antes del <b>${fechaCorta(limite)}</b>` : ""}.`}
+             ${resumen}`,
+            { texto: "Adjuntar soporte", url: urlApp }))
+        break
+      }
+
+      // Talento Humano devolvio el soporte. El motivo NO se copia en el correo
+      // a proposito: puede describir una condicion de salud, y este correo sale
+      // a una cuenta que en muchos casos es personal. Se le manda a leerlo
+      // dentro de la aplicacion, que es donde el dato esta protegido.
+      case "soporte_devuelto": {
+        await enviar(solicitante?.correo, `Tu soporte de ${id} no fue aceptado`,
+          plantilla("El soporte no tiene el visto bueno",
+            `${idChip(id)}${estadoChip("SOPORTE DEVUELTO", ROJO)}Hola <b>${solicitante?.nombre}</b>,<br/><br/>
+             Talento Humano reviso el soporte que adjuntaste a tu <b>${nombreMotivo}</b> y <b>no le dio el visto bueno</b>.
+             Entra a la solicitud y lee las observaciones del rechazo: ahi te indican que hace falta para poder cargar uno nuevo.
+             ${resumen}`,
+            { texto: "Ver las observaciones", url: urlApp }))
         break
       }
 

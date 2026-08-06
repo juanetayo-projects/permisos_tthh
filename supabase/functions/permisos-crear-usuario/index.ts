@@ -27,7 +27,14 @@ const AZUL = "#0D2D6B"
 const AZUL2 = "#16468E"
 const REMITENTE = "Talento Humano - CAC Santa Barbara <notificaciones@cacsantabarbara.co>"
 
-const ROLES_VALIDOS = ["colaborador", "coordinador", "analista_th", "gerente_th", "administrador"]
+const ROLES_VALIDOS = [
+  "colaborador",
+  "coordinador",
+  "coordinador_sst",
+  "analista_th",
+  "gerente_th",
+  "administrador",
+]
 /** Quienes pueden dar de alta a alguien. */
 const PUEDEN_CREAR = ["administrador", "analista_th", "gerente_th"]
 

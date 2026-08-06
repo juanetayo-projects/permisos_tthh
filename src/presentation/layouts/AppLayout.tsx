@@ -15,44 +15,48 @@ import {
   PiggyBank,
   Settings,
   ShieldCheck,
+  Stethoscope,
   Sun,
   UserCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/application/auth/AuthProvider'
-import type { Rol } from '@/domain/estados'
+import { ETIQUETA_ROL } from '@/domain/estados'
+import { DEFINICION_MODULOS, type Modulo } from '@/domain/modulos'
+import { useModulosDelRol } from '@/application/admin/useAccesos'
 import { aplicarTema, guardarTema, temaOscuroGuardado } from '@/lib/tema'
 
 const LOGO_BLANCO = `${import.meta.env.BASE_URL}images/logo_cacsb_blanc.png`
 
-interface Enlace {
-  a: string
-  etiqueta: string
-  icono: typeof Inbox
-  roles: Rol[]
-}
-
-const ENLACES: Enlace[] = [
-  { a: '/', etiqueta: 'Inicio', icono: BarChart3, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
-  { a: '/solicitar/permiso', etiqueta: 'Solicitar permiso', icono: FileText, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
-  { a: '/solicitar/vacaciones', etiqueta: 'Solicitar vacaciones', icono: CalendarDays, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
+/**
+ * El icono de cada módulo.
+ *
+ * Vive aquí y no en `domain/modulos.ts` porque un icono es presentación: el
+ * dominio define qué módulos hay y la tabla `permisos_acceso_rol` quién entra
+ * a cada uno, pero ninguno de los dos tiene por qué saber de Lucide.
+ */
+const ICONOS: Record<Modulo, typeof Inbox> = {
+  inicio: BarChart3,
+  solicitar_permiso: FileText,
+  solicitar_vacaciones: CalendarDays,
   // Trámite propio y no un motivo del formulario de permisos: no tiene periodo,
   // ni horario, ni antelación que cumplir.
-  { a: '/solicitar/cesantias', etiqueta: 'Retiro de cesantías', icono: PiggyBank, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
-  { a: '/mis-solicitudes', etiqueta: 'Mis solicitudes', icono: ClipboardList, roles: ['colaborador', 'coordinador', 'analista_th', 'gerente_th', 'administrador'] },
-  { a: '/bandeja/coordinador', etiqueta: 'Bandeja del área', icono: Inbox, roles: ['coordinador', 'administrador'] },
-  { a: '/bandeja/th', etiqueta: 'Bandeja de Talento Humano', icono: Inbox, roles: ['analista_th', 'gerente_th', 'administrador'] },
-  { a: '/bandeja/gerencia', etiqueta: 'Cesantías', icono: ShieldCheck, roles: ['gerente_th'] },
+  solicitar_cesantias: PiggyBank,
+  incapacidades: Stethoscope,
+  mis_solicitudes: ClipboardList,
+  bandeja_area: Inbox,
+  bandeja_th: Inbox,
+  bandeja_cesantias: ShieldCheck,
   // Las bandejas vacían lo ya decidido; esta es la única vista donde vuelve a
   // encontrarse una solicitud después de autorizarla.
-  { a: '/solicitudes', etiqueta: 'Todas las solicitudes', icono: Layers, roles: ['analista_th', 'gerente_th', 'administrador'] },
-  { a: '/validaciones', etiqueta: 'Validar colaboradores', icono: UserCheck, roles: ['analista_th', 'gerente_th', 'administrador'] },
-  { a: '/dashboard', etiqueta: 'Dashboard', icono: BarChart3, roles: ['coordinador', 'analista_th', 'gerente_th', 'administrador'] },
+  todas_solicitudes: Layers,
+  validaciones: UserCheck,
+  dashboard: BarChart3,
   // Va aparte del dashboard a propósito: aquel mide el flujo de solicitudes y
   // este, tiempo no laborado. Son preguntas distintas.
-  { a: '/ausentismo', etiqueta: 'Ausentismo', icono: Activity, roles: ['coordinador', 'analista_th', 'gerente_th', 'administrador'] },
-  { a: '/administracion', etiqueta: 'Administración', icono: Settings, roles: ['administrador'] },
-]
+  ausentismo: Activity,
+  administracion: Settings,
+}
 
 /**
  * Tema de la aplicación.
@@ -101,8 +105,10 @@ function MenuUsuario() {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-white">{nombre}</span>
-          <span className="block truncate text-xs capitalize text-white/70">
-            {perfil?.rol.replace('_', ' ') ?? 'sin perfil'}
+          {/* La etiqueta del catálogo, no el identificador con guiones bajos:
+              `coordinador_sst` se leía como «coordinador sst». */}
+          <span className="block truncate text-xs text-white/70">
+            {perfil ? ETIQUETA_ROL[perfil.rol] : 'sin perfil'}
           </span>
         </span>
         <ChevronDown
@@ -133,8 +139,11 @@ export function AppLayout() {
   const [oscuro, setOscuro] = useTemaOscuro()
   const [menuAbierto, setMenuAbierto] = useState(false)
 
-  const rol = perfil?.rol ?? 'colaborador'
-  const enlaces = ENLACES.filter((e) => e.roles.includes(rol))
+  // El orden lo pone el catálogo de módulos, no la tabla de accesos: así el
+  // menú se lee igual para todo el mundo, tenga marcadas las casillas que
+  // tenga.
+  const modulos = useModulosDelRol(perfil?.rol)
+  const enlaces = DEFINICION_MODULOS.filter((m) => modulos.includes(m.codigo))
 
   // En móvil, navegar cierra el menú lateral.
   useEffect(() => setMenuAbierto(false), [ubicacion.pathname])
@@ -179,11 +188,13 @@ export function AppLayout() {
           <MenuUsuario />
 
           <nav className="flex-1 space-y-1">
-            {enlaces.map(({ a, etiqueta, icono: Icono }) => (
+            {enlaces.map(({ codigo, ruta, etiqueta }) => {
+              const Icono = ICONOS[codigo]
+              return (
               <NavLink
-                key={a}
-                to={a}
-                end={a === '/'}
+                key={codigo}
+                to={ruta}
+                end={ruta === '/'}
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
@@ -194,7 +205,8 @@ export function AppLayout() {
                 <Icono className="size-4 shrink-0" />
                 <span className="truncate">{etiqueta}</span>
               </NavLink>
-            ))}
+              )
+            })}
           </nav>
 
           <button

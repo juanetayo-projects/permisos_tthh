@@ -1,5 +1,10 @@
 import { supabase } from '@/infrastructure/supabase/client'
-import { esDecisionNegativa, estadoAlEnviar, type Estado } from '@/domain/estados'
+import {
+  esDecisionNegativa,
+  estadoAlEnviar,
+  type Estado,
+  type RutaAprobacion,
+} from '@/domain/estados'
 import type { FechaISO } from '@/domain/festivos'
 
 /**
@@ -27,22 +32,37 @@ export type TipoNotificacion =
   | 'aprobada_coordinador'
   | 'rechazada_coordinador'
   | 'pendiente_soporte'
+  /** La insistencia diaria mientras el soporte no llega. La manda el cron. */
+  | 'recordatorio_soporte'
+  /** Talento Humano revisó el soporte y no le dio el visto bueno. */
+  | 'soporte_devuelto'
   | 'finalizada'
   | 'rechazada_th'
   | 'perfil_validado'
 
 /**
  * Traduce el estado de destino de una decisión al correo que corresponde.
+ *
  * `CANCELADA` y `ARCHIVADA` no tienen correo propio: cancelar es una acción
  * del propio solicitante y archivar es un paso administrativo sin novedad
  * para él.
+ *
+ * El `origen` importa en un solo caso, y era un fallo real: a
+ * `PENDIENTE_SOPORTE` se llega por dos caminos opuestos —aprobar la solicitud,
+ * o devolver un soporte que no sirvió— y ambos mandaban el mismo correo, «tu
+ * solicitud ya fue aprobada, adjunta el soporte». Quien acababa de recibir un
+ * rechazo leía una felicitación y no se enteraba de que tenía que corregir
+ * nada.
  */
-export function tipoNotificacionPara(destino: Estado): TipoNotificacion | null {
+export function tipoNotificacionPara(
+  destino: Estado,
+  origen?: Estado | null
+): TipoNotificacion | null {
   switch (destino) {
     case 'PENDIENTE_TH':
       return 'aprobada_coordinador'
     case 'PENDIENTE_SOPORTE':
-      return 'pendiente_soporte'
+      return origen === 'SOPORTE_EN_VALIDACION' ? 'soporte_devuelto' : 'pendiente_soporte'
     case 'FINALIZADA':
       return 'finalizada'
     case 'RECHAZADA_COORDINADOR':
@@ -102,6 +122,15 @@ export interface BaseSolicitud {
   fecha_fin: FechaISO
   observaciones?: string | null
   extemporanea: boolean
+  /**
+   * Quién radica, cuando no es el titular.
+   *
+   * Solo lo usan las incapacidades, que reporta el jefe directo. La policy de
+   * `insert` exige que coincida con quien está autenticado: si no, el jefe
+   * podría radicar apuntando a otro y el historial mentiría sobre quién
+   * reportó.
+   */
+  reportada_por?: string | null
 }
 
 export interface DetallePermiso {
@@ -124,6 +153,8 @@ export interface DetalleVacaciones {
   dias_corresponden: number | null
   dias_a_disfrutar: number | null
   dias_pendientes: number | null
+  /** Días del periodo que se pagan en dinero en vez de disfrutarse. */
+  dias_compensados: number
   fecha_reintegro: FechaISO | null
   dias_habiles_calculados: number
   declaracion_aceptada: boolean
@@ -139,7 +170,7 @@ export interface DetalleVacaciones {
 export async function crearSolicitud(params: {
   base: BaseSolicitud
   enviar: boolean
-  rutaAprobacion?: 'coordinador_th' | 'gerente_th_directo'
+  rutaAprobacion?: RutaAprobacion
   detallePermiso?: DetallePermiso
   detalleVacaciones?: DetalleVacaciones
 }): Promise<{ id: string; consecutivo: string | null; estado: Estado }> {

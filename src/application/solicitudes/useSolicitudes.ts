@@ -17,7 +17,7 @@ const SELECT_SOLICITUD = `
   interrumpida_por_id, fecha_interrupcion, dias_pendientes_reprogramar,
   reprograma_a_id, nota_interrupcion,
   tramite:permisos_tramites(id, codigo, nombre, codigo_formato, version_formato),
-  solicitante:permisos_perfiles(user_id, nombre, correo, documento),
+  solicitante:permisos_perfiles(user_id, nombre, correo, documento, cargo:cargos(id, nombre)),
   area:areas(id, nombre),
   empresa:permisos_empresas(id, nombre),
   coordinador:coordinadores(id, nombre, cargo, correo, area:areas(id, nombre)),
@@ -32,7 +32,7 @@ const SELECT_SOLICITUD = `
     )
   ),
   detalle_vacaciones:permisos_detalle_vacaciones(
-    dias_corresponden, dias_a_disfrutar, dias_pendientes, fecha_reintegro,
+    dias_corresponden, dias_a_disfrutar, dias_pendientes, dias_compensados, fecha_reintegro,
     dias_habiles_calculados, declaracion_aceptada, saldo_validado_en, saldo_observacion_th
   )
 `
@@ -58,7 +58,14 @@ export interface SolicitudLista {
   reprograma_a_id: string | null
   nota_interrupcion: string | null
   tramite: { id: number; codigo: CodigoTramite; nombre: string; codigo_formato: string; version_formato: string } | null
-  solicitante: { user_id: string; nombre: string; correo: string; documento: string | null } | null
+  solicitante: {
+    user_id: string
+    nombre: string
+    correo: string
+    documento: string | null
+    /** Del perfil, no de la solicitud: es el cargo que ocupa hoy. */
+    cargo: { id: number; nombre: string } | null
+  } | null
   area: { id: number; nombre: string } | null
   empresa: { id: number; nombre: string } | null
   /** Jefe directo elegido al solicitar: es quien tiene que autorizar. */
@@ -99,6 +106,7 @@ export interface SolicitudLista {
     dias_corresponden: number | null
     dias_a_disfrutar: number | null
     dias_pendientes: number | null
+    dias_compensados: number | null
     fecha_reintegro: string | null
     dias_habiles_calculados: number | null
     declaracion_aceptada: boolean

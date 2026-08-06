@@ -1,10 +1,19 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import { useDecidir, useSolicitudes, type SolicitudLista } from '@/application/solicitudes/useSolicitudes'
 import { notificar, tipoNotificacionPara } from '@/application/solicitudes/api'
-import { ESTADOS_BANDEJA, estadoTrasVistoBueno, type Estado } from '@/domain/estados'
+import {
+  ESTADOS,
+  ESTADOS_APROBADOS,
+  ESTADOS_BANDEJA,
+  ESTADOS_EN_TRAMITE,
+  ESTADOS_NEGADOS,
+  estadoTrasVistoBueno,
+  type Estado,
+} from '@/domain/estados'
+import { cn } from '@/lib/utils'
 import { Pantalla } from '@/presentation/layouts/Pantalla'
 import { TablaSolicitudes } from '@/presentation/components/TablaSolicitudes'
 import { DialogoDecision, type TipoDecision } from '@/presentation/components/DialogoDecision'
@@ -15,7 +24,16 @@ type Vista = 'coordinador' | 'th' | 'gerencia'
 interface Config {
   titulo: string
   descripcion: string
+  /** Estados sobre los que se puede decidir desde aquí. */
   estados: Estado[]
+  /**
+   * ¿Trae también lo ya resuelto?
+   *
+   * Solo la bandeja del área. Las de Talento Humano y Gerencia siguen siendo
+   * listas de trabajo puras —lo decidido se consulta en «Todas las
+   * solicitudes»—, y llenarlas de histórico les quitaría el sentido.
+   */
+  historicoCompleto?: boolean
   etiquetaAprobar: string
   /** Estado al que pasa la solicitud cuando se autoriza. */
   estadoAprobado: (s: SolicitudLista) => Estado
@@ -28,15 +46,17 @@ interface Config {
 const CONFIG: Record<Vista, Config> = {
   coordinador: {
     titulo: 'Bandeja del área',
-    descripcion: 'Solicitudes de tu equipo esperando tu autorización como jefe directo.',
+    descripcion:
+      'Todas las solicitudes de tu equipo, en cualquier estado. Las que esperan tu autorización están en la primera pestaña.',
     estados: ESTADOS_BANDEJA.coordinador,
+    historicoCompleto: true,
     etiquetaAprobar: 'Autorizar',
     estadoAprobado: () => 'PENDIENTE_TH',
     estadoRechazado: 'RECHAZADA_COORDINADOR',
     campoFecha: 'coord_fecha',
     campoActor: 'coord_actor_id',
     vacio: {
-      titulo: 'No tienes solicitudes pendientes',
+      titulo: 'No hay solicitudes en tu área',
       descripcion: 'Cuando alguien de tu área solicite un permiso o vacaciones, aparecerá aquí.',
     },
   },
@@ -63,7 +83,7 @@ const CONFIG: Record<Vista, Config> = {
   },
   gerencia: {
     titulo: 'Cesantías',
-    descripcion: 'Solicitudes que llegan directamente a la Gerencia de Talento Humano.',
+    descripcion: 'Solicitudes que llegan directamente a la Dirección de Talento Humano.',
     estados: ESTADOS_BANDEJA.gerencia,
     etiquetaAprobar: 'Aprobar',
     estadoAprobado: () => 'FINALIZADA',
@@ -77,15 +97,54 @@ const CONFIG: Record<Vista, Config> = {
   },
 }
 
+/**
+ * Los montones de la bandeja del área.
+ *
+ * «Por autorizar» va primero y es la pestaña inicial: sigue siendo el trabajo
+ * pendiente, que es a lo que se entra. El resto responde a la otra pregunta
+ * del jefe —«¿en qué quedó lo que firmé la semana pasada?»—, que antes solo
+ * podía contestar Talento Humano.
+ */
+const PESTANAS = [
+  { clave: 'pendientes', etiqueta: 'Por autorizar', estados: ESTADOS_BANDEJA.coordinador },
+  { clave: 'tramite', etiqueta: 'En trámite', estados: ESTADOS_EN_TRAMITE },
+  { clave: 'aprobadas', etiqueta: 'Aprobadas', estados: ESTADOS_APROBADOS },
+  { clave: 'negadas', etiqueta: 'Rechazadas', estados: ESTADOS_NEGADOS },
+  { clave: 'todas', etiqueta: 'Todas', estados: [...ESTADOS] },
+] as const
+
 export default function Bandeja({ vista }: { vista: Vista }) {
   const navigate = useNavigate()
   const { session } = useAuth()
   const config = CONFIG[vista]
 
-  const { data: solicitudes, isLoading } = useSolicitudes({ estados: config.estados })
+  const [pestana, setPestana] = useState<(typeof PESTANAS)[number]['clave']>('pendientes')
+
+  // Con histórico no se filtra por estado en la consulta: el alcance ya lo
+  // pone la policy —lo propio, lo del servicio o todo— y las pestañas reparten
+  // en memoria, así que sus contadores no cuestan una consulta cada uno.
+  const { data: solicitudes, isLoading } = useSolicitudes(
+    config.historicoCompleto ? {} : { estados: config.estados }
+  )
+
   const decidir = useDecidir()
 
   const [dialogo, setDialogo] = useState<{ tipo: TipoDecision; ids: string[]; limpiar: () => void } | null>(null)
+
+  const estadosDePestana = PESTANAS.find((p) => p.clave === pestana)!.estados
+
+  const visibles = useMemo(() => {
+    if (!config.historicoCompleto) return solicitudes ?? []
+    return (solicitudes ?? []).filter((s) => estadosDePestana.includes(s.estado))
+  }, [solicitudes, estadosDePestana, config.historicoCompleto])
+
+  const conteo = useMemo(() => {
+    const mapa: Record<string, number> = {}
+    for (const p of PESTANAS) {
+      mapa[p.clave] = (solicitudes ?? []).filter((s) => p.estados.includes(s.estado)).length
+    }
+    return mapa
+  }, [solicitudes])
 
   async function aplicar(motivo: string | null) {
     if (!dialogo || !session) return
@@ -127,31 +186,78 @@ export default function Bandeja({ vista }: { vista: Vista }) {
   }
 
   return (
-    <Pantalla titulo={config.titulo} descripcion={config.descripcion}>
+    <Pantalla
+      titulo={config.titulo}
+      descripcion={config.descripcion}
+      barra={
+        config.historicoCompleto ? (
+          <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1">
+            {PESTANAS.map((p) => (
+              <button
+                key={p.clave}
+                onClick={() => setPestana(p.clave)}
+                className={cn(
+                  'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  pestana === p.clave
+                    ? 'bg-[var(--cac-azul)] text-white shadow-sm'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                )}
+              >
+                {p.etiqueta}
+                <span className="ml-1.5 tabular opacity-70">{conteo[p.clave] ?? 0}</span>
+              </button>
+            ))}
+          </div>
+        ) : undefined
+      }
+    >
       <TablaSolicitudes
-        solicitudes={solicitudes ?? []}
+        solicitudes={visibles}
         cargando={isLoading}
         seleccionables
         onAbrir={(s) => navigate(`/solicitud/${s.id}`)}
         vacio={config.vacio}
-        accionesMasivas={(ids, limpiar) => (
-          <>
-            <Button
-              variant="exito"
-              size="sm"
-              onClick={() => setDialogo({ tipo: 'aprobar', ids, limpiar })}
-            >
-              <CheckCircle2 /> {config.etiquetaAprobar}
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setDialogo({ tipo: 'rechazar', ids, limpiar })}
-            >
-              <XCircle /> Rechazar
-            </Button>
-          </>
-        )}
+        accionesMasivas={(ids, limpiar) => {
+          // Autorizar solo tiene sentido sobre lo que sigue esperando decisión.
+          // Al mezclar histórico en la misma tabla, seleccionar una solicitud
+          // ya cerrada mandaba una transición imposible que RLS rechazaba con
+          // un error críptico; ahora el botón sencillamente no está.
+          const decidibles = ids.filter((id) =>
+            config.estados.includes((solicitudes ?? []).find((s) => s.id === id)?.estado as Estado)
+          )
+
+          if (decidibles.length === 0) {
+            return (
+              <p className="text-sm text-muted-foreground">
+                Ninguna de las seleccionadas espera tu decisión.
+              </p>
+            )
+          }
+
+          return (
+            <>
+              {decidibles.length < ids.length && (
+                <p className="text-sm text-muted-foreground">
+                  {decidibles.length} de {ids.length} esperan tu decisión; el resto ya está resuelto.
+                </p>
+              )}
+              <Button
+                variant="exito"
+                size="sm"
+                onClick={() => setDialogo({ tipo: 'aprobar', ids: decidibles, limpiar })}
+              >
+                <CheckCircle2 /> {config.etiquetaAprobar}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDialogo({ tipo: 'rechazar', ids: decidibles, limpiar })}
+              >
+                <XCircle /> Rechazar
+              </Button>
+            </>
+          )
+        }}
       />
 
       <DialogoDecision

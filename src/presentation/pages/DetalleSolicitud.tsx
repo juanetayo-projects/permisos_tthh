@@ -200,7 +200,9 @@ export default function DetalleSolicitud() {
             : { th_fecha: ahora, th_actor_id: session.user.id },
     })
 
-    const tipoNotif = tipoNotificacionPara(dialogo.destino)
+    // Se pasa el estado del que viene: es lo que distingue «devolvimos tu
+    // soporte» de «ya te aprobamos, ahora adjúntalo».
+    const tipoNotif = tipoNotificacionPara(dialogo.destino, s.estado)
     if (tipoNotif) await notificar(tipoNotif, s.id)
   }
 
@@ -260,7 +262,7 @@ export default function DetalleSolicitud() {
               <strong>
                 {s.coordinador?.nombre ??
                   (s.detalle_permiso?.tipo?.ruta_aprobacion === 'gerente_th_directo'
-                    ? 'Gerencia de Talento Humano'
+                    ? 'Dirección de Talento Humano'
                     : 'sin jefe directo asignado')}
               </strong>
               {s.coordinador?.cargo && (

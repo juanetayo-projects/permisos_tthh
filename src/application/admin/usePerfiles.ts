@@ -248,3 +248,116 @@ export function useCambiarEstadoPerfil() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['perfiles'] }),
   })
 }
+
+// -----------------------------------------------------------------------------
+// Mantenimiento de una cuenta ya creada
+// -----------------------------------------------------------------------------
+
+/** Lo editable de un perfil. `correo` y `rol` van aparte: cada uno tiene dueño. */
+export interface DatosEdicionPerfil {
+  nombre: string
+  tipo_documento: string
+  documento: string | null
+  telefono: string | null
+  fecha_ingreso: string | null
+  empresa_id: number | null
+  area_id: number | null
+  cargo_id: number | null
+  coordinador_id: number | null
+}
+
+/**
+ * Edición de un perfil existente.
+ *
+ * Hasta ahora estos campos solo se podían tocar una vez, al validar el
+ * registro: quien cambiaba de servicio o venía con la cédula mal escrita se
+ * quedaba así hasta que alguien entrara por SQL.
+ *
+ * `correo` no está aquí a propósito —vive en `auth.users` y se cambia por Edge
+ * Function— y `rol` tampoco: lo reparte solo el administrador.
+ */
+export function useActualizarPerfil() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: { userId: string; datos: DatosEdicionPerfil }) => {
+      const { error } = await supabase
+        .from('permisos_perfiles')
+        .update(params.datos)
+        .eq('user_id', params.userId)
+
+      if (error) throw error
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['perfiles'] }),
+  })
+}
+
+/**
+ * Borrado lógico.
+ *
+ * Nunca un `delete`: las solicitudes que esa persona firmó o autorizó apuntan a
+ * su perfil, y el histórico de un formato con valor documental no puede
+ * quedarse sin el nombre de quien lo pidió. Se marca `deleted_at`, la cuenta
+ * deja de aparecer y el índice parcial libera el correo por si vuelve.
+ */
+export function useEliminarPerfil() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        .from('permisos_perfiles')
+        .update({ deleted_at: new Date().toISOString(), estado: 'inactivo', activo: false })
+        .eq('user_id', userId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['perfiles'] })
+      void qc.invalidateQueries({ queryKey: ['usuarios-heredados'] })
+    },
+  })
+}
+
+export type AccionCuenta = 'definir_clave' | 'enviar_enlace' | 'cambiar_correo'
+
+/**
+ * Las operaciones que tocan `auth.users`.
+ *
+ * Van por Edge Function porque exigen la Admin API. Quién puede cada una se
+ * comprueba allí: fijar una contraseña es solo del administrador; enviar el
+ * enlace y corregir el correo los comparte con el analista de Talento Humano.
+ */
+export function useGestionarCuenta() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      accion: AccionCuenta
+      userId: string
+      clave?: string
+      correo?: string
+    }) => {
+      const { data, error } = await supabase.functions.invoke('permisos-clave-usuario', {
+        body: {
+          accion: params.accion,
+          user_id: params.userId,
+          clave: params.clave,
+          correo: params.correo,
+        },
+      })
+
+      // La función responde con un mensaje propio en el cuerpo; sin leerlo, el
+      // usuario solo vería «Edge Function returned a non-2xx status code».
+      if (error) {
+        const detalle = await (error as { context?: Response }).context
+          ?.json()
+          .catch(() => null)
+        throw new Error(detalle?.error ?? 'No fue posible completar la operación.')
+      }
+
+      return data as { ok: boolean }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['perfiles'] }),
+  })
+}

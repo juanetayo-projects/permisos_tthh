@@ -141,3 +141,50 @@ export function useEntregarSoporte() {
     },
   })
 }
+
+/**
+ * Corrige la duración real de un permiso por horas al entregar el soporte.
+ *
+ * La hora de salida y de regreso escritas al pedir el permiso son una
+ * estimación —«voy a la cita a las 2, calculo que regreso a las 4»—. La
+ * certificación que trae el soporte dice la hora real, que casi nunca
+ * coincide exacta. Sin esto, el ausentismo quedaba calculado sobre lo que el
+ * colaborador imaginó, no sobre lo que pasó.
+ *
+ * Solo toca `fecha_fin`, `hora_regreso` y las horas/días derivados: nunca
+ * `fecha_inicio` ni `hora_salida`, que son el momento en que el permiso
+ * arrancó y ya se autorizó tal cual.
+ */
+export function useAjustarPeriodoReal() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      solicitudId: string
+      fechaFin: string
+      horaRegreso: string
+      horasPermiso: number
+      diasPermiso: number
+    }) => {
+      const { error: errorSolicitud } = await supabase
+        .from('permisos_solicitudes')
+        .update({ fecha_fin: params.fechaFin })
+        .eq('id', params.solicitudId)
+      if (errorSolicitud) throw errorSolicitud
+
+      const { error: errorDetalle } = await supabase
+        .from('permisos_detalle_permiso')
+        .update({
+          hora_regreso: params.horaRegreso,
+          horas_permiso: params.horasPermiso,
+          dias_permiso: params.diasPermiso,
+        })
+        .eq('solicitud_id', params.solicitudId)
+      if (errorDetalle) throw errorDetalle
+    },
+    onSuccess: (_d, params) => {
+      void qc.invalidateQueries({ queryKey: ['solicitud', params.solicitudId] })
+      void qc.invalidateQueries({ queryKey: ['solicitudes'] })
+    },
+  })
+}

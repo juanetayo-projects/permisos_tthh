@@ -125,8 +125,15 @@ export default function SolicitudPermiso() {
    */
   const tiposDeCategoria = useMemo(
     () =>
+      // Fuera los trámites —tienen pantalla propia— y fuera las incapacidades:
+      // no se piden, se reportan, y las radica el jefe directo desde su módulo.
+      // Dejarlas aquí obligaba al colaborador a solicitar por adelantado una
+      // ausencia que ya ocurrió y que nadie tiene que autorizarle.
       tipos?.filter(
-        (t) => String(t.categoria_id) === form.categoriaId && t.naturaleza !== 'tramite'
+        (t) =>
+          String(t.categoria_id) === form.categoriaId &&
+          t.naturaleza !== 'tramite' &&
+          t.naturaleza !== 'incapacidad'
       ) ?? [],
     [tipos, form.categoriaId]
   )
@@ -340,8 +347,8 @@ export default function SolicitudPermiso() {
         tono: 'info',
         texto:
           tipo.naturaleza === 'tramite'
-            ? 'Es un trámite, no un permiso: va directo a la Gerencia de Talento Humano y no cuenta como ausencia.'
-            : 'Este trámite va directo a la Gerencia de Talento Humano, sin pasar por tu jefe directo.',
+            ? 'Es un trámite, no un permiso: va directo a la Dirección de Talento Humano y no cuenta como ausencia.'
+            : 'Este trámite va directo a la Dirección de Talento Humano, sin pasar por tu jefe directo.',
       })
     }
     if (!coordinador && tipo?.ruta_aprobacion !== 'gerente_th_directo') {
@@ -460,7 +467,7 @@ export default function SolicitudPermiso() {
         siguiente: !enviar
           ? 'Puedes retomarla cuando quieras desde Mis solicitudes.'
           : tipo?.ruta_aprobacion === 'gerente_th_directo'
-            ? 'Queda en la bandeja de la Gerencia de Talento Humano.'
+            ? 'Queda en la bandeja de la Dirección de Talento Humano.'
             : `Queda en la bandeja de ${coordinador?.nombre ?? 'tu jefe directo'} para su autorización.`,
         filas: [
           { etiqueta: 'Motivo', valor: tipo?.nombre ?? '—' },
@@ -850,7 +857,7 @@ export default function SolicitudPermiso() {
               etiqueta: 'Aprueba',
               valor:
                 tipo?.ruta_aprobacion === 'gerente_th_directo'
-                  ? 'Gerencia de TH'
+                  ? 'Dirección de TTHH'
                   : `${coordinador?.nombre ?? 'Sin jefe directo'} → TH`,
             },
           ]}

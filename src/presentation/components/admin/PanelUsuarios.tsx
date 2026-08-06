@@ -1,9 +1,20 @@
 import { useMemo, useState } from 'react'
-import { AlertCircle, ChevronDown, Download, Search, ShieldAlert, UserPlus } from 'lucide-react'
+import {
+  AlertCircle,
+  ChevronDown,
+  Download,
+  KeyRound,
+  Pencil,
+  Search,
+  ShieldAlert,
+  Trash2,
+  UserPlus,
+} from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
   useCambiarEstadoPerfil,
   useCambiarRol,
+  useEliminarPerfil,
   useImportarUsuarios,
   usePerfiles,
   useUsuariosHeredados,
@@ -12,6 +23,8 @@ import {
 } from '@/application/admin/usePerfiles'
 import { Button } from '@/presentation/components/ui/button'
 import { DialogoNuevoUsuario } from '@/presentation/components/admin/DialogoNuevoUsuario'
+import { DialogoEditarUsuario } from '@/presentation/components/admin/DialogoEditarUsuario'
+import { DialogoClaveUsuario } from '@/presentation/components/admin/DialogoClaveUsuario'
 import { ROLES, ETIQUETA_ROL, type Rol } from '@/domain/estados'
 import { cn, formatearFecha } from '@/lib/utils'
 import { Badge } from '@/presentation/components/ui/badge'
@@ -39,11 +52,20 @@ export function PanelUsuarios() {
 
   const { data: heredados } = useUsuariosHeredados()
   const importar = useImportarUsuarios()
+  const eliminar = useEliminarPerfil()
 
   const [busqueda, setBusqueda] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [mostrarHeredados, setMostrarHeredados] = useState(false)
   const [creando, setCreando] = useState(false)
+  const [editando, setEditando] = useState<PerfilAdmin | null>(null)
+  const [cambiandoClave, setCambiandoClave] = useState<PerfilAdmin | null>(null)
+
+  // Repartir roles sigue siendo exclusivo del administrador: es la separación
+  // de funciones que impide que un analista se ascienda y acabe aprobando sus
+  // propias solicitudes. La policy lo rechaza igualmente; el desplegable se
+  // deshabilita para no ofrecer algo que va a fallar.
+  const esAdmin = yo?.rol === 'administrador'
 
   const filtrados = useMemo(() => {
     const t = busqueda.trim().toLowerCase()
@@ -77,6 +99,21 @@ export function PanelUsuarios() {
     return p.rol === 'administrador' && p.estado === 'activo' && administradores.length <= 1
   }
 
+  /**
+   * Eliminar es un borrado lógico, no un `delete`: las solicitudes que esta
+   * persona firmó o autorizó siguen apuntando a su perfil, y un formato con
+   * valor documental no puede quedarse sin el nombre de quien lo pidió.
+   */
+  function confirmarEliminar(p: PerfilAdmin) {
+    const aviso =
+      `Se va a eliminar a ${p.nombre}.\n\n` +
+      'Dejará de poder entrar y desaparecerá de los listados, pero sus solicitudes ' +
+      'se conservan tal cual en el histórico.\n\n¿Continuar?'
+
+    if (!window.confirm(aviso)) return
+    void ejecutar(() => eliminar.mutateAsync(p.user_id))
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -106,6 +143,8 @@ export function PanelUsuarios() {
       </div>
 
       <DialogoNuevoUsuario abierto={creando} onCerrar={() => setCreando(false)} />
+      <DialogoEditarUsuario perfil={editando} onCerrar={() => setEditando(null)} />
+      <DialogoClaveUsuario perfil={cambiandoClave} onCerrar={() => setCambiandoClave(null)} />
 
       {error && (
         <p role="alert" className="flex items-start gap-2 rounded-md bg-[var(--error-suave)] p-3 text-sm text-[var(--error)]">
@@ -170,7 +209,7 @@ export function PanelUsuarios() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="tabla-cac w-full min-w-[52rem] text-sm">
+          <table className="tabla-cac w-full min-w-[60rem] text-sm">
             <thead className="bg-muted/60">
               <tr>
                 <th className="px-3 py-2.5 text-left font-semibold text-muted-foreground">Persona</th>
@@ -178,6 +217,7 @@ export function PanelUsuarios() {
                 <th className="w-48 px-3 py-2.5 text-left font-semibold text-muted-foreground">Rol</th>
                 <th className="w-52 px-3 py-2.5 text-left font-semibold text-muted-foreground">Estado</th>
                 <th className="w-28 px-3 py-2.5 text-left font-semibold text-muted-foreground">Validado</th>
+                <th className="w-32 px-3 py-2.5 text-right font-semibold text-muted-foreground">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -204,7 +244,7 @@ export function PanelUsuarios() {
                     <td className="px-3 py-2.5">
                       <Select
                         value={p.rol}
-                        disabled={bloqueado || cambiarRol.isPending}
+                        disabled={!esAdmin || bloqueado || cambiarRol.isPending}
                         onValueChange={(v) =>
                           void ejecutar(() => cambiarRol.mutateAsync({ userId: p.user_id, rol: v as Rol }))
                         }
@@ -253,6 +293,50 @@ export function PanelUsuarios() {
                       ) : (
                         <Badge tono="advertencia">Sin validar</Badge>
                       )}
+                    </td>
+
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          title="Editar los datos"
+                          aria-label={`Editar a ${p.nombre}`}
+                          onClick={() => setEditando(p)}
+                        >
+                          <Pencil />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          title="Contraseña"
+                          aria-label={`Cambiar la contraseña de ${p.nombre}`}
+                          onClick={() => setCambiandoClave(p)}
+                        >
+                          <KeyRound />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          // Ni a uno mismo ni al último administrador: son las dos
+                          // formas de dejar la aplicación sin quien la administre.
+                          disabled={soyYo || bloqueado || eliminar.isPending}
+                          title={
+                            soyYo
+                              ? 'No puedes eliminarte a ti mismo'
+                              : bloqueado
+                                ? 'Es el único administrador activo'
+                                : 'Eliminar'
+                          }
+                          aria-label={`Eliminar a ${p.nombre}`}
+                          className="size-8 text-[var(--error)] hover:bg-[var(--error-suave)]"
+                          onClick={() => confirmarEliminar(p)}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 )

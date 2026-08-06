@@ -317,6 +317,99 @@ export function validarSaldos(params: {
 }
 
 // -----------------------------------------------------------------------------
+// Las tres reglas duras del TH-F-005
+//
+// Son la excepción declarada al criterio general de la aplicación —«las reglas
+// de antelación avisan y marcan extemporánea, nunca bloquean»—. Talento Humano
+// pidió expresamente que en vacaciones sí impidan enviar, porque a diferencia
+// de un permiso, unas vacaciones nunca son urgentes ni imprevistas: se planean.
+// La excepción vale **solo** para vacaciones; permisos y cesantías siguen
+// avisando, que es justo lo que permite registrar una calamidad ya ocurrida.
+// -----------------------------------------------------------------------------
+
+/** Días **corridos** de antelación, contando sábados, domingos y festivos. */
+export const VACACIONES_ANTELACION_DIAS = 20
+
+/** Mínimo de días a disfrutar en una solicitud normal. */
+export const VACACIONES_DIAS_MINIMOS = 6
+
+/**
+ * Mínimo de días de descanso real cuando además se piden días compensados.
+ *
+ * Sube de 6 a 8: los compensados se pagan en vez de disfrutarse, y la regla
+ * existe para que compensar no acabe vaciando el descanso.
+ */
+export const VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS = 8
+
+/**
+ * Hasta cuándo se puede radicar unas vacaciones que empiezan en `fechaInicio`.
+ *
+ * Se cuenta en días corridos hacia atrás, no hábiles: es lo que pidió Talento
+ * Humano y lo que hace que la fecha sea fácil de comprobar en un calendario.
+ */
+export function fechaLimiteRadicacion(
+  fechaInicio: FechaISO,
+  dias = VACACIONES_ANTELACION_DIAS
+): FechaISO {
+  return aISO(sumarDias(desdeISO(fechaInicio), -dias))
+}
+
+/** La primera fecha de inicio que hoy todavía admite la antelación mínima. */
+export function primeraFechaDeInicioValida(
+  hoy: FechaISO,
+  dias = VACACIONES_ANTELACION_DIAS
+): FechaISO {
+  return aISO(sumarDias(desdeISO(hoy), dias))
+}
+
+export interface AntelacionVacaciones {
+  /** `false` cuando la fecha de inicio está demasiado cerca: impide enviar. */
+  cumple: boolean
+  diasDeAntelacion: number
+  /** Último día en que se pudo radicar para ese inicio. */
+  fechaLimite: FechaISO
+  /** La primera fecha de inicio que sí sería válida radicando hoy. */
+  primeraValida: FechaISO
+}
+
+export function evaluarAntelacionVacaciones(params: {
+  fechaInicio: FechaISO
+  hoy: FechaISO
+  dias?: number
+}): AntelacionVacaciones {
+  const dias = params.dias ?? VACACIONES_ANTELACION_DIAS
+  // `contarDiasCalendario` cuenta ambos extremos; aquí interesa la distancia
+  // entre las dos fechas, así que se descuenta uno.
+  const diasDeAntelacion = contarDiasCalendario(params.hoy, params.fechaInicio) - 1
+
+  return {
+    cumple: diasDeAntelacion >= dias,
+    diasDeAntelacion,
+    fechaLimite: fechaLimiteRadicacion(params.fechaInicio, dias),
+    primeraValida: primeraFechaDeInicioValida(params.hoy, dias),
+  }
+}
+
+/**
+ * Días que le quedan pendientes por disfrutar.
+ *
+ * Los compensados **también descuentan**: se pagan en vez de disfrutarse, así
+ * que dejan de estar pendientes. Restar solo los días a disfrutar —la lectura
+ * literal de «corresponden − a disfrutar»— dejaría los compensados contados
+ * como saldo vivo y el colaborador creería que aún los puede tomar.
+ */
+export function diasPendientesDeDisfrutar(params: {
+  diasCorresponden?: number | null
+  diasADisfrutar?: number | null
+  diasCompensados?: number | null
+}): number | null {
+  if (params.diasCorresponden == null) return null
+
+  const consumidos = (params.diasADisfrutar ?? 0) + (params.diasCompensados ?? 0)
+  return redondear(Math.max(0, params.diasCorresponden - consumidos))
+}
+
+// -----------------------------------------------------------------------------
 // Qué fechas admite cada motivo
 // -----------------------------------------------------------------------------
 
