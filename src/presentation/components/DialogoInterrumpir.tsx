@@ -93,6 +93,7 @@ export function DialogoInterrumpir({
               valor={fecha}
               min={minimo}
               max={solicitud.fecha_fin}
+              soloHabiles={!porCalendario}
               onCambio={setFecha}
             />
           </div>

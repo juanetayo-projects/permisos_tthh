@@ -332,6 +332,9 @@ export default function ReporteIncapacidad() {
                 <CampoFecha
                   id="inicio"
                   valor={form.fechaInicio}
+                  // Una incapacidad empieza el día que la expide la EPS o la ARL,
+                  // aunque sea fin de semana o festivo: nunca se corrige.
+                  soloHabiles={false}
                   onCambio={(f) => {
                     set('fechaInicio', f)
                     if (form.fechaFin < f) set('fechaFin', f)
@@ -344,6 +347,7 @@ export default function ReporteIncapacidad() {
                   id="fin"
                   min={form.fechaInicio}
                   valor={form.fechaFin}
+                  soloHabiles={false}
                   onCambio={(f) => set('fechaFin', f)}
                 />
               </div>
