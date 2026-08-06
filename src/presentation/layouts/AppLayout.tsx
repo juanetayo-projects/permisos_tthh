@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Activity,
@@ -7,12 +7,14 @@ import {
   ChevronDown,
   ClipboardList,
   FileText,
+  FolderKanban,
   Inbox,
   Layers,
   LogOut,
   Menu,
   Moon,
   PiggyBank,
+  Send,
   Settings,
   ShieldCheck,
   Stethoscope,
@@ -22,7 +24,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/application/auth/AuthProvider'
 import { ETIQUETA_ROL } from '@/domain/estados'
-import { DEFINICION_MODULOS, type Modulo } from '@/domain/modulos'
+import { DEFINICION_MODULOS, type DefinicionModulo, type Modulo } from '@/domain/modulos'
 import { useModulosDelRol } from '@/application/admin/useAccesos'
 import { aplicarTema, guardarTema, temaOscuroGuardado } from '@/lib/tema'
 
@@ -56,6 +58,63 @@ const ICONOS: Record<Modulo, typeof Inbox> = {
   // este, tiempo no laborado. Son preguntas distintas.
   ausentismo: Activity,
   administracion: Settings,
+}
+
+/**
+ * Agrupación del menú en acordeones.
+ *
+ * También es presentación y no dominio, por la misma razón que `ICONOS`: cómo
+ * se organiza visualmente el menú no cambia qué módulos existen ni quién
+ * entra a cada uno. El orden de `modulos` es el que pidió Talento Humano —
+ * "permisos, vacaciones, incapacidades, cesantías"— y no coincide con el
+ * orden del catálogo, así que se declara explícito en vez de derivarlo.
+ *
+ * Un módulo que no aparece en ninguna lista queda suelto en el nivel
+ * superior del menú (Inicio, Validar colaboradores, Dashboard, Ausentismo,
+ * Administración).
+ */
+type GrupoMenu = 'solicitudes' | 'gestion'
+
+const GRUPOS_MENU: { clave: GrupoMenu; etiqueta: string; icono: typeof Inbox; modulos: Modulo[] }[] = [
+  {
+    clave: 'solicitudes',
+    etiqueta: 'Solicitudes',
+    icono: Send,
+    modulos: ['solicitar_permiso', 'solicitar_vacaciones', 'incapacidades', 'solicitar_cesantias'],
+  },
+  {
+    clave: 'gestion',
+    etiqueta: 'Gestión',
+    icono: FolderKanban,
+    modulos: ['mis_solicitudes', 'bandeja_area', 'bandeja_th', 'bandeja_cesantias', 'todas_solicitudes'],
+  },
+]
+
+type EntradaMenu =
+  | { tipo: 'modulo'; modulo: DefinicionModulo }
+  | { tipo: 'grupo'; grupo: (typeof GRUPOS_MENU)[number]; modulos: DefinicionModulo[] }
+
+/** Intercala los grupos entre los módulos sueltos, en el orden en que aparece cada uno por primera vez. */
+function construirMenu(enlaces: DefinicionModulo[]): EntradaMenu[] {
+  const porCodigo = new Map(enlaces.map((e) => [e.codigo, e]))
+  const grupoDelModulo = new Map(GRUPOS_MENU.flatMap((g) => g.modulos.map((m) => [m, g])))
+  const gruposYaPuestos = new Set<GrupoMenu>()
+  const resultado: EntradaMenu[] = []
+
+  for (const enlace of enlaces) {
+    const grupo = grupoDelModulo.get(enlace.codigo)
+    if (!grupo) {
+      resultado.push({ tipo: 'modulo', modulo: enlace })
+      continue
+    }
+    if (gruposYaPuestos.has(grupo.clave)) continue
+    gruposYaPuestos.add(grupo.clave)
+
+    const modulosDelGrupo = grupo.modulos.filter((m) => porCodigo.has(m)).map((m) => porCodigo.get(m)!)
+    if (modulosDelGrupo.length > 0) resultado.push({ tipo: 'grupo', grupo, modulos: modulosDelGrupo })
+  }
+
+  return resultado
 }
 
 /**
@@ -133,6 +192,26 @@ function MenuUsuario() {
   )
 }
 
+/** Un enlace del menú, suelto o dentro de un acordeón: mismo estilo en los dos casos. */
+function EnlaceModulo({ modulo }: { modulo: DefinicionModulo }) {
+  const Icono = ICONOS[modulo.codigo]
+  return (
+    <NavLink
+      to={modulo.ruta}
+      end={modulo.ruta === '/'}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+          isActive ? 'bg-white text-[var(--cac-azul)] shadow-sm' : 'text-white/85 hover:bg-white/10 hover:text-white'
+        )
+      }
+    >
+      <Icono className="size-4 shrink-0" />
+      <span className="truncate">{modulo.etiqueta}</span>
+    </NavLink>
+  )
+}
+
 export function AppLayout() {
   const { perfil } = useAuth()
   const ubicacion = useLocation()
@@ -144,9 +223,40 @@ export function AppLayout() {
   // tenga.
   const modulos = useModulosDelRol(perfil?.rol)
   const enlaces = DEFINICION_MODULOS.filter((m) => modulos.includes(m.codigo))
+  const entradasMenu = useMemo(() => construirMenu(enlaces), [enlaces])
 
-  // En móvil, navegar cierra el menú lateral.
-  useEffect(() => setMenuAbierto(false), [ubicacion.pathname])
+  /** Grupo del acordeón que contiene la ruta activa, o `null` si es una suelta. */
+  const grupoDeLaRuta = (grupos: EntradaMenu[]): GrupoMenu | null => {
+    for (const entrada of grupos) {
+      if (entrada.tipo !== 'grupo') continue
+      const esta = entrada.modulos.some(
+        (m) => ubicacion.pathname === m.ruta || (m.ruta !== '/' && ubicacion.pathname.startsWith(`${m.ruta}/`))
+      )
+      if (esta) return entrada.grupo.clave
+    }
+    return null
+  }
+
+  const [gruposAbiertos, setGruposAbiertos] = useState<Set<GrupoMenu>>(
+    () => new Set(GRUPOS_MENU.map((g) => g.clave))
+  )
+
+  function alternarGrupo(clave: GrupoMenu) {
+    setGruposAbiertos((previo) => {
+      const siguiente = new Set(previo)
+      if (siguiente.has(clave)) siguiente.delete(clave)
+      else siguiente.add(clave)
+      return siguiente
+    })
+  }
+
+  // En móvil, navegar cierra el menú lateral. Si la ruta cae en un grupo
+  // colapsado, se reabre: si no, el enlace activo desaparecería de la vista.
+  useEffect(() => {
+    setMenuAbierto(false)
+    const grupoActivo = grupoDeLaRuta(entradasMenu)
+    if (grupoActivo) setGruposAbiertos((previo) => (previo.has(grupoActivo) ? previo : new Set(previo).add(grupoActivo)))
+  }, [ubicacion.pathname, entradasMenu])
 
   return (
     // Altura fija y sin scroll de página en escritorio: la ventana no se mueve
@@ -188,23 +298,35 @@ export function AppLayout() {
           <MenuUsuario />
 
           <nav className="flex-1 space-y-1">
-            {enlaces.map(({ codigo, ruta, etiqueta }) => {
-              const Icono = ICONOS[codigo]
+            {entradasMenu.map((entrada) => {
+              if (entrada.tipo === 'modulo') {
+                return <EnlaceModulo key={entrada.modulo.codigo} modulo={entrada.modulo} />
+              }
+
+              const { grupo, modulos: modulosDelGrupo } = entrada
+              const abierto = gruposAbiertos.has(grupo.clave)
+              const IconoGrupo = grupo.icono
+
               return (
-              <NavLink
-                key={codigo}
-                to={ruta}
-                end={ruta === '/'}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    isActive ? 'bg-white text-[var(--cac-azul)] shadow-sm' : 'text-white/85 hover:bg-white/10 hover:text-white'
-                  )
-                }
-              >
-                <Icono className="size-4 shrink-0" />
-                <span className="truncate">{etiqueta}</span>
-              </NavLink>
+                <div key={grupo.clave}>
+                  <button
+                    onClick={() => alternarGrupo(grupo.clave)}
+                    aria-expanded={abierto}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/85 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    <IconoGrupo className="size-4 shrink-0" />
+                    <span className="flex-1 truncate text-left">{grupo.etiqueta}</span>
+                    <ChevronDown className={cn('size-4 shrink-0 transition-transform', abierto && 'rotate-180')} />
+                  </button>
+
+                  {abierto && (
+                    <div className="mt-1 space-y-1 pl-4">
+                      {modulosDelGrupo.map((modulo) => (
+                        <EnlaceModulo key={modulo.codigo} modulo={modulo} />
+                      ))}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </nav>

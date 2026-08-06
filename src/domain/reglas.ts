@@ -39,13 +39,21 @@ export function calcularDuracion(params: {
   horaSalida?: string | null
   horaRegreso?: string | null
   horasPorJornada?: number
+  /**
+   * `true`: el motivo resta domingos y festivos, como vacaciones (p. ej. luto,
+   * 5 días hábiles por la Ley 1280 de 2009). Por defecto cuenta calendario,
+   * que es como se han medido siempre los demás permisos.
+   */
+  enDiasHabiles?: boolean
 }): DuracionPermiso {
   const { fechaInicio, fechaFin, horaSalida, horaRegreso } = params
   const horasPorJornada = params.horasPorJornada ?? 8
 
-  const diasCalendario = contarDiasCalendario(fechaInicio, fechaFin)
+  const dias = params.enDiasHabiles
+    ? contarDiasHabiles(fechaInicio, fechaFin)
+    : contarDiasCalendario(fechaInicio, fechaFin)
 
-  if (diasCalendario === 1 && horaSalida && horaRegreso) {
+  if (dias === 1 && horaSalida && horaRegreso) {
     const horas = diferenciaHoras(horaSalida, horaRegreso)
     return {
       horas: redondear(horas),
@@ -54,8 +62,8 @@ export function calcularDuracion(params: {
   }
 
   return {
-    horas: redondear(diasCalendario * horasPorJornada),
-    dias: diasCalendario,
+    horas: redondear(dias * horasPorJornada),
+    dias,
   }
 }
 

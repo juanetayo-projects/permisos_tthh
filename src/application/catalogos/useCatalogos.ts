@@ -52,6 +52,8 @@ export interface Tipo {
   exento_antelacion: boolean
   /** Se cuenta por días calendario: incapacidades y licencias. */
   dias_calendario: boolean
+  /** La duración resta domingos y festivos, como vacaciones (p. ej. luto). */
+  duracion_en_habiles: boolean
   /** Qué es en derecho: de ello dependen el soporte y el cómputo. */
   naturaleza: 'permiso' | 'licencia' | 'incapacidad' | 'vacaciones' | 'tramite'
   /** Los trámites y el tiempo de representación no restan tiempo laborado. */
@@ -193,7 +195,7 @@ export function useCategorias() {
 const CAMPOS_TIPO =
   'id, categoria_id, nombre, remunerado_por_defecto, requiere_soporte_previo, ' +
   'requiere_soporte_posterior, soporte_obligatorio_desde_dias, ruta_aprobacion, ' +
-  'exento_antelacion, dias_calendario, naturaleza, genera_ausentismo, fundamento_legal, ' +
+  'exento_antelacion, dias_calendario, duracion_en_habiles, naturaleza, genera_ausentismo, fundamento_legal, ' +
   'dias_max_retroactivo, dias_max_futuro, duracion_maxima_dias, duracion_minima_dias, ' +
   'permite_horas, plazo_soporte_dias, plazo_soporte_habiles, max_por_periodo, ' +
   'periodo_control, interrumpe_otros, prioridad, descripcion, orden'

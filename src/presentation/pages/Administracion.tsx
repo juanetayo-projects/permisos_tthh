@@ -329,6 +329,14 @@ export default function Administracion() {
       ayuda:
         'Sí para incapacidades y licencias: pueden empezar cualquier día y los fines de semana cuentan. No para citas y diligencias, que solo van en días hábiles.',
     },
+    {
+      clave: 'duracion_en_habiles',
+      etiqueta: 'Duración en días hábiles',
+      tipo: 'booleano',
+      soloEnFormulario: true,
+      ayuda:
+        'Resta domingos y festivos al contar la duración, como vacaciones. Es independiente de "Cuenta días calendario": el luto empieza cualquier día pero se cuenta en hábiles (Ley 1280 de 2009).',
+    },
     { clave: 'orden', etiqueta: 'Orden', tipo: 'numero', ancho: 'w-20' },
     { clave: 'activo', etiqueta: 'Activo', tipo: 'booleano', ancho: 'w-24' },
   ]

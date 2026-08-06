@@ -48,6 +48,20 @@ describe('duración del permiso', () => {
     })
     expect(d.horas).toBe(0)
   })
+
+  it('en días hábiles resta domingos y festivos, como el luto (Ley 1280 de 2009)', () => {
+    // Mismo rango que el ejemplo verificado de vacaciones: del 2 al 9 de enero
+    // de 2026 hay 6 días hábiles y 8 de calendario.
+    const habiles = calcularDuracion({
+      fechaInicio: '2026-01-02',
+      fechaFin: '2026-01-09',
+      enDiasHabiles: true,
+    })
+    expect(habiles.dias).toBe(6)
+
+    const calendario = calcularDuracion({ fechaInicio: '2026-01-02', fechaFin: '2026-01-09' })
+    expect(calendario.dias).toBe(8)
+  })
 })
 
 describe('regla de antelación', () => {

@@ -223,8 +223,9 @@ export default function SolicitudPermiso() {
         fechaFin: form.fechaFin,
         horaSalida: permiteHoras ? form.horaSalida : null,
         horaRegreso: permiteHoras ? form.horaRegreso : null,
+        enDiasHabiles: tipo?.duracion_en_habiles,
       }),
-    [form.fechaInicio, form.fechaFin, form.horaSalida, form.horaRegreso, permiteHoras]
+    [form.fechaInicio, form.fechaFin, form.horaSalida, form.horaRegreso, permiteHoras, tipo]
   )
 
   const antelacion = useMemo(
