@@ -25,6 +25,7 @@ import { Button } from '@/presentation/components/ui/button'
 import { DialogoNuevoUsuario } from '@/presentation/components/admin/DialogoNuevoUsuario'
 import { DialogoEditarUsuario } from '@/presentation/components/admin/DialogoEditarUsuario'
 import { DialogoClaveUsuario } from '@/presentation/components/admin/DialogoClaveUsuario'
+import { DialogoImportarUsuarios } from '@/presentation/components/admin/DialogoImportarUsuarios'
 import { ROLES, ETIQUETA_ROL, type Rol } from '@/domain/estados'
 import { cn, formatearFecha } from '@/lib/utils'
 import { Badge } from '@/presentation/components/ui/badge'
@@ -58,6 +59,7 @@ export function PanelUsuarios() {
   const [error, setError] = useState<string | null>(null)
   const [mostrarHeredados, setMostrarHeredados] = useState(false)
   const [creando, setCreando] = useState(false)
+  const [importando, setImportando] = useState(false)
   const [editando, setEditando] = useState<PerfilAdmin | null>(null)
   const [cambiandoClave, setCambiandoClave] = useState<PerfilAdmin | null>(null)
 
@@ -136,6 +138,9 @@ export function PanelUsuarios() {
               aria-label="Buscar usuarios"
             />
           </div>
+          <Button variant="outline" onClick={() => setImportando(true)}>
+            <Download /> Importar usuarios
+          </Button>
           <Button onClick={() => setCreando(true)}>
             <UserPlus /> Nuevo usuario
           </Button>
@@ -143,6 +148,7 @@ export function PanelUsuarios() {
       </div>
 
       <DialogoNuevoUsuario abierto={creando} onCerrar={() => setCreando(false)} />
+      <DialogoImportarUsuarios abierto={importando} onCerrar={() => setImportando(false)} />
       <DialogoEditarUsuario perfil={editando} onCerrar={() => setEditando(null)} />
       <DialogoClaveUsuario perfil={cambiandoClave} onCerrar={() => setCambiandoClave(null)} />
 

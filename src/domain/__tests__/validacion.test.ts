@@ -108,6 +108,37 @@ describe('validación de vacaciones', () => {
   it('cero días no es un periodo válido', () => {
     expect(validarVacaciones({ ...base, diasADisfrutar: 0 })).toHaveLength(1)
   })
+
+  it('bloquea más de 15 días que corresponden', () => {
+    const problemas = validarVacaciones({ ...base, diasCorresponden: 16 })
+    expect(problemas.map((p) => p.campo)).toContain('Días que corresponden')
+  })
+
+  it('no se queja de 15 días exactos', () => {
+    expect(validarVacaciones({ ...base, diasCorresponden: 15 })).toEqual([])
+  })
+
+  it('al compensar en dinero exige exactamente 15/8/7', () => {
+    const problemas = validarVacaciones({
+      ...base,
+      diasADisfrutar: 6,
+      diasCorresponden: 15,
+      diasCompensados: 9,
+      tieneCartaCompensados: true,
+    })
+    expect(problemas.map((p) => p.campo)).toContain('Días a compensar')
+  })
+
+  it('acepta compensar cuando la combinación es 15/8/7', () => {
+    const problemas = validarVacaciones({
+      ...base,
+      diasADisfrutar: 8,
+      diasCorresponden: 15,
+      diasCompensados: 7,
+      tieneCartaCompensados: true,
+    })
+    expect(problemas).toEqual([])
+  })
 })
 
 describe('validación del retiro de cesantías', () => {

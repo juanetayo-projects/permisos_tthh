@@ -41,6 +41,18 @@ const CAMPOS_AREA: CampoCatalogo[] = [
 
 const CAMPOS_CARGO: CampoCatalogo[] = [
   { clave: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true },
+  {
+    clave: 'tipo',
+    etiqueta: 'Tipo',
+    tipo: 'seleccion',
+    ancho: 'w-40',
+    opciones: [
+      { valor: 'administrativo', etiqueta: 'Administrativo' },
+      { valor: 'asistencial', etiqueta: 'Asistencial' },
+    ],
+    ayuda:
+      'Un cargo asistencial se presenta a laborar al día calendario siguiente de terminar sus vacaciones; el resto sigue el cálculo de día hábil siguiente.',
+  },
   { clave: 'activo', etiqueta: 'Activo', tipo: 'booleano', ancho: 'w-24' },
 ]
 

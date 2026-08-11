@@ -158,12 +158,19 @@ export function validarPermiso(d: DatosPermiso): Problema[] {
 // Vacaciones — TH-F-005
 // -----------------------------------------------------------------------------
 
+/** Tope de días que corresponden y combinación fija al compensar en dinero. */
+export const VACACIONES_DIAS_CORRESPONDEN_MAXIMO = 15
+export const VACACIONES_COMPENSAR_DIAS_A_DISFRUTAR = 8
+export const VACACIONES_COMPENSAR_DIAS_COMPENSADOS = 7
+
 export interface DatosVacaciones extends Identificacion {
   diasADisfrutar: number | null
   declaracionAceptada: boolean
   tieneCoordinador: boolean
   /** Resultado de `evaluarAntelacionVacaciones`. Ausente = no se comprueba. */
   antelacion?: AntelacionVacaciones | null
+  /** Días que corresponden del periodo, sin importar si compensa o no. */
+  diasCorresponden?: number | null
   /** Cuántos días pide compensados en dinero; 0 o null si no compensa. */
   diasCompensados?: number | null
   /** Ya adjuntó la carta firmada que justifica los compensados. */
@@ -191,6 +198,28 @@ export function validarVacaciones(d: DatosVacaciones): Problema[] {
       motivo: compensa
         ? `Cuando además se compensan días en dinero, el descanso efectivo no puede bajar de ${VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS} días. Sube los días a disfrutar o quita los compensados.`
         : `Talento Humano no tramita periodos de menos de ${VACACIONES_DIAS_MINIMOS} días. Para ausencias más cortas, usa una solicitud de permiso.`,
+    })
+  }
+
+  if (d.diasCorresponden != null && d.diasCorresponden > VACACIONES_DIAS_CORRESPONDEN_MAXIMO) {
+    problemas.push({
+      campo: 'Días que corresponden',
+      causa: `Registraste ${d.diasCorresponden} días y el máximo por solicitud son ${VACACIONES_DIAS_CORRESPONDEN_MAXIMO}.`,
+      motivo:
+        'El formato TH-F-005 no tramita periodos acumulados de más de un año. Si tienes más días pendientes, radica el resto en otra solicitud.',
+    })
+  }
+
+  // Regla dura de Talento Humano: compensar en dinero solo se admite sobre un
+  // periodo completo de 15 días, repartido siempre igual -8 de descanso
+  // efectivo y 7 pagados-. No es un mínimo como el resto de vacaciones: es la
+  // única combinación que se acepta.
+  if (compensa && (d.diasCorresponden !== 15 || d.diasADisfrutar !== 8 || compensados !== 7)) {
+    problemas.push({
+      campo: 'Días a compensar',
+      causa: `Para compensar en dinero, Talento Humano exige exactamente 15 días que corresponden, 8 a disfrutar y 7 a compensar (registraste ${d.diasCorresponden ?? '—'} / ${d.diasADisfrutar ?? '—'} / ${compensados}).`,
+      motivo:
+        'Es la única combinación que admite el formato TH-F-005 al compensar en dinero: no se acepta un reparto distinto ni sobre un periodo parcial.',
     })
   }
 

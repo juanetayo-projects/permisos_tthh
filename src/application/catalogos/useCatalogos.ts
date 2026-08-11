@@ -14,6 +14,8 @@ export interface Area {
 export interface Cargo {
   id: number
   nombre: string
+  /** Gobierna el día de reintegro tras vacaciones: calendario si es asistencial. */
+  tipo: 'administrativo' | 'asistencial'
 }
 export interface Coordinador {
   id: number
@@ -48,12 +50,14 @@ export interface Tipo {
   requiere_soporte_previo: boolean
   requiere_soporte_posterior: boolean
   soporte_obligatorio_desde_dias: number | null
-  ruta_aprobacion: 'coordinador_th' | 'gerente_th_directo'
+  ruta_aprobacion: 'coordinador_th' | 'gerente_th_directo' | 'th_directo'
   exento_antelacion: boolean
   /** Se cuenta por días calendario: incapacidades y licencias. */
   dias_calendario: boolean
   /** La duración resta domingos y festivos, como vacaciones (p. ej. luto). */
   duracion_en_habiles: boolean
+  /** Duración legal exacta (maternidad, paternidad): no se pregunta, se calcula. */
+  duracion_en_dias_fija: boolean
   /** Qué es en derecho: de ello dependen el soporte y el cómputo. */
   naturaleza: 'permiso' | 'licencia' | 'incapacidad' | 'vacaciones' | 'tramite'
   /** Los trámites y el tiempo de representación no restan tiempo laborado. */
@@ -151,7 +155,7 @@ export function useCargos() {
     queryFn: async (): Promise<Cargo[]> => {
       const { data, error } = await supabase
         .from('cargos')
-        .select('id, nombre')
+        .select('id, nombre, tipo')
         .eq('activo', true)
         .order('nombre')
       if (error) throw error
@@ -195,7 +199,7 @@ export function useCategorias() {
 const CAMPOS_TIPO =
   'id, categoria_id, nombre, remunerado_por_defecto, requiere_soporte_previo, ' +
   'requiere_soporte_posterior, soporte_obligatorio_desde_dias, ruta_aprobacion, ' +
-  'exento_antelacion, dias_calendario, duracion_en_habiles, naturaleza, genera_ausentismo, fundamento_legal, ' +
+  'exento_antelacion, dias_calendario, duracion_en_habiles, duracion_en_dias_fija, naturaleza, genera_ausentismo, fundamento_legal, ' +
   'dias_max_retroactivo, dias_max_futuro, duracion_maxima_dias, duracion_minima_dias, ' +
   'permite_horas, plazo_soporte_dias, plazo_soporte_habiles, max_por_periodo, ' +
   'periodo_control, interrumpe_otros, prioridad, descripcion, orden'
@@ -329,6 +333,42 @@ export function documentosDelTipo(
       nota: m.nota,
       orden: m.orden,
     }))
+}
+
+export interface Cie10 {
+  codigo: string
+  nombre: string
+  capitulo: string | null
+}
+
+/**
+ * Busca en el catálogo CIE10 por código o por nombre del diagnóstico.
+ *
+ * Son más de 12.000 filas: se busca en el servidor y no se trae entero, a
+ * diferencia del resto de catálogos de esta pantalla.
+ */
+export function useBuscarCie10(termino: string) {
+  const q = termino.trim()
+  // La coma y los paréntesis tienen significado en la sintaxis de `.or()` de
+  // PostgREST; un diagnóstico como «Diabetes mellitus, tipo 2» rompería el
+  // filtro si no se quitan antes de interpolarlos.
+  const seguro = q.replace(/[,()]/g, ' ').trim()
+  return useQuery({
+    queryKey: ['cie10', seguro],
+    enabled: seguro.length >= 2,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<Cie10[]> => {
+      const { data, error } = await supabase
+        .from('cie10')
+        .select('codigo, nombre, capitulo')
+        .or(`codigo.ilike.${seguro}%,nombre.ilike.%${seguro}%`)
+        .eq('activo', true)
+        .order('codigo')
+        .limit(25)
+      if (error) throw error
+      return data ?? []
+    },
+  })
 }
 
 /** Parámetros editables sin desplegar (`permisos_config`). */

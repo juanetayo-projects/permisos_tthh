@@ -6,8 +6,24 @@ import {
   evaluarAntelacion,
   evaluarAntelacionVacaciones,
   evaluarSoporte,
+  fechaFinDesdeDias,
   validarSaldos,
 } from '../reglas'
+
+describe('fecha fin de una incapacidad', () => {
+  it('cuenta días corridos, incluidos fines de semana y festivos', () => {
+    // Licencia de paternidad: 14 días corridos desde el inicio.
+    expect(fechaFinDesdeDias('2026-03-01', 14)).toBe('2026-03-14')
+  })
+
+  it('un solo día termina el mismo día', () => {
+    expect(fechaFinDesdeDias('2026-03-01', 1)).toBe('2026-03-01')
+  })
+
+  it('reproduce la licencia de maternidad de 126 días', () => {
+    expect(fechaFinDesdeDias('2026-01-01', 126)).toBe('2026-05-06')
+  })
+})
 
 describe('duración del permiso', () => {
   it('cuenta en horas cuando el permiso es de un solo día', () => {
@@ -234,6 +250,26 @@ describe('vacaciones', () => {
   it('no se queja si aún faltan saldos por digitar', () => {
     expect(validarSaldos({ diasCorresponden: null, diasADisfrutar: 6, diasPendientes: 9 }).coherente)
       .toBe(true)
+  })
+
+  it('un cargo asistencial se reintegra al día calendario siguiente, no al hábil', () => {
+    // 2026-01-09 es viernes; el hábil siguiente sería el lunes 12, pero un
+    // cargo asistencial se presenta el sábado 10.
+    const r = calcularVacaciones({
+      fechaInicio: '2026-01-02',
+      fechaFin: '2026-01-09',
+      cargoEsAsistencial: true,
+    })
+    expect(r.fechaReintegro).toBe('2026-01-10')
+  })
+
+  it('un cargo administrativo mantiene el cálculo de siempre (día hábil siguiente)', () => {
+    const r = calcularVacaciones({
+      fechaInicio: '2026-01-02',
+      fechaFin: '2026-01-09',
+      cargoEsAsistencial: false,
+    })
+    expect(r.fechaReintegro).toBe('2026-01-13')
   })
 })
 

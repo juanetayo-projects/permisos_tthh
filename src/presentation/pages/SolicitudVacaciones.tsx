@@ -22,7 +22,7 @@ import {
   VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS,
 } from '@/domain/reglas'
 import { problemaAlGuardar, validarVacaciones, type Problema } from '@/domain/validacion'
-import { aISO, fechaFinPorDiasHabiles } from '@/domain/festivos'
+import { aISO, fechaFinPorDiasHabiles, sumarDiasHabiles } from '@/domain/festivos'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
@@ -40,17 +40,18 @@ import { Input } from '@/presentation/components/ui/input'
 import { Label } from '@/presentation/components/ui/label'
 import { Obligatorio } from '@/presentation/components/ui/obligatorio'
 import { Textarea } from '@/presentation/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/presentation/components/ui/select'
 
 const HOY = new Date().toISOString().slice(0, 10)
+/**
+ * Valor inicial del formulario: hoy + 20 días hábiles.
+ *
+ * Es solo el punto de partida que se muestra al abrir la pantalla, no la
+ * regla que bloquea el envío -esa sigue siendo `VACACIONES_ANTELACION_DIAS`,
+ * 20 días **corridos** (`evaluarAntelacionVacaciones`, más abajo)-. Al ser
+ * hábiles, siempre cae después del mínimo corrido, así que el valor
+ * propuesto nunca arranca ya inválido.
+ */
+const FECHA_INICIO_DEFECTO = sumarDiasHabiles(aISO(new Date()), 20)
 
 export default function SolicitudVacaciones() {
   const { perfil } = useAuth()
@@ -72,11 +73,6 @@ export default function SolicitudVacaciones() {
   )
 
   const [form, setForm] = useState({
-    empresaId: '',
-    areaId: '',
-    cargoId: '',
-    /** Vacío = se propone el del área. El colaborador puede cambiarlo. */
-    coordinadorId: '',
     /** Vacío = se toma el del perfil; si el perfil no lo tiene, se pide aquí. */
     documento: '',
     diasCorresponden: '',
@@ -84,7 +80,7 @@ export default function SolicitudVacaciones() {
     /** Parte del periodo que se paga en dinero en vez de disfrutarse. */
     compensaDias: false,
     diasCompensados: '',
-    fechaInicio: HOY,
+    fechaInicio: FECHA_INICIO_DEFECTO,
     /** Vacío = la app calcula la fecha final desde los días a disfrutar. */
     fechaFinManual: '',
     reintegroManual: '',
@@ -99,37 +95,31 @@ export default function SolicitudVacaciones() {
   const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
   const [confirmando, setConfirmando] = useState(false)
 
-  const empresaId = form.empresaId || (perfil?.empresa_id ? String(perfil.empresa_id) : '')
-  const areaId = form.areaId || (perfil?.area_id ? String(perfil.area_id) : '')
-  const cargoId = form.cargoId || (perfil?.cargo_id ? String(perfil.cargo_id) : '')
+  // Empresa, servicio y cargo ya no se piden: nacen del perfil, igual que en
+  // la solicitud de permiso.
+  const empresaId = perfil?.empresa_id ? String(perfil.empresa_id) : ''
+  const areaId = perfil?.area_id ? String(perfil.area_id) : ''
+  const cargoId = perfil?.cargo_id ? String(perfil.cargo_id) : ''
   const documento = form.documento || perfil?.documento || ''
+  const perfilIncompleto = !empresaId || !areaId || !cargoId
 
   function set<K extends keyof typeof form>(campo: K, valor: (typeof form)[K]) {
     setForm((f) => ({ ...f, [campo]: valor }))
   }
 
   /**
-   * Jefe directo que autorizará. Igual que en permisos, se elige de forma
-   * explícita: si el colaborador cambió de servicio, el dato del perfil está
-   * desactualizado y la solicitud caería en la bandeja equivocada.
+   * Jefe directo que autoriza. Se toma del jefe del servicio del perfil, no
+   * de `perfil.coordinador_id` directamente, para no depender de que cada
+   * perfil se actualice cuando cambia el jefe de un área.
    */
-  const coordinadorPropuesto = useMemo(() => {
+  const coordinador = useMemo(() => {
     const delArea = coordinadores?.find((c) => String(c.area_id) === areaId)
     if (delArea) return delArea
     return coordinadores?.find((c) => c.id === perfil?.coordinador_id)
   }, [coordinadores, perfil, areaId])
 
-  const coordinadorId = form.coordinadorId || (coordinadorPropuesto ? String(coordinadorPropuesto.id) : '')
-  const coordinador = coordinadores?.find((c) => String(c.id) === coordinadorId)
-
-  const coordinadoresDelArea = useMemo(
-    () => coordinadores?.filter((c) => String(c.area_id) === areaId) ?? [],
-    [coordinadores, areaId]
-  )
-  const otrosCoordinadores = useMemo(
-    () => coordinadores?.filter((c) => String(c.area_id) !== areaId) ?? [],
-    [coordinadores, areaId]
-  )
+  /** Un cargo asistencial se reintegra al día calendario siguiente. */
+  const cargoEsAsistencial = cargos?.find((c) => String(c.id) === cargoId)?.tipo === 'asistencial'
 
   const aDisfrutar = form.diasADisfrutar === '' ? null : Number(form.diasADisfrutar)
   const corresponden = form.diasCorresponden === '' ? null : Number(form.diasCorresponden)
@@ -185,8 +175,9 @@ export default function SolicitudVacaciones() {
         fechaInicio: form.fechaInicio,
         fechaFin,
         diasADisfrutar: aDisfrutar,
+        cargoEsAsistencial,
       }),
-    [form.fechaInicio, fechaFin, aDisfrutar]
+    [form.fechaInicio, fechaFin, aDisfrutar, cargoEsAsistencial]
   )
 
   const saldos = useMemo(
@@ -247,14 +238,9 @@ export default function SolicitudVacaciones() {
     if (!coordinador) {
       lista.push({
         tono: 'advertencia',
-        texto: 'Selecciona el jefe directo que debe autorizar: es quien recibirá la solicitud.',
-      })
-    }
-    // Cambió de servicio respecto a su perfil: conviene que confirme el jefe.
-    if (perfil?.area_id && areaId && String(perfil.area_id) !== areaId) {
-      lista.push({
-        tono: 'info',
-        texto: `Estás solicitando desde un servicio distinto al de tu perfil. Verifica que ${coordinador?.nombre ?? 'el jefe directo'} sea quien debe autorizarte hoy.`,
+        texto: perfilIncompleto
+          ? 'Tu perfil todavía no tiene servicio o cargo asignado: contacta a Talento Humano antes de solicitar.'
+          : 'Tu servicio no tiene jefe directo asignado en el catálogo. Contacta a Talento Humano.',
       })
     }
 
@@ -263,7 +249,17 @@ export default function SolicitudVacaciones() {
       texto: 'Talento Humano validará los saldos contra nómina antes de aprobar.',
     })
     return lista
-  }, [antelacion, calculo, saldos, fechaFinEsManual, fechaFinCalculada, form.fechaFinManual, aDisfrutar, coordinador, perfil, areaId])
+  }, [
+    antelacion,
+    calculo,
+    saldos,
+    fechaFinEsManual,
+    fechaFinCalculada,
+    form.fechaFinManual,
+    aDisfrutar,
+    coordinador,
+    perfilIncompleto,
+  ])
 
   /**
    * Revisa la solicitud y muestra lo que falte.
@@ -281,6 +277,7 @@ export default function SolicitudVacaciones() {
       declaracionAceptada: form.declaracion,
       tieneCoordinador: Boolean(coordinador),
       antelacion,
+      diasCorresponden: corresponden,
       diasCompensados: compensados,
       tieneCartaCompensados: cartaCompensados.length > 0,
     })
@@ -411,86 +408,41 @@ export default function SolicitudVacaciones() {
                 />
               </div>
 
+              {/* Empresa, servicio, cargo y jefe directo ya no se eligen aquí:
+                  vienen del perfil, igual que en la solicitud de permiso. */}
               <div className="space-y-1">
-                <Label htmlFor="empresa">Empresa<Obligatorio /></Label>
-                <Select value={empresaId} onValueChange={(v) => set('empresaId', v)}>
-                  <SelectTrigger id="empresa">
-                    <SelectValue placeholder="Selecciona…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {empresas?.map((e) => (
-                      <SelectItem key={e.id} value={String(e.id)}>
-                        {e.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Empresa</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {empresas?.find((e) => String(e.id) === empresaId)?.nombre ?? 'Sin asignar'}
+                </p>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="area">Servicio actual<Obligatorio /></Label>
-                <Select
-                  value={areaId}
-                  onValueChange={(v) => {
-                    set('areaId', v)
-                    // Al cambiar de servicio se vuelve a proponer su jefe directo.
-                    set('coordinadorId', '')
-                  }}
-                >
-                  <SelectTrigger id="area">
-                    <SelectValue placeholder="Selecciona…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {areas?.map((a) => (
-                      <SelectItem key={a.id} value={String(a.id)}>
-                        {a.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Servicio actual</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {areas?.find((a) => String(a.id) === areaId)?.nombre ?? 'Sin asignar'}
+                </p>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="cargo">Cargo<Obligatorio /></Label>
-                <Select value={cargoId} onValueChange={(v) => set('cargoId', v)}>
-                  <SelectTrigger id="cargo">
-                    <SelectValue placeholder="Selecciona…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cargos?.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Cargo</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {cargos?.find((c) => String(c.id) === cargoId)?.nombre ?? 'Sin asignar'}
+                </p>
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="coordinador">Jefe directo que autoriza<Obligatorio /></Label>
-                <Select value={coordinadorId} onValueChange={(v) => set('coordinadorId', v)}>
-                  <SelectTrigger id="coordinador">
-                    <SelectValue placeholder="Selecciona a quién le llega…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {coordinadoresDelArea.length > 0 && (
-                      <SelectGroup>
-                        <SelectLabel>Del servicio seleccionado</SelectLabel>
-                        {coordinadoresDelArea.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>{etiquetaCoordinador(c)}</SelectItem>
-                        ))}
-                      </SelectGroup>
-                    )}
-                    {otrosCoordinadores.length > 0 && (
-                      <SelectGroup>
-                        <SelectLabel>Otros coordinadores</SelectLabel>
-                        {otrosCoordinadores.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>{etiquetaCoordinador(c)}</SelectItem>
-                        ))}
-                      </SelectGroup>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Label>Jefe directo que autoriza</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {coordinador ? etiquetaCoordinador(coordinador) : 'Sin asignar'}
+                </p>
               </div>
             </div>
+
+            {perfilIncompleto && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                Tu perfil no tiene empresa, servicio o cargo asignado. Contacta a Talento Humano
+                antes de enviar la solicitud.
+              </p>
+            )}
           </section>
 
           <section className="bloque-datos bloque-teal p-3">

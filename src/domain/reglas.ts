@@ -67,6 +67,15 @@ export function calcularDuracion(params: {
   }
 }
 
+/**
+ * Fecha final de una incapacidad a partir de la fecha de inicio y el número
+ * de días, en días corridos: una incapacidad no salta fines de semana ni
+ * festivos, así que el día `n` es siempre `fechaInicio + (n - 1)`.
+ */
+export function fechaFinDesdeDias(fechaInicio: FechaISO, dias: number): FechaISO {
+  return aISO(sumarDias(desdeISO(fechaInicio), Math.max(0, Math.round(dias)) - 1))
+}
+
 /** Diferencia en horas entre dos `HH:MM`. Nunca devuelve negativos. */
 export function diferenciaHoras(salida: string, regreso: string): number {
   const minutos = aMinutos(regreso) - aMinutos(salida)
@@ -282,10 +291,18 @@ export function calcularVacaciones(params: {
   fechaInicio: FechaISO
   fechaFin: FechaISO
   diasADisfrutar?: number | null
+  /**
+   * Un cargo asistencial se presenta al día calendario siguiente de terminar
+   * el periodo, no al siguiente día hábil: la clínica no cierra un fin de
+   * semana ni un festivo para quien atiende pacientes.
+   */
+  cargoEsAsistencial?: boolean
 }): CalculoVacaciones {
   const diasHabiles = contarDiasHabiles(params.fechaInicio, params.fechaFin)
   const diasCalendario = contarDiasCalendario(params.fechaInicio, params.fechaFin)
-  const fechaReintegro = siguienteDiaHabil(params.fechaFin)
+  const fechaReintegro = params.cargoEsAsistencial
+    ? aISO(sumarDias(desdeISO(params.fechaFin), 1))
+    : siguienteDiaHabil(params.fechaFin)
 
   const digitado = params.diasADisfrutar ?? null
   const diferencia = digitado === null ? 0 : redondear(digitado - diasHabiles)

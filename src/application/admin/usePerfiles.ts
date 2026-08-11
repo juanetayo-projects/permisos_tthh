@@ -233,6 +233,48 @@ export function useCrearUsuario() {
   })
 }
 
+export interface ResultadoFilaImportacion {
+  ok: boolean
+  user_id?: string
+  ya_existia?: boolean
+  correo_enviado?: boolean
+  error?: string
+}
+
+/**
+ * Carga masiva de usuarios desde un Excel.
+ *
+ * Va por la misma Edge Function que el alta de uno solo, en modo lote: cada
+ * fila puede fallar por su cuenta —un correo repetido, un rol inválido— sin
+ * que eso tumbe a las demás. Se manda secuencial y no en paralelo porque cada
+ * alta dispara un correo por Resend, y es la función la que ya respeta ese
+ * orden fila por fila.
+ */
+export function useImportarUsuariosMasivo() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (usuarios: DatosNuevoUsuario[]): Promise<ResultadoFilaImportacion[]> => {
+      const { data, error } = await supabase.functions.invoke('permisos-crear-usuario', {
+        body: { usuarios },
+      })
+
+      if (error) {
+        const detalle = await (error as { context?: Response }).context
+          ?.json()
+          .catch(() => null)
+        throw new Error(detalle?.error ?? 'No fue posible importar los usuarios.')
+      }
+
+      return (data as { resultados: ResultadoFilaImportacion[] }).resultados
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['perfiles'] })
+      void qc.invalidateQueries({ queryKey: ['usuarios-heredados'] })
+    },
+  })
+}
+
 export function useCambiarEstadoPerfil() {
   const qc = useQueryClient()
 

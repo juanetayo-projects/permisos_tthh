@@ -17,8 +17,15 @@
 // La contrasena no la elige quien crea la cuenta: se manda un enlace para que
 // la persona la defina. Asi nadie mas que ella la conoce, y de paso el enlace
 // sirve de correo de bienvenida.
+//
+// Acepta dos formas de payload en el mismo endpoint:
+//   - Un solo usuario: los campos de siempre (correo, nombre, rol, ...).
+//   - Un lote: `{ usuarios: [...] }`, para la carga masiva desde Excel. Se
+//     procesa fila por fila -cada una puede fallar por su cuenta, por ejemplo
+//     un correo repetido- y se devuelve un resultado por fila en vez de
+//     abortar el lote completo por un solo error.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
-import { createClient } from "jsr:@supabase/supabase-js@2"
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2"
 
 const APP_URL = Deno.env.get("APP_URL") ?? "https://juanetayo-projects.github.io/permisos_tthh/"
 const BASE = APP_URL.replace(/\/$/, "")
@@ -83,6 +90,160 @@ function plantilla(nombre: string, enlace: string): string {
   </table></body></html>`
 }
 
+interface ResultadoFila {
+  ok: boolean
+  user_id?: string
+  ya_existia?: boolean
+  correo_enviado?: boolean
+  error?: string
+}
+
+/**
+ * Da de alta a una persona. Es la misma lógica que antes tenía el handler
+ * directamente, extraída para poder llamarla una vez (un solo usuario) o en
+ * bucle (el lote de la carga masiva) sin duplicar nada.
+ */
+async function crearUno(
+  sb: SupabaseClient,
+  solicitanteId: string,
+  puedeAsignarRol: boolean,
+  cuerpo: Record<string, unknown>
+): Promise<ResultadoFila> {
+  const correo = String(cuerpo.correo ?? "").trim().toLowerCase()
+  const nombre = String(cuerpo.nombre ?? "").trim()
+  const rol = String(cuerpo.rol ?? "colaborador")
+
+  if (!correo.includes("@") || !nombre) {
+    return { ok: false, error: "Hacen falta el nombre y un correo valido." }
+  }
+  if (!ROLES_VALIDOS.includes(rol)) {
+    return { ok: false, error: "Rol desconocido." }
+  }
+  // La comprobacion que impide que un analista se fabrique un administrador.
+  if (rol !== "colaborador" && !puedeAsignarRol) {
+    return { ok: false, error: "Solo el administrador puede asignar un rol distinto de colaborador." }
+  }
+
+  // ------------------------------------------------- La cuenta de auth
+  // El correo puede existir ya: alguien pudo registrarse por su cuenta y
+  // quedar sin perfil. En ese caso se reutiliza la cuenta en vez de fallar.
+  let userId: string | null = null
+  let yaExistia = false
+
+  const { data: creado, error: errorCrear } = await sb.auth.admin.createUser({
+    email: correo,
+    email_confirm: true,
+    user_metadata: { nombre, app: "permisos_tthh" },
+  })
+
+  if (creado?.user) {
+    userId = creado.user.id
+  } else {
+    const mensaje = (errorCrear?.message ?? "").toLowerCase()
+    if (!mensaje.includes("already") && !mensaje.includes("registered")) {
+      return { ok: false, error: "No fue posible crear la cuenta." }
+    }
+
+    // `listUsers` no filtra por correo. Antes se buscaba en `profiles`, la
+    // tabla de Cambio de Turnos, que ya no existe en este proyecto:
+    // `generateLink` devuelve el usuario y de paso sirve para el correo.
+    const { data: existente } = await sb.auth.admin.generateLink({
+      type: "recovery",
+      email: correo,
+    })
+
+    userId = existente?.user?.id ?? null
+    yaExistia = true
+
+    if (!userId) {
+      return { ok: false, error: "Ese correo ya tiene una cuenta, pero no fue posible ubicarla." }
+    }
+  }
+
+  // ------------------------------------------------------------- El perfil
+  const { data: perfilPrevio } = await sb
+    .from("permisos_perfiles")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle()
+
+  if (perfilPrevio) {
+    return { ok: false, error: "Esa persona ya tiene perfil en la aplicacion." }
+  }
+
+  const { error: errorPerfil } = await sb.from("permisos_perfiles").insert({
+    user_id: userId,
+    nombre,
+    correo,
+    tipo_documento: cuerpo.tipo_documento ?? "CC",
+    documento: cuerpo.documento ? String(cuerpo.documento).trim() : null,
+    telefono: cuerpo.telefono ? String(cuerpo.telefono).trim() : null,
+    empresa_id: cuerpo.empresa_id ?? null,
+    area_id: cuerpo.area_id ?? null,
+    cargo_id: cuerpo.cargo_id ?? null,
+    coordinador_id: cuerpo.coordinador_id ?? null,
+    rol,
+    // Nace activa: la creo Talento Humano, que es justo quien valida. Pasar
+    // por «pendiente de validacion» seria pedirle que se valide a si misma,
+    // y ese es el cuello de botella que este alta viene a quitar.
+    estado: "activo",
+    activo: true,
+    validado_por: solicitanteId,
+    validado_en: new Date().toISOString(),
+  })
+
+  if (errorPerfil) {
+    console.error("perfil:", errorPerfil.message)
+    return { ok: false, error: "La cuenta se creo pero el perfil no. Revisa en Usuarios." }
+  }
+
+  // --------------------------------------------- Correo para poner la clave
+  let correoEnviado = false
+
+  const { data: enlaceDatos } = await sb.auth.admin.generateLink({
+    type: "recovery",
+    email: correo,
+  })
+  const tokenHash = enlaceDatos?.properties?.hashed_token
+
+  if (tokenHash) {
+    // La clave vive en los secretos de este proyecto. Antes se leia tambien del
+    // Vault de Cambio de Turnos con public.get_secret(), que no existe aqui.
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || ""
+
+    if (RESEND_API_KEY) {
+      const enlace = `${BASE}/#/establecer-clave?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`
+      const asunto = "Tu cuenta de Permisos y Vacaciones"
+
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: REMITENTE,
+          to: correo,
+          subject: asunto,
+          html: plantilla(nombre, enlace),
+        }),
+      })
+
+      correoEnviado = res.ok
+      if (!res.ok) console.error("Resend:", await res.text())
+
+      await sb.from("permisos_notificaciones").insert({
+        destinatario: correo,
+        plantilla: "bienvenida_alta",
+        asunto,
+        estado: res.ok ? "enviado" : "error",
+        enviado_en: res.ok ? new Date().toISOString() : null,
+      })
+    }
+  }
+
+  // El alta es correcta aunque el correo falle: la persona siempre puede
+  // usar «Olvide mi contrasena». Se devuelve para poder avisarlo en pantalla.
+  return { ok: true, user_id: userId, ya_existia: yaExistia, correo_enviado: correoEnviado }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors })
 
@@ -114,144 +275,42 @@ Deno.serve(async (req) => {
       return responder({ error: "No tienes permiso para crear usuarios." }, 403)
     }
 
-    // ------------------------------------------------------------- Los datos
+    const puedeAsignarRol = perfilSolicitante.rol === "administrador"
     const cuerpo = await req.json()
-    const correo = String(cuerpo.correo ?? "").trim().toLowerCase()
-    const nombre = String(cuerpo.nombre ?? "").trim()
-    const rol = String(cuerpo.rol ?? "colaborador")
 
-    if (!correo.includes("@") || !nombre) {
-      return responder({ error: "Hacen falta el nombre y un correo valido." }, 400)
-    }
-    if (!ROLES_VALIDOS.includes(rol)) {
-      return responder({ error: "Rol desconocido." }, 400)
-    }
-    // La comprobacion que impide que un analista se fabrique un administrador.
-    if (rol !== "colaborador" && perfilSolicitante.rol !== "administrador") {
-      return responder({ error: "Solo el administrador puede asignar un rol distinto de colaborador." }, 403)
-    }
-
-    // ------------------------------------------------- La cuenta de auth
-    // El correo puede existir ya: alguien pudo registrarse por su cuenta y
-    // quedar sin perfil. En ese caso se reutiliza la cuenta en vez de fallar.
-    let userId: string | null = null
-    let yaExistia = false
-
-    const { data: creado, error: errorCrear } = await sb.auth.admin.createUser({
-      email: correo,
-      email_confirm: true,
-      user_metadata: { nombre, app: "permisos_tthh" },
-    })
-
-    if (creado?.user) {
-      userId = creado.user.id
-    } else {
-      const mensaje = (errorCrear?.message ?? "").toLowerCase()
-      if (!mensaje.includes("already") && !mensaje.includes("registered")) {
-        return responder({ error: "No fue posible crear la cuenta." }, 500)
+    // ------------------------------------------------------------ El lote
+    if (Array.isArray(cuerpo.usuarios)) {
+      const filas = cuerpo.usuarios as Record<string, unknown>[]
+      if (filas.length === 0) {
+        return responder({ error: "El archivo no trae filas para importar." }, 400)
+      }
+      if (filas.length > 500) {
+        return responder({ error: "Máximo 500 filas por carga: divide el archivo." }, 400)
       }
 
-      // `listUsers` no filtra por correo. Antes se buscaba en `profiles`, la
-      // tabla de Cambio de Turnos, que ya no existe en este proyecto:
-      // `generateLink` devuelve el usuario y de paso sirve para el correo.
-      const { data: existente } = await sb.auth.admin.generateLink({
-        type: "recovery",
-        email: correo,
-      })
-
-      userId = existente?.user?.id ?? null
-      yaExistia = true
-
-      if (!userId) {
-        return responder(
-          { error: "Ese correo ya tiene una cuenta, pero no fue posible ubicarla." },
-          409
-        )
+      const resultados: ResultadoFila[] = []
+      // Secuencial, no en paralelo: cada alta manda un correo por Resend, y
+      // el proveedor limita cuántos se envían por segundo.
+      for (const fila of filas) {
+        resultados.push(await crearUno(sb, solicitante.id, puedeAsignarRol, fila))
       }
+
+      return responder({ resultados })
     }
 
-    // ------------------------------------------------------------- El perfil
-    const { data: perfilPrevio } = await sb
-      .from("permisos_perfiles")
-      .select("user_id")
-      .eq("user_id", userId)
-      .maybeSingle()
-
-    if (perfilPrevio) {
-      return responder({ error: "Esa persona ya tiene perfil en la aplicacion." }, 409)
+    // --------------------------------------------------------- Un solo usuario
+    const resultado = await crearUno(sb, solicitante.id, puedeAsignarRol, cuerpo)
+    if (!resultado.ok) {
+      const status = resultado.error?.includes("ya tiene") ? 409 : 400
+      return responder({ error: resultado.error }, status)
     }
 
-    const { error: errorPerfil } = await sb.from("permisos_perfiles").insert({
-      user_id: userId,
-      nombre,
-      correo,
-      tipo_documento: cuerpo.tipo_documento ?? "CC",
-      documento: cuerpo.documento ? String(cuerpo.documento).trim() : null,
-      telefono: cuerpo.telefono ? String(cuerpo.telefono).trim() : null,
-      empresa_id: cuerpo.empresa_id ?? null,
-      area_id: cuerpo.area_id ?? null,
-      cargo_id: cuerpo.cargo_id ?? null,
-      coordinador_id: cuerpo.coordinador_id ?? null,
-      rol,
-      // Nace activa: la creo Talento Humano, que es justo quien valida. Pasar
-      // por «pendiente de validacion» seria pedirle que se valide a si misma,
-      // y ese es el cuello de botella que este alta viene a quitar.
-      estado: "activo",
-      activo: true,
-      validado_por: solicitante.id,
-      validado_en: new Date().toISOString(),
+    return responder({
+      ok: true,
+      user_id: resultado.user_id,
+      ya_existia: resultado.ya_existia,
+      correo_enviado: resultado.correo_enviado,
     })
-
-    if (errorPerfil) {
-      console.error("perfil:", errorPerfil.message)
-      return responder({ error: "La cuenta se creo pero el perfil no. Revisa en Usuarios." }, 500)
-    }
-
-    // --------------------------------------------- Correo para poner la clave
-    let correoEnviado = false
-
-    const { data: enlaceDatos } = await sb.auth.admin.generateLink({
-      type: "recovery",
-      email: correo,
-    })
-    const tokenHash = enlaceDatos?.properties?.hashed_token
-
-    if (tokenHash) {
-      // La clave vive en los secretos de este proyecto. Antes se leia tambien del
-      // Vault de Cambio de Turnos con public.get_secret(), que no existe aqui.
-      const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || ""
-
-      if (RESEND_API_KEY) {
-        const enlace = `${BASE}/#/establecer-clave?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`
-        const asunto = "Tu cuenta de Permisos y Vacaciones"
-
-        const res = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            from: REMITENTE,
-            to: correo,
-            subject: asunto,
-            html: plantilla(nombre, enlace),
-          }),
-        })
-
-        correoEnviado = res.ok
-        if (!res.ok) console.error("Resend:", await res.text())
-
-        await sb.from("permisos_notificaciones").insert({
-          destinatario: correo,
-          plantilla: "bienvenida_alta",
-          asunto,
-          estado: res.ok ? "enviado" : "error",
-          enviado_en: res.ok ? new Date().toISOString() : null,
-        })
-      }
-    }
-
-    // El alta es correcta aunque el correo falle: la persona siempre puede
-    // usar «Olvide mi contrasena». Se devuelve para poder avisarlo en pantalla.
-    return responder({ ok: true, user_id: userId, ya_existia: yaExistia, correo_enviado: correoEnviado })
   } catch (e) {
     console.error("permisos-crear-usuario:", String(e))
     return responder({ error: "No fue posible completar el alta." }, 500)

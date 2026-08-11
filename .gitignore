@@ -13,6 +13,9 @@ build/
 .env
 .env.*
 !.env.example
+password.txt
+*password*.txt
+*.pgpass
 
 # Editores
 .vscode/*

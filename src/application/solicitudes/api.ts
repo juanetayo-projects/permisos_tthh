@@ -147,6 +147,8 @@ export interface DetallePermiso {
   justificacion?: string | null
   requiere_soporte_posterior: boolean
   fecha_limite_soporte?: FechaISO | null
+  /** Diagnóstico CIE10. Solo lo piden los motivos de naturaleza incapacidad. */
+  cie10_codigo?: string | null
 }
 
 export interface DetalleVacaciones {

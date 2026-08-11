@@ -54,9 +54,7 @@ import { Textarea } from '@/presentation/components/ui/textarea'
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/presentation/components/ui/select'
@@ -79,11 +77,6 @@ export default function SolicitudPermiso() {
   const { data: propias } = useSolicitudes({ soloPropias: true }, perfil?.user_id)
 
   const [form, setForm] = useState({
-    empresaId: '',
-    areaId: '',
-    cargoId: '',
-    /** Vacío = se propone el del área. El colaborador puede cambiarlo. */
-    coordinadorId: '',
     /** Vacío = se toma el del perfil; si el perfil no lo tiene, se pide aquí. */
     documento: '',
     categoriaId: '',
@@ -106,11 +99,14 @@ export default function SolicitudPermiso() {
   const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
   const [confirmando, setConfirmando] = useState(false)
 
-  // El perfil llena los campos que no debería tener que digitar el colaborador.
-  const empresaId = form.empresaId || (perfil?.empresa_id ? String(perfil.empresa_id) : '')
-  const areaId = form.areaId || (perfil?.area_id ? String(perfil.area_id) : '')
-  const cargoId = form.cargoId || (perfil?.cargo_id ? String(perfil.cargo_id) : '')
+  // Empresa, servicio y cargo ya no se piden: nacen del perfil, que se puebla
+  // desde la carga masiva de usuarios y valida Talento Humano. Editarlos aquí
+  // dejaba que una solicitud se radicara con un servicio que ya no es el suyo.
+  const empresaId = perfil?.empresa_id ? String(perfil.empresa_id) : ''
+  const areaId = perfil?.area_id ? String(perfil.area_id) : ''
+  const cargoId = perfil?.cargo_id ? String(perfil.cargo_id) : ''
   const documento = form.documento || perfil?.documento || ''
+  const perfilIncompleto = !empresaId || !areaId || !cargoId
 
   function set<K extends keyof typeof form>(campo: K, valor: (typeof form)[K]) {
     setForm((f) => ({ ...f, [campo]: valor }))
@@ -140,21 +136,18 @@ export default function SolicitudPermiso() {
   const tipo = tipos?.find((t) => String(t.id) === form.tipoId)
 
   /**
-   * Jefe directo que autorizará la solicitud.
+   * Jefe directo que autoriza la solicitud.
    *
-   * Se elige de forma explícita y no se deduce del perfil: un colaborador puede
-   * haber cambiado de servicio, y con el dato del perfil desactualizado la
-   * solicitud caería en la bandeja del coordinador equivocado. Se propone el
-   * del área seleccionada, pero manda lo que elija quien solicita.
+   * Ya no lo elige el colaborador: se toma del jefe del servicio de su
+   * perfil, no de `perfil.coordinador_id` directamente, porque ese dato puede
+   * quedar desactualizado cuando cambia el jefe de un área sin que se edite
+   * cada perfil uno por uno.
    */
-  const coordinadorPropuesto = useMemo(() => {
+  const coordinador = useMemo(() => {
     const delArea = coordinadores?.find((c) => String(c.area_id) === areaId)
     if (delArea) return delArea
     return coordinadores?.find((c) => c.id === perfil?.coordinador_id)
   }, [coordinadores, perfil, areaId])
-
-  const coordinadorId = form.coordinadorId || (coordinadorPropuesto ? String(coordinadorPropuesto.id) : '')
-  const coordinador = coordinadores?.find((c) => String(c.id) === coordinadorId)
 
   /**
    * Ventana de fechas del motivo.
@@ -207,14 +200,13 @@ export default function SolicitudPermiso() {
    */
   const permiteHoras = tipo ? tipo.permite_horas : true
 
-  const coordinadoresDelArea = useMemo(
-    () => coordinadores?.filter((c) => String(c.area_id) === areaId) ?? [],
-    [coordinadores, areaId]
-  )
-  const otrosCoordinadores = useMemo(
-    () => coordinadores?.filter((c) => String(c.area_id) !== areaId) ?? [],
-    [coordinadores, areaId]
-  )
+  /**
+   * La cita médica siempre es remunerada: no se le puede dejar destildar la
+   * casilla, a diferencia del resto de motivos de Salud.
+   */
+  const remuneradoBloqueado =
+    tipo?.nombre === 'Cita médica' &&
+    categorias?.find((c) => c.id === tipo.categoria_id)?.nombre === 'Salud'
 
   const duracion = useMemo(
     () =>
@@ -355,28 +347,13 @@ export default function SolicitudPermiso() {
     if (!coordinador && tipo?.ruta_aprobacion !== 'gerente_th_directo') {
       lista.push({
         tono: 'advertencia',
-        texto: 'Selecciona el jefe directo que debe autorizar: es quien recibirá la solicitud.',
-      })
-    }
-    // Cambió de servicio respecto a su perfil: conviene que confirme el jefe.
-    if (perfil?.area_id && areaId && String(perfil.area_id) !== areaId) {
-      lista.push({
-        tono: 'info',
-        texto: `Estás solicitando desde un servicio distinto al de tu perfil. Verifica que ${coordinador?.nombre ?? 'el jefe directo'} sea quien debe autorizarte hoy.`,
+        texto: perfilIncompleto
+          ? 'Tu perfil todavía no tiene servicio o cargo asignado: contacta a Talento Humano antes de solicitar.'
+          : 'Tu servicio no tiene jefe directo asignado en el catálogo. Contacta a Talento Humano.',
       })
     }
     return lista
-  }, [
-    antelacion,
-    soporteExigido,
-    tipo,
-    coordinador,
-    perfil,
-    areaId,
-    avisoDuracion,
-    avisoCupo,
-    suspendidos,
-  ])
+  }, [antelacion, soporteExigido, tipo, coordinador, perfilIncompleto, avisoDuracion, avisoCupo, suspendidos])
 
   /**
    * Revisa la solicitud y muestra lo que falte.
@@ -439,7 +416,7 @@ export default function SolicitudPermiso() {
           hora_regreso: permiteHoras ? form.horaRegreso || null : null,
           horas_permiso: duracion.horas,
           dias_permiso: duracion.dias,
-          remunerado: form.remunerado,
+          remunerado: remuneradoBloqueado || form.remunerado,
           requiere_compensacion: form.requiereCompensacion,
           plan_compensacion: form.planCompensacion.trim() || null,
           justificacion: form.justificacion.trim() || null,
@@ -498,6 +475,7 @@ export default function SolicitudPermiso() {
 
   const nombreArea = areas?.find((a) => String(a.id) === areaId)?.nombre
   const nombreEmpresa = empresas?.find((e) => String(e.id) === empresaId)?.nombre
+  const nombreCargo = cargos?.find((c) => String(c.id) === cargoId)?.nombre
 
   return (
     // Altura fija y scroll por dentro. Sin esto, el formulario se salía de la
@@ -542,92 +520,46 @@ export default function SolicitudPermiso() {
                 />
               </div>
 
+              {/* Empresa, servicio, cargo y jefe directo ya no se eligen aquí:
+                  vienen del perfil, que puebla la carga masiva de usuarios y
+                  valida Talento Humano. Mostrarlos como información evita que
+                  una solicitud se radique con un servicio que ya no es el
+                  suyo. */}
               <div className="space-y-1">
-                <Label htmlFor="empresa">Empresa<Obligatorio /></Label>
-                <Select value={empresaId} onValueChange={(v) => set('empresaId', v)}>
-                  <SelectTrigger id="empresa">
-                    <SelectValue placeholder="Selecciona…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {empresas?.map((e) => (
-                      <SelectItem key={e.id} value={String(e.id)}>
-                        {e.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Empresa</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {nombreEmpresa ?? 'Sin asignar'}
+                </p>
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="area">Servicio actual<Obligatorio /></Label>
-                <Select
-                  value={areaId}
-                  onValueChange={(v) => {
-                    set('areaId', v)
-                    // Al cambiar de servicio se vuelve a proponer su jefe directo.
-                    set('coordinadorId', '')
-                  }}
-                >
-                  <SelectTrigger id="area">
-                    <SelectValue placeholder="Selecciona…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {areas?.map((a) => (
-                      <SelectItem key={a.id} value={String(a.id)}>
-                        {a.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Servicio actual</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {nombreArea ?? 'Sin asignar'}
+                </p>
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="cargo">Cargo<Obligatorio /></Label>
-                <Select value={cargoId} onValueChange={(v) => set('cargoId', v)}>
-                  <SelectTrigger id="cargo">
-                    <SelectValue placeholder="Selecciona…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cargos?.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.nombre}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Cargo</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {nombreCargo ?? 'Sin asignar'}
+                </p>
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="coordinador">Jefe directo que autoriza<Obligatorio /></Label>
-                <Select value={coordinadorId} onValueChange={(v) => set('coordinadorId', v)}>
-                  <SelectTrigger id="coordinador">
-                    <SelectValue placeholder="Selecciona a quién le llega…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {coordinadoresDelArea.length > 0 && (
-                      <SelectGroup>
-                        <SelectLabel>Del servicio seleccionado</SelectLabel>
-                        {coordinadoresDelArea.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>
-                            {etiquetaCoordinador(c)}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    )}
-                    {otrosCoordinadores.length > 0 && (
-                      <SelectGroup>
-                        <SelectLabel>Otros coordinadores</SelectLabel>
-                        {otrosCoordinadores.map((c) => (
-                          <SelectItem key={c.id} value={String(c.id)}>
-                            {etiquetaCoordinador(c)}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    )}
-                  </SelectContent>
-                </Select>
+                <Label>Jefe directo que autoriza</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {coordinador ? etiquetaCoordinador(coordinador) : 'Sin asignar'}
+                </p>
               </div>
             </div>
+
+            {perfilIncompleto && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                Tu perfil no tiene empresa, servicio o cargo asignado. Contacta a Talento Humano
+                antes de enviar la solicitud.
+              </p>
+            )}
           </section>
 
           {/* -------------------------------------------------------- Dos columnas */}
@@ -793,10 +725,14 @@ export default function SolicitudPermiso() {
               <div className="mt-2.5 flex flex-wrap items-center gap-4">
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
-                    checked={form.remunerado}
+                    checked={remuneradoBloqueado || form.remunerado}
+                    disabled={remuneradoBloqueado}
                     onCheckedChange={(v) => set('remunerado', v === true)}
                   />
                   Permiso remunerado
+                  {remuneradoBloqueado && (
+                    <span className="text-xs text-muted-foreground">(siempre lo es)</span>
+                  )}
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
@@ -853,7 +789,7 @@ export default function SolicitudPermiso() {
               valor: `${duracion.horas} h · ${duracion.dias} días`,
               destacado: true,
             },
-            { etiqueta: 'Remunerado', valor: form.remunerado ? 'Sí' : 'No' },
+            { etiqueta: 'Remunerado', valor: remuneradoBloqueado || form.remunerado ? 'Sí' : 'No' },
             {
               etiqueta: 'Aprueba',
               valor:
