@@ -41,7 +41,12 @@ const SelectContent = React.forwardRef<
       ref={ref}
       position={position}
       className={cn(
-        'relative z-50 max-h-72 min-w-32 overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg',
+        // max-h-72 dejaba listas de 8 items justo en el borde del recorte: el
+        // botón de auto-scroll aparecía y desaparecía con el hover y el alto
+        // total saltaba, lo que se veía como parpadeo y movía el item bajo el
+        // cursor justo al hacer clic. Con más alto, las categorías cortas
+        // (Personal, 8 motivos) caben enteras sin necesitar scroll.
+        'relative z-50 max-h-96 min-w-32 overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg',
         'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         position === 'popper' && 'data-[side=bottom]:translate-y-1 data-[side=top]:-translate-y-1',
         className
@@ -52,7 +57,11 @@ const SelectContent = React.forwardRef<
         <ChevronUp className="size-4" />
       </SelectPrimitive.ScrollUpButton>
       <SelectPrimitive.Viewport
-        className={cn('p-1', position === 'popper' && 'w-full min-w-[var(--radix-select-trigger-width)]')}
+        className={cn('p-1 pr-2', position === 'popper' && 'w-full min-w-[var(--radix-select-trigger-width)]')}
+        // Reserva el espacio de la barra de desplazamiento aunque no haga
+        // falta todavía: así una lista que sí desborda no reacomoda el ancho
+        // de los items al aparecer la barra.
+        style={{ scrollbarGutter: 'stable' }}
       >
         {children}
       </SelectPrimitive.Viewport>

@@ -17,6 +17,11 @@ export interface Cargo {
   /** Gobierna el día de reintegro tras vacaciones: calendario si es asistencial. */
   tipo: 'administrativo' | 'asistencial'
 }
+export interface EntidadSalud {
+  id: number
+  nombre: string
+  tipo: 'EPS' | 'ARL'
+}
 export interface Coordinador {
   id: number
   area_id: number | null
@@ -155,6 +160,22 @@ export function useCargos() {
     queryFn: async (): Promise<Cargo[]> => {
       const { data, error } = await supabase
         .from('cargos')
+        .select('id, nombre, tipo')
+        .eq('activo', true)
+        .order('nombre')
+      if (error) throw error
+      return data ?? []
+    },
+  })
+}
+
+export function useEntidadesSalud() {
+  return useQuery({
+    queryKey: ['entidades-salud'],
+    ...OPCIONES_CATALOGO,
+    queryFn: async (): Promise<EntidadSalud[]> => {
+      const { data, error } = await supabase
+        .from('entidades_salud')
         .select('id, nombre, tipo')
         .eq('activo', true)
         .order('nombre')

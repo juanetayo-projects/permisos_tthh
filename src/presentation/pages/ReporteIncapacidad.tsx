@@ -2,21 +2,26 @@ import { useEffect, useMemo, useState } from 'react'
 import { Stethoscope } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
+  documentosDelTipo,
   useBuscarCie10,
   useCategorias,
   useConfig,
   useCoordinadores,
   useEmpresas,
+  useEntidadesSalud,
+  useMatrizDocumentos,
   useTipos,
   useTramite,
   type Cie10,
 } from '@/application/catalogos/useCatalogos'
-import { crearSolicitud } from '@/application/solicitudes/api'
+import { crearSolicitud, subirSoporte } from '@/application/solicitudes/api'
 import { useColaboradoresVisibles } from '@/application/solicitudes/useColaboradores'
 import { fechaFinDesdeDias, fechaLimiteSoporte } from '@/domain/reglas'
+import { documentosDelMomento } from '@/domain/soportes'
 import { problemaAlGuardar, type Problema } from '@/domain/validacion'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
+import { CampoArchivo } from '@/presentation/components/CampoArchivo'
 import { CampoFecha } from '@/presentation/components/CampoFecha'
 import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
 import { DialogoProblemas } from '@/presentation/components/DialogoProblemas'
@@ -70,6 +75,8 @@ export default function ReporteIncapacidad() {
   const { data: coordinadores } = useCoordinadores()
   const { data: colaboradores } = useColaboradoresVisibles()
   const { data: config } = useConfig()
+  const { data: matriz } = useMatrizDocumentos()
+  const { data: entidadesSalud } = useEntidadesSalud()
 
   const [form, setForm] = useState({
     colaboradorId: '',
@@ -84,6 +91,14 @@ export default function ReporteIncapacidad() {
   const [problemas, setProblemas] = useState<Problema[]>([])
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
+  /**
+   * Soportes que el jefe ya tiene a mano al reportar (opcional).
+   *
+   * No sustituye la carga que hace el colaborador después: son casos donde el
+   * jefe ya recibió el certificado -sobre todo en maternidad/paternidad- y no
+   * tiene sentido pedirle que espere a que la propia persona lo suba.
+   */
+  const [soportes, setSoportes] = useState<File[]>([])
 
   // Diagnóstico CIE10: búsqueda con un pequeño debounce para no disparar una
   // consulta por cada tecla sobre una tabla de más de 12.000 filas.
@@ -125,6 +140,13 @@ export default function ReporteIncapacidad() {
     ? (tipo.duracion_maxima_dias ?? 0)
     : Number(form.numeroDias) || 0
   const duracion = useMemo(() => ({ dias, horas: dias * 8 }), [dias])
+
+  /** Documentos que el motivo exige al radicar, con su norma. */
+  const docsDelTipo = useMemo(() => documentosDelTipo(matriz, tipo?.id), [matriz, tipo])
+  const docsPrevios = useMemo(
+    () => documentosDelMomento({ matriz: docsDelTipo, momento: 'previo', diasPermiso: duracion.dias }),
+    [docsDelTipo, duracion.dias]
+  )
 
   /** La fecha final nunca se digita: siempre sale de inicio + días corridos. */
   const fechaFin = useMemo(
@@ -268,6 +290,19 @@ export default function ReporteIncapacidad() {
         },
       })
 
+      // Los que el jefe ya tenía a mano; el resto los sigue cargando el
+      // colaborador desde su propia solicitud, como hasta ahora.
+      for (const [i, archivo] of soportes.entries()) {
+        await subirSoporte({
+          solicitudId: id,
+          archivo,
+          momento: 'previo',
+          usuarioId: session.user.id,
+          maxMB: Number(config?.max_mb_adjunto ?? 10),
+          documentoId: docsPrevios[i]?.documentoId ?? null,
+        })
+      }
+
       setEnviada({
         id,
         consecutivo,
@@ -401,15 +436,21 @@ export default function ReporteIncapacidad() {
               </div>
             </div>
 
-            <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+            <div className="mt-2.5 grid gap-2.5 sm:grid-cols-[1fr_2fr]">
               <div className="space-y-1">
                 <Label htmlFor="entidad">EPS o ARL que la expide</Label>
-                <Input
-                  id="entidad"
-                  value={form.entidad}
-                  onChange={(e) => set('entidad', e.target.value)}
-                  placeholder="Por ejemplo: Sura"
-                />
+                <Select value={form.entidad} onValueChange={(v) => set('entidad', v)}>
+                  <SelectTrigger id="entidad">
+                    <SelectValue placeholder="Selecciona…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {entidadesSalud?.map((e) => (
+                      <SelectItem key={e.id} value={e.nombre}>
+                        {e.nombre} · {e.tipo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="relative space-y-1">
@@ -454,6 +495,15 @@ export default function ReporteIncapacidad() {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="mt-2.5 space-y-1">
+              <Label>Soportes que ya tengas a mano (opcional)</Label>
+              <CampoArchivo archivos={soportes} onCambio={setSoportes} maxMB={Number(config?.max_mb_adjunto ?? 10)} />
+              <p className="text-xs text-muted-foreground">
+                Si no los tienes ahora, {colaborador?.nombre ?? 'el colaborador'} podrá cargarlos
+                después desde su propia solicitud.
+              </p>
             </div>
 
             <LineaTiempoPeriodo

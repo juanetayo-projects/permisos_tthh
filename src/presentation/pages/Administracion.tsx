@@ -2,9 +2,11 @@ import { useState } from 'react'
 import {
   BriefcaseBusiness,
   Building2,
+  Download,
   FileCog,
   FileStack,
   FileText,
+  HeartPulse,
   ListTree,
   Network,
   ScrollText,
@@ -16,10 +18,12 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { EditorCatalogo, type CampoCatalogo } from '@/presentation/components/admin/EditorCatalogo'
+import { DialogoImportarCatalogo } from '@/presentation/components/admin/DialogoImportarCatalogo'
 import { PanelUsuarios } from '@/presentation/components/admin/PanelUsuarios'
 import { PanelAccesos } from '@/presentation/components/admin/PanelAccesos'
 import { PanelParametros } from '@/presentation/components/admin/PanelParametros'
 import { PanelAuditoria } from '@/presentation/components/admin/PanelAuditoria'
+import { Button } from '@/presentation/components/ui/button'
 import { useCatalogo } from '@/application/admin/useCatalogoCrud'
 import { useAuth } from '@/application/auth/AuthProvider'
 
@@ -54,6 +58,23 @@ const CAMPOS_CARGO: CampoCatalogo[] = [
       'Un cargo asistencial se presenta a laborar al día calendario siguiente de terminar sus vacaciones; el resto sigue el cálculo de día hábil siguiente.',
   },
   { clave: 'activo', etiqueta: 'Activo', tipo: 'booleano', ancho: 'w-24' },
+]
+
+const CAMPOS_ENTIDAD_SALUD: CampoCatalogo[] = [
+  { clave: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true },
+  {
+    clave: 'tipo',
+    etiqueta: 'Tipo',
+    tipo: 'seleccion',
+    ancho: 'w-28',
+    requerido: true,
+    opciones: [
+      { valor: 'EPS', etiqueta: 'EPS' },
+      { valor: 'ARL', etiqueta: 'ARL' },
+    ],
+  },
+  { clave: 'orden', etiqueta: 'Orden', tipo: 'numero', ancho: 'w-24' },
+  { clave: 'activo', etiqueta: 'Activa', tipo: 'booleano', ancho: 'w-24' },
 ]
 
 const CAMPOS_CATEGORIA: CampoCatalogo[] = [
@@ -101,6 +122,7 @@ type Seccion =
   | 'coordinadores'
   | 'areas'
   | 'cargos'
+  | 'entidades_salud'
   | 'tramites'
   | 'categorias'
   | 'tipos'
@@ -123,6 +145,7 @@ const SECCIONES: { clave: Seccion; etiqueta: string; icono: typeof Users; soloAd
   { clave: 'coordinadores', etiqueta: 'Jefes directos', icono: UserCog },
   { clave: 'areas', etiqueta: 'Procesos y áreas', icono: Network },
   { clave: 'cargos', etiqueta: 'Cargos', icono: BriefcaseBusiness },
+  { clave: 'entidades_salud', etiqueta: 'EPS y ARL', icono: HeartPulse },
   { clave: 'tramites', etiqueta: 'Trámites y formatos', icono: FileCog },
   { clave: 'categorias', etiqueta: 'Categorías', icono: Tags },
   { clave: 'tipos', etiqueta: 'Motivos de permiso', icono: ListTree },
@@ -136,6 +159,8 @@ const SECCIONES: { clave: Seccion; etiqueta: string; icono: typeof Users; soloAd
 export default function Administracion() {
   const { perfil } = useAuth()
   const [seccion, setSeccion] = useState<Seccion>('usuarios')
+  const [importandoCargos, setImportandoCargos] = useState(false)
+  const [importandoEntidades, setImportandoEntidades] = useState(false)
 
   const esAdmin = perfil?.rol === 'administrador'
   const secciones = SECCIONES.filter((s) => !s.soloAdmin || esAdmin)
@@ -467,15 +492,86 @@ export default function Administracion() {
       )}
 
       {seccion === 'cargos' && (
-        <EditorCatalogo
-          tabla="cargos"
-          campos={CAMPOS_CARGO}
-          orden="nombre"
-          titulo="Cargos"
-          descripcion="Los cargos del desplegable del registro. Agrega aquí el que falte para que nadie se quede sin poder crear su cuenta."
-          valoresPorDefecto={{ activo: true }}
-        />
+        <div className="space-y-2">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setImportandoCargos(true)}>
+              <Download /> Importar desde Excel
+            </Button>
+          </div>
+          <EditorCatalogo
+            tabla="cargos"
+            campos={CAMPOS_CARGO}
+            orden="nombre"
+            titulo="Cargos"
+            descripcion="Los cargos del desplegable del registro. Agrega aquí el que falte para que nadie se quede sin poder crear su cuenta."
+            valoresPorDefecto={{ activo: true }}
+          />
+        </div>
       )}
+
+      {seccion === 'entidades_salud' && (
+        <div className="space-y-2">
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setImportandoEntidades(true)}>
+              <Download /> Importar desde Excel
+            </Button>
+          </div>
+          <EditorCatalogo
+            tabla="entidades_salud"
+            campos={CAMPOS_ENTIDAD_SALUD}
+            orden="nombre"
+            titulo="EPS y ARL"
+            descripcion="La lista que ve el jefe directo al reportar una incapacidad, en el campo «EPS o ARL que la expide»."
+            valoresPorDefecto={{ activo: true, tipo: 'EPS' }}
+          />
+        </div>
+      )}
+
+      <DialogoImportarCatalogo
+        abierto={importandoCargos}
+        onCerrar={() => setImportandoCargos(false)}
+        titulo="Importar cargos"
+        tabla="cargos"
+        conflictoEn="nombre"
+        queryKey="cargos"
+        nombreArchivo="plantilla_cargos.xlsx"
+        campos={[
+          { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+          {
+            clave: 'tipo',
+            etiqueta: 'Tipo',
+            requerido: true,
+            opciones: [
+              { valor: 'administrativo', etiqueta: 'Administrativo' },
+              { valor: 'asistencial', etiqueta: 'Asistencial' },
+            ],
+          },
+        ]}
+        filaEjemplo={['Auxiliar de enfermería', 'asistencial']}
+      />
+
+      <DialogoImportarCatalogo
+        abierto={importandoEntidades}
+        onCerrar={() => setImportandoEntidades(false)}
+        titulo="Importar EPS y ARL"
+        tabla="entidades_salud"
+        conflictoEn="nombre"
+        queryKey="entidades-salud"
+        nombreArchivo="plantilla_eps_arl.xlsx"
+        campos={[
+          { clave: 'nombre', etiqueta: 'Nombre', requerido: true },
+          {
+            clave: 'tipo',
+            etiqueta: 'Tipo',
+            requerido: true,
+            opciones: [
+              { valor: 'EPS', etiqueta: 'EPS' },
+              { valor: 'ARL', etiqueta: 'ARL' },
+            ],
+          },
+        ]}
+        filaEjemplo={['Sura EPS', 'EPS']}
+      />
 
       {seccion === 'tramites' && (
         <EditorCatalogo

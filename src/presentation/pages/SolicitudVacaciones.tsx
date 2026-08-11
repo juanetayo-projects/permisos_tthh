@@ -21,7 +21,12 @@ import {
   VACACIONES_DIAS_MINIMOS,
   VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS,
 } from '@/domain/reglas'
-import { problemaAlGuardar, validarVacaciones, type Problema } from '@/domain/validacion'
+import {
+  problemaAlGuardar,
+  validarVacaciones,
+  VACACIONES_DIAS_CORRESPONDEN_MAXIMO,
+  type Problema,
+} from '@/domain/validacion'
 import { aISO, fechaFinPorDiasHabiles, sumarDiasHabiles } from '@/domain/festivos'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
@@ -208,6 +213,15 @@ export default function SolicitudVacaciones() {
   const avisos = useMemo(() => {
     const lista: Aviso[] = []
 
+    // Se avisa apenas se digita, no solo al enviar: igual que con la
+    // antelación, enterarse del tope al final obliga a corregir dos veces.
+    if (corresponden != null && corresponden > VACACIONES_DIAS_CORRESPONDEN_MAXIMO) {
+      lista.push({
+        tono: 'advertencia',
+        texto: `El máximo por solicitud son ${VACACIONES_DIAS_CORRESPONDEN_MAXIMO} días que corresponden; registraste ${corresponden}. No vas a poder enviarla así.`,
+      })
+    }
+
     // El aviso sale mientras se llena, no solo al intentar enviar: enterarse de
     // los 20 días al final obliga a rehacer las fechas.
     if (!antelacion.cumple) {
@@ -250,6 +264,7 @@ export default function SolicitudVacaciones() {
     })
     return lista
   }, [
+    corresponden,
     antelacion,
     calculo,
     saldos,

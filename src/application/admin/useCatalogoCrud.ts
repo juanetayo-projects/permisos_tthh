@@ -15,6 +15,7 @@ export type TablaCatalogo =
   | 'permisos_tramites'
   | 'permisos_documentos'
   | 'permisos_tipos_documentos'
+  | 'entidades_salud'
   // Compartidos con Cambio de Turnos: editarlos afecta a las dos aplicaciones.
   | 'coordinadores'
   | 'areas'
@@ -43,6 +44,7 @@ function invalidar(qc: ReturnType<typeof useQueryClient>, tabla: TablaCatalogo) 
   void qc.invalidateQueries({ queryKey: ['coordinadores'] })
   void qc.invalidateQueries({ queryKey: ['areas'] })
   void qc.invalidateQueries({ queryKey: ['cargos'] })
+  void qc.invalidateQueries({ queryKey: ['entidades-salud'] })
   // El formulario de registro lee áreas y cargos por RPC, con una caché de una
   // hora: sin esto, el cargo recién creado no aparecería hasta recargar.
   void qc.invalidateQueries({ queryKey: ['catalogos-registro'] })
