@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Stethoscope } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
   documentosDelTipo,
-  useBuscarCie10,
   useCategorias,
   useConfig,
   useCoordinadores,
@@ -22,6 +21,7 @@ import { problemaAlGuardar, type Problema } from '@/domain/validacion'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
+import { CampoCie10 } from '@/presentation/components/CampoCie10'
 import { CampoFecha } from '@/presentation/components/CampoFecha'
 import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
 import { DialogoProblemas } from '@/presentation/components/DialogoProblemas'
@@ -86,7 +86,6 @@ export default function ReporteIncapacidad() {
     numeroDias: '',
     entidad: '',
     observaciones: '',
-    cie10Codigo: '',
   })
   const [problemas, setProblemas] = useState<Problema[]>([])
   const [enviando, setEnviando] = useState(false)
@@ -100,16 +99,14 @@ export default function ReporteIncapacidad() {
    */
   const [soportes, setSoportes] = useState<File[]>([])
 
-  // Diagnóstico CIE10: búsqueda con un pequeño debounce para no disparar una
-  // consulta por cada tecla sobre una tabla de más de 12.000 filas.
-  const [cie10Termino, setCie10Termino] = useState('')
-  const [cie10Buscando, setCie10Buscando] = useState('')
-  const [cie10Seleccionado, setCie10Seleccionado] = useState<Cie10 | null>(null)
-  useEffect(() => {
-    const id = setTimeout(() => setCie10Buscando(cie10Termino), 200)
-    return () => clearTimeout(id)
-  }, [cie10Termino])
-  const { data: cie10Resultados, isFetching: cie10Cargando } = useBuscarCie10(cie10Buscando)
+  /**
+   * Diagnósticos CIE10: uno principal (obligatorio) y hasta tres
+   * relacionados (opcionales), como los pide el certificado de incapacidad.
+   */
+  const [dxPrincipal, setDxPrincipal] = useState<Cie10 | null>(null)
+  const [dxRel1, setDxRel1] = useState<Cie10 | null>(null)
+  const [dxRel2, setDxRel2] = useState<Cie10 | null>(null)
+  const [dxRel3, setDxRel3] = useState<Cie10 | null>(null)
 
   function set<K extends keyof typeof form>(campo: K, valor: (typeof form)[K]) {
     setForm((f) => ({ ...f, [campo]: valor }))
@@ -236,10 +233,10 @@ export default function ReporteIncapacidad() {
       })
     }
 
-    if (tipo && !form.cie10Codigo) {
+    if (tipo && !dxPrincipal) {
       encontrados.push({
-        campo: 'Diagnóstico CIE10',
-        causa: 'No seleccionaste el diagnóstico.',
+        campo: 'Diagnóstico CIE10 principal',
+        causa: 'No seleccionaste el diagnóstico principal.',
         motivo: 'Toda incapacidad se registra con su código CIE10, como lo exigen los RIPS.',
       })
     }
@@ -286,7 +283,10 @@ export default function ReporteIncapacidad() {
           // Siempre: la certificación es el soporte y llega después.
           requiere_soporte_posterior: true,
           fecha_limite_soporte: limiteSoporte,
-          cie10_codigo: form.cie10Codigo || null,
+          cie10_codigo: dxPrincipal?.codigo ?? null,
+          cie10_codigo_rel1: dxRel1?.codigo ?? null,
+          cie10_codigo_rel2: dxRel2?.codigo ?? null,
+          cie10_codigo_rel3: dxRel3?.codigo ?? null,
         },
       })
 
@@ -453,47 +453,36 @@ export default function ReporteIncapacidad() {
                 </Select>
               </div>
 
-              <div className="relative space-y-1">
-                <Label htmlFor="cie10">Diagnóstico CIE10<Obligatorio /></Label>
-                <Input
-                  id="cie10"
-                  value={
-                    cie10Seleccionado
-                      ? `${cie10Seleccionado.codigo} · ${cie10Seleccionado.nombre}`
-                      : cie10Termino
-                  }
-                  onChange={(e) => {
-                    setCie10Seleccionado(null)
-                    set('cie10Codigo', '')
-                    setCie10Termino(e.target.value)
-                  }}
-                  placeholder="Busca por código o por nombre del diagnóstico…"
-                  autoComplete="off"
+              <CampoCie10
+                id="cie10-principal"
+                etiqueta="Diagnóstico CIE10 principal"
+                valor={dxPrincipal}
+                onCambio={setDxPrincipal}
+                obligatorio
+              />
+            </div>
+
+            <div className="mt-2.5 space-y-1">
+              <Label>Diagnósticos relacionados (opcional)</Label>
+              <div className="grid gap-2.5 sm:grid-cols-3">
+                <CampoCie10
+                  id="cie10-rel1"
+                  etiqueta="Dx Rel-1"
+                  valor={dxRel1}
+                  onCambio={setDxRel1}
                 />
-                {!cie10Seleccionado && cie10Termino.trim().length >= 2 && (
-                  <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-border bg-popover shadow-md">
-                    {cie10Cargando && (
-                      <p className="p-2 text-xs text-muted-foreground">Buscando…</p>
-                    )}
-                    {!cie10Cargando && (cie10Resultados?.length ?? 0) === 0 && (
-                      <p className="p-2 text-xs text-muted-foreground">Sin resultados.</p>
-                    )}
-                    {cie10Resultados?.map((d) => (
-                      <button
-                        key={d.codigo}
-                        type="button"
-                        className="block w-full px-2.5 py-1.5 text-left text-sm hover:bg-accent"
-                        onClick={() => {
-                          setCie10Seleccionado(d)
-                          set('cie10Codigo', d.codigo)
-                          setCie10Termino('')
-                        }}
-                      >
-                        <span className="font-medium">{d.codigo}</span> · {d.nombre}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <CampoCie10
+                  id="cie10-rel2"
+                  etiqueta="Dx Rel-2"
+                  valor={dxRel2}
+                  onCambio={setDxRel2}
+                />
+                <CampoCie10
+                  id="cie10-rel3"
+                  etiqueta="Dx Rel-3"
+                  valor={dxRel3}
+                  onCambio={setDxRel3}
+                />
               </div>
             </div>
 
@@ -542,9 +531,20 @@ export default function ReporteIncapacidad() {
             },
             { etiqueta: 'Días calendario', valor: duracion.dias, destacado: true },
             {
-              etiqueta: 'Diagnóstico CIE10',
-              valor: cie10Seleccionado ? `${cie10Seleccionado.codigo} · ${cie10Seleccionado.nombre}` : '—',
+              etiqueta: 'Dx principal',
+              valor: dxPrincipal ? `${dxPrincipal.codigo} · ${dxPrincipal.nombre}` : '—',
             },
+            ...([dxRel1, dxRel2, dxRel3].some(Boolean)
+              ? [
+                  {
+                    etiqueta: 'Dx relacionados',
+                    valor: [dxRel1, dxRel2, dxRel3]
+                      .filter((d): d is Cie10 => d !== null)
+                      .map((d) => d.codigo)
+                      .join(', '),
+                  },
+                ]
+              : []),
             { etiqueta: 'Soporte antes del', valor: formatearFechaLarga(limiteSoporte), destacado: true },
             { etiqueta: 'Aprueba', valor: 'Talento Humano' },
           ]}
