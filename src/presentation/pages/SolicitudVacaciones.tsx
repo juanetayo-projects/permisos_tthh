@@ -16,6 +16,7 @@ import {
   calcularVacaciones,
   diasPendientesDeDisfrutar,
   evaluarAntelacionVacaciones,
+  primeraFechaDeInicioValida,
   validarSaldos,
   VACACIONES_ANTELACION_DIAS,
   VACACIONES_DIAS_MINIMOS,
@@ -24,11 +25,12 @@ import {
 import {
   problemaAlGuardar,
   validarVacaciones,
+  VACACIONES_COMPENSAR_DIAS_A_DISFRUTAR,
   VACACIONES_DIAS_CORRESPONDEN_MAXIMO,
   type Problema,
 } from '@/domain/validacion'
-import { aISO, fechaFinPorDiasHabiles, sumarDiasHabiles } from '@/domain/festivos'
-import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
+import { aISO, fechaFinPorDiasHabiles } from '@/domain/festivos'
+import { cn, formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
 import { CampoFecha } from '@/presentation/components/CampoFecha'
@@ -48,15 +50,14 @@ import { Textarea } from '@/presentation/components/ui/textarea'
 
 const HOY = new Date().toISOString().slice(0, 10)
 /**
- * Valor inicial del formulario: hoy + 20 días hábiles.
+ * Valor inicial del formulario: hoy + 20 días corridos.
  *
- * Es solo el punto de partida que se muestra al abrir la pantalla, no la
- * regla que bloquea el envío -esa sigue siendo `VACACIONES_ANTELACION_DIAS`,
- * 20 días **corridos** (`evaluarAntelacionVacaciones`, más abajo)-. Al ser
- * hábiles, siempre cae después del mínimo corrido, así que el valor
- * propuesto nunca arranca ya inválido.
+ * Tiene que coincidir con la regla que bloquea el envío
+ * (`VACACIONES_ANTELACION_DIAS`, 20 días **corridos**, `evaluarAntelacionVacaciones`
+ * más abajo). Proponer un valor calculado en días hábiles adelantaba la fecha
+ * más de lo necesario y no correspondía con el mínimo real.
  */
-const FECHA_INICIO_DEFECTO = sumarDiasHabiles(aISO(new Date()), 20)
+const FECHA_INICIO_DEFECTO = primeraFechaDeInicioValida(HOY)
 
 export default function SolicitudVacaciones() {
   const { perfil } = useAuth()
@@ -128,6 +129,9 @@ export default function SolicitudVacaciones() {
 
   const aDisfrutar = form.diasADisfrutar === '' ? null : Number(form.diasADisfrutar)
   const corresponden = form.diasCorresponden === '' ? null : Number(form.diasCorresponden)
+
+  /** Compensar en dinero solo se admite sobre exactamente 8 días a disfrutar. */
+  const puedeCompensar = aDisfrutar === VACACIONES_COMPENSAR_DIAS_A_DISFRUTAR
 
   /**
    * Los compensados solo cuentan con la casilla marcada.
@@ -518,13 +522,25 @@ export default function SolicitudVacaciones() {
 
             {/* -------------------------------------------- Días compensados */}
             <div className="mt-2.5 rounded-md border border-border p-2.5">
-              <label className="flex items-start gap-2.5 text-sm">
+              <label
+                className={cn(
+                  'flex items-start gap-2.5 text-sm',
+                  !puedeCompensar && !form.compensaDias && 'opacity-60'
+                )}
+              >
                 <Checkbox
                   className="mt-0.5"
                   checked={form.compensaDias}
+                  disabled={!puedeCompensar && !form.compensaDias}
                   onCheckedChange={(v) => {
                     set('compensaDias', v === true)
-                    if (v !== true) {
+                    if (v === true) {
+                      // Compensar solo se admite sobre 8 días a disfrutar
+                      // (VACACIONES_COMPENSAR_DIAS_A_DISFRUTAR): activar el
+                      // chulito fija el campo en ese valor.
+                      set('diasADisfrutar', String(VACACIONES_COMPENSAR_DIAS_A_DISFRUTAR))
+                      set('fechaFinManual', '')
+                    } else {
                       set('diasCompensados', '')
                       setCartaCompensados([])
                     }
@@ -533,9 +549,9 @@ export default function SolicitudVacaciones() {
                 <span>
                   Quiero compensar parte del periodo en dinero
                   <span className="block text-xs text-muted-foreground">
-                    El descanso efectivo no puede bajar de{' '}
-                    {VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS} días y hay que adjuntar la carta
-                    firmada.
+                    {puedeCompensar || form.compensaDias
+                      ? `El descanso efectivo no puede bajar de ${VACACIONES_DIAS_MINIMOS_CON_COMPENSADOS} días y hay que adjuntar la carta firmada.`
+                      : `Solo se puede compensar cuando los días a disfrutar son exactamente ${VACACIONES_COMPENSAR_DIAS_A_DISFRUTAR}.`}
                   </span>
                 </span>
               </label>

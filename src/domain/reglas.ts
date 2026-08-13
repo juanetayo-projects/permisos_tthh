@@ -76,6 +76,30 @@ export function fechaFinDesdeDias(fechaInicio: FechaISO, dias: number): FechaISO
   return aISO(sumarDias(desdeISO(fechaInicio), Math.max(0, Math.round(dias)) - 1))
 }
 
+/**
+ * Último día en que se puede registrar una incapacidad sin quedar
+ * extemporánea: el día hábil siguiente a la fecha en que la EPS o la ARL la
+ * expidió (inclusive).
+ */
+export function fechaLimiteRegistroIncapacidad(fechaExpedicion: FechaISO): FechaISO {
+  return siguienteDiaHabil(fechaExpedicion)
+}
+
+/**
+ * ¿Se registró la incapacidad dentro del plazo?
+ *
+ * El colaborador tiene hasta el día hábil siguiente a la fecha de expedición
+ * para registrarla. Pasado ese día queda marcada como extemporánea, pero se
+ * recibe igual: la incapacidad ya ocurrió y no depende de que nadie la
+ * autorice.
+ */
+export function esRegistroExtemporaneoDeIncapacidad(params: {
+  fechaExpedicion: FechaISO
+  fechaRegistro: FechaISO
+}): boolean {
+  return params.fechaRegistro > fechaLimiteRegistroIncapacidad(params.fechaExpedicion)
+}
+
 /** Diferencia en horas entre dos `HH:MM`. Nunca devuelve negativos. */
 export function diferenciaHoras(salida: string, regreso: string): number {
   const minutos = aMinutos(regreso) - aMinutos(salida)

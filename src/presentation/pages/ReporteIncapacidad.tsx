@@ -3,6 +3,8 @@ import { Stethoscope } from 'lucide-react'
 import { useAuth } from '@/application/auth/AuthProvider'
 import {
   documentosDelTipo,
+  useAreas,
+  useCargos,
   useCategorias,
   useConfig,
   useCoordinadores,
@@ -13,17 +15,23 @@ import {
   useTramite,
   type Cie10,
 } from '@/application/catalogos/useCatalogos'
-import { crearSolicitud, subirSoporte } from '@/application/solicitudes/api'
-import { useColaboradoresVisibles } from '@/application/solicitudes/useColaboradores'
-import { fechaFinDesdeDias, fechaLimiteSoporte } from '@/domain/reglas'
+import { crearSolicitud, guardarDocumentoPropio, subirSoporte } from '@/application/solicitudes/api'
+import {
+  esRegistroExtemporaneoDeIncapacidad,
+  fechaFinDesdeDias,
+  fechaLimiteRegistroIncapacidad,
+  fechaLimiteSoporte,
+} from '@/domain/reglas'
+import { aISO } from '@/domain/festivos'
 import { documentosDelMomento } from '@/domain/soportes'
-import { problemaAlGuardar, type Problema } from '@/domain/validacion'
+import { problemaAlGuardar, validarIncapacidad, type Problema } from '@/domain/validacion'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
 import { CampoArchivo } from '@/presentation/components/CampoArchivo'
 import { CampoCie10 } from '@/presentation/components/CampoCie10'
 import { CampoFecha } from '@/presentation/components/CampoFecha'
 import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
+import { ResumenDocumentos } from '@/presentation/components/ListaDocumentos'
 import { DialogoProblemas } from '@/presentation/components/DialogoProblemas'
 import {
   DialogoSolicitudEnviada,
@@ -48,38 +56,27 @@ const HOY = new Date().toISOString().slice(0, 10)
 /**
  * Reporte de incapacidad.
  *
- * Es el único formulario de la aplicación que **no** llena el titular. Una
- * incapacidad no se pide, se comunica: la expide la EPS o la ARL, ya ocurrió, y
- * la persona que la sufre suele ser justo la que no está en condiciones de
- * radicar nada. El que se entera el mismo día es el jefe directo.
- *
- * De ahí las tres diferencias con el resto de pantallas:
- *
- * 1. Se elige **a quién** se le reporta. La solicitud nace a nombre del
- *    colaborador —es su ausencia y suyo será el soporte— y el jefe queda
- *    registrado en `reportada_por`.
- * 2. **No pasa por la autorización del jefe directo.** Acaba de radicarla él;
- *    pedirle que se autorice a sí mismo sería un trámite vacío. Entra directa a
- *    la bandeja de Talento Humano.
- * 3. **El soporte no se adjunta aquí.** La certificación la carga el
- *    colaborador desde su propia solicitud, porque la policy de Storage ata la
- *    ruta del archivo a `solicitante_id`. El jefe no la tiene el día que
- *    reporta.
+ * Autoservicio: cada quien registra únicamente la suya propia, igual que el
+ * resto de trámites de la aplicación. No pasa por la autorización del jefe
+ * directo -la incapacidad ya ocurrió y nadie tiene que autorizarla-, así que
+ * entra directa a la bandeja de Talento Humano.
  */
 export default function ReporteIncapacidad() {
   const { perfil, session } = useAuth()
   const { data: tramite } = useTramite('incapacidad')
   const { data: empresas } = useEmpresas()
+  const { data: areas } = useAreas()
+  const { data: cargos } = useCargos()
   const { data: categorias } = useCategorias()
   const { data: tipos } = useTipos()
   const { data: coordinadores } = useCoordinadores()
-  const { data: colaboradores } = useColaboradoresVisibles()
   const { data: config } = useConfig()
   const { data: matriz } = useMatrizDocumentos()
   const { data: entidadesSalud } = useEntidadesSalud()
 
   const [form, setForm] = useState({
-    colaboradorId: '',
+    /** Vacío = se toma el del perfil; si el perfil no lo tiene, se pide aquí. */
+    documento: '',
     tipoId: '',
     fechaInicio: HOY,
     /** Solo se pide cuando el motivo no tiene duración legal fija. */
@@ -90,47 +87,46 @@ export default function ReporteIncapacidad() {
   const [problemas, setProblemas] = useState<Problema[]>([])
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
-  /**
-   * Soportes que el jefe ya tiene a mano al reportar (opcional).
-   *
-   * No sustituye la carga que hace el colaborador después: son casos donde el
-   * jefe ya recibió el certificado -sobre todo en maternidad/paternidad- y no
-   * tiene sentido pedirle que espere a que la propia persona lo suba.
-   */
-  const [soportes, setSoportes] = useState<File[]>([])
-
-  /**
-   * Diagnósticos CIE10: uno principal (obligatorio) y hasta tres
-   * relacionados (opcionales), como los pide el certificado de incapacidad.
-   */
+  /** El certificado de incapacidad, obligatorio para poder registrarla. */
+  const [soportesPrevios, setSoportesPrevios] = useState<File[]>([])
+  /** Diagnóstico CIE10 principal, como lo exigen los RIPS. */
   const [dxPrincipal, setDxPrincipal] = useState<Cie10 | null>(null)
-  const [dxRel1, setDxRel1] = useState<Cie10 | null>(null)
-  const [dxRel2, setDxRel2] = useState<Cie10 | null>(null)
-  const [dxRel3, setDxRel3] = useState<Cie10 | null>(null)
 
   function set<K extends keyof typeof form>(campo: K, valor: (typeof form)[K]) {
     setForm((f) => ({ ...f, [campo]: valor }))
   }
 
-  /** Solo los motivos de incapacidad: accidente de trabajo, laboral, común. */
+  // Empresa, servicio y cargo ya no se piden: nacen del perfil, igual que en
+  // el resto de formularios.
+  const empresaId = perfil?.empresa_id ? String(perfil.empresa_id) : ''
+  const areaId = perfil?.area_id ? String(perfil.area_id) : ''
+  const cargoId = perfil?.cargo_id ? String(perfil.cargo_id) : ''
+  const documento = form.documento || perfil?.documento || ''
+  const perfilIncompleto = !empresaId || !areaId || !cargoId
+
+  /** Solo los motivos de incapacidad: accidente de trabajo, enfermedad común, licencias. */
   const motivos = useMemo(
     () => tipos?.filter((t) => t.naturaleza === 'incapacidad') ?? [],
     [tipos]
   )
   const tipo = motivos.find((t) => String(t.id) === form.tipoId)
 
-  // Se excluye a uno mismo: para la propia incapacidad, que la reporte su jefe.
-  // Si no, el jefe podría saltarse la revisión radicando la suya y validándola.
-  const gente = useMemo(
-    () => (colaboradores ?? []).filter((c) => c.user_id !== perfil?.user_id),
-    [colaboradores, perfil]
-  )
-  const colaborador = gente.find((c) => c.user_id === form.colaboradorId)
+  /**
+   * Jefe directo del área propia.
+   *
+   * La incapacidad no pasa por su autorización, pero queda registrado en la
+   * solicitud para que aparezca en la bandeja de su área.
+   */
+  const coordinador = useMemo(() => {
+    const delArea = coordinadores?.find((c) => String(c.area_id) === areaId)
+    if (delArea) return delArea
+    return coordinadores?.find((c) => c.id === perfil?.coordinador_id)
+  }, [coordinadores, perfil, areaId])
 
   /**
    * Duración en días: fija por ley para maternidad/paternidad (no se
-   * pregunta), o el número de días que reporta el jefe para el resto de
-   * incapacidades. Sin horas: una incapacidad siempre se cuenta en días
+   * pregunta), o el número de días que reporta quien registra para el resto
+   * de incapacidades. Sin horas: una incapacidad siempre se cuenta en días
    * completos.
    */
   const dias = tipo?.duracion_en_dias_fija
@@ -138,12 +134,23 @@ export default function ReporteIncapacidad() {
     : Number(form.numeroDias) || 0
   const duracion = useMemo(() => ({ dias, horas: dias * 8 }), [dias])
 
-  /** Documentos que el motivo exige al radicar, con su norma. */
+  /** Documentos que el motivo exige, con su norma. */
   const docsDelTipo = useMemo(() => documentosDelTipo(matriz, tipo?.id), [matriz, tipo])
   const docsPrevios = useMemo(
     () => documentosDelMomento({ matriz: docsDelTipo, momento: 'previo', diasPermiso: duracion.dias }),
     [docsDelTipo, duracion.dias]
   )
+  const docsPosteriores = useMemo(
+    () => documentosDelMomento({ matriz: docsDelTipo, momento: 'posterior', diasPermiso: duracion.dias }),
+    [docsDelTipo, duracion.dias]
+  )
+
+  /**
+   * El certificado es siempre obligatorio; de dos días de incapacidad en
+   * adelante, la matriz suma la historia clínica u otro soporte posterior.
+   */
+  const faltaSoportePrevio =
+    docsPrevios.some((d) => d.exigible && d.obligatorio) && soportesPrevios.length === 0
 
   /** La fecha final nunca se digita: siempre sale de inicio + días corridos. */
   const fechaFin = useMemo(
@@ -151,7 +158,7 @@ export default function ReporteIncapacidad() {
     [form.fechaInicio, dias]
   )
 
-  /** Hasta cuándo tiene el colaborador para subir la certificación. */
+  /** Hasta cuándo hay plazo para cargar los documentos que quedan pendientes. */
   const limiteSoporte = useMemo(
     () =>
       fechaLimiteSoporte({
@@ -163,20 +170,27 @@ export default function ReporteIncapacidad() {
     [fechaFin, tipo, config]
   )
 
+  /** Último día para registrarla sin quedar extemporánea. */
+  const limiteRegistro = useMemo(
+    () => fechaLimiteRegistroIncapacidad(form.fechaInicio),
+    [form.fechaInicio]
+  )
+
   /**
-   * Jefe que queda registrado en la solicitud.
+   * ¿Se está registrando fuera de plazo?
    *
-   * Es quien reporta, si figura en el catálogo de jefes del servicio. Cuando
-   * quien radica es Talento Humano —que no coordina ningún área— se cae al jefe
-   * que el colaborador tenga en su perfil.
+   * Se recalcula con la fecha real de hoy -no con la constante congelada al
+   * cargar la página- para que no se equivoque si el formulario se deja
+   * abierto de un día para otro.
    */
-  const coordinadorRegistrado = useMemo(() => {
-    const mio = coordinadores?.find(
-      (c) => c.correo?.toLowerCase() === perfil?.correo?.toLowerCase()
-        && c.area_id === colaborador?.area_id
-    )
-    return mio ?? coordinadores?.find((c) => c.id === colaborador?.coordinador_id) ?? null
-  }, [coordinadores, perfil, colaborador])
+  const extemporanea = useMemo(
+    () =>
+      esRegistroExtemporaneoDeIncapacidad({
+        fechaExpedicion: form.fechaInicio,
+        fechaRegistro: aISO(new Date()),
+      }),
+    [form.fechaInicio]
+  )
 
   const avisos = useMemo(() => {
     const lista: Aviso[] = []
@@ -184,62 +198,49 @@ export default function ReporteIncapacidad() {
     lista.push({
       tono: 'info',
       texto:
-        'La incapacidad entra directa a Talento Humano: no pasa por tu autorización, porque la estás radicando tú.',
+        'La incapacidad entra directa a Talento Humano: no pasa por la autorización de tu jefe directo.',
     })
-
-    if (colaborador) {
-      lista.push({
-        tono: 'info',
-        texto: `${colaborador.nombre} recibirá un correo pidiéndole la certificación, y se le repetirá a diario mientras no la cargue.`,
-      })
-    }
 
     if (tipo) {
       lista.push({
         tono: 'advertencia',
-        texto: `El colaborador tiene hasta el ${formatearFechaLarga(limiteSoporte)} para cargar la certificación.`,
+        texto: extemporanea
+          ? `El plazo para registrarla vencía el ${formatearFechaLarga(limiteRegistro)} (día hábil siguiente a la fecha de expedición). Quedará marcada como extemporánea.`
+          : `Tienes hasta el ${formatearFechaLarga(limiteRegistro)} para registrarla sin que quede extemporánea.`,
+      })
+    }
+
+    if (docsPosteriores.some((d) => d.exigible && d.obligatorio)) {
+      lista.push({
+        tono: 'advertencia',
+        texto: `Los documentos pendientes se cargan desde el detalle de la solicitud, antes del ${formatearFechaLarga(limiteSoporte)}.`,
+      })
+    }
+
+    if (!coordinador) {
+      lista.push({
+        tono: 'advertencia',
+        texto: perfilIncompleto
+          ? 'Tu perfil todavía no tiene servicio o cargo asignado: contacta a Talento Humano antes de registrar.'
+          : 'Tu servicio no tiene jefe directo asignado en el catálogo. Contacta a Talento Humano.',
       })
     }
 
     return lista
-  }, [colaborador, tipo, limiteSoporte])
+  }, [tipo, extemporanea, limiteRegistro, docsPosteriores, limiteSoporte, coordinador, perfilIncompleto])
 
   function hayProblemas(): boolean {
-    const encontrados: Problema[] = []
-
-    if (!form.colaboradorId) {
-      encontrados.push({
-        campo: 'Colaborador',
-        causa: 'No indicaste a quién le reportas la incapacidad.',
-        motivo:
-          'La solicitud se radica a su nombre: es su ausencia y es él quien tiene que cargar la certificación.',
-      })
-    }
-
-    if (!form.tipoId) {
-      encontrados.push({
-        campo: 'Origen de la incapacidad',
-        causa: 'No elegiste el origen.',
-        motivo:
-          'Separa la de enfermedad general de las de accidente de trabajo y enfermedad laboral, que van a indicadores distintos y las paga la ARL, no la EPS.',
-      })
-    }
-
-    if (tipo && !tipo.duracion_en_dias_fija && dias <= 0) {
-      encontrados.push({
-        campo: 'Número de días',
-        causa: 'No indicaste cuántos días cubre la incapacidad.',
-        motivo: 'Con ese dato la aplicación calcula la fecha final en días corridos.',
-      })
-    }
-
-    if (tipo && !dxPrincipal) {
-      encontrados.push({
-        campo: 'Diagnóstico CIE10 principal',
-        causa: 'No seleccionaste el diagnóstico principal.',
-        motivo: 'Toda incapacidad se registra con su código CIE10, como lo exigen los RIPS.',
-      })
-    }
+    const encontrados = validarIncapacidad({
+      documento,
+      empresaId,
+      areaId,
+      cargoId,
+      tipoId: form.tipoId,
+      numeroDiasRequerido: Boolean(tipo && !tipo.duracion_en_dias_fija),
+      numeroDias: dias,
+      tieneDxPrincipal: Boolean(dxPrincipal),
+      faltaSoportePrevio,
+    })
 
     setProblemas(encontrados)
     return encontrados.length > 0
@@ -247,26 +248,35 @@ export default function ReporteIncapacidad() {
 
   async function guardar() {
     setProblemas([])
-    if (!perfil || !session || !tramite || !colaborador) return
+    if (!perfil || !session || !tramite) return
     if (hayProblemas()) return
 
     setEnviando(true)
     try {
+      // Se guarda una sola vez: a partir de aquí viene del perfil.
+      if (documento.trim() && documento.trim() !== perfil.documento) {
+        await guardarDocumentoPropio(perfil.user_id, documento)
+      }
+
+      // Recalculada con la hora real del envío, no con la constante del
+      // montaje de la página.
+      const extemporaneaFinal = esRegistroExtemporaneoDeIncapacidad({
+        fechaExpedicion: form.fechaInicio,
+        fechaRegistro: aISO(new Date()),
+      })
+
       const { id, consecutivo } = await crearSolicitud({
         base: {
           tramite_id: tramite.id,
-          // A nombre del colaborador, no de quien reporta.
-          solicitante_id: colaborador.user_id,
-          reportada_por: session.user.id,
-          empresa_id: colaborador.empresa_id,
-          area_id: colaborador.area_id,
-          cargo_id: colaborador.cargo_id,
-          coordinador_id: coordinadorRegistrado?.id ?? null,
+          solicitante_id: perfil.user_id,
+          empresa_id: empresaId ? Number(empresaId) : null,
+          area_id: areaId ? Number(areaId) : null,
+          cargo_id: cargoId ? Number(cargoId) : null,
+          coordinador_id: coordinador?.id ?? null,
           fecha_inicio: form.fechaInicio,
           fecha_fin: fechaFin,
           observaciones: form.observaciones.trim() || null,
-          // Una incapacidad no puede ser extemporánea: se reporta cuando ocurre.
-          extemporanea: false,
+          extemporanea: extemporaneaFinal,
         },
         enviar: true,
         rutaAprobacion: 'th_directo',
@@ -279,20 +289,16 @@ export default function ReporteIncapacidad() {
           requiere_compensacion: false,
           justificacion: form.entidad.trim()
             ? `Incapacidad expedida por ${form.entidad.trim()}.`
-            : 'Incapacidad reportada por el jefe directo.',
-          // Siempre: la certificación es el soporte y llega después.
-          requiere_soporte_posterior: true,
+            : null,
+          requiere_soporte_posterior: docsPosteriores.some((d) => d.exigible && d.obligatorio),
           fecha_limite_soporte: limiteSoporte,
           cie10_codigo: dxPrincipal?.codigo ?? null,
-          cie10_codigo_rel1: dxRel1?.codigo ?? null,
-          cie10_codigo_rel2: dxRel2?.codigo ?? null,
-          cie10_codigo_rel3: dxRel3?.codigo ?? null,
         },
       })
 
-      // Los que el jefe ya tenía a mano; el resto los sigue cargando el
-      // colaborador desde su propia solicitud, como hasta ahora.
-      for (const [i, archivo] of soportes.entries()) {
+      // Cada archivo se etiqueta con el documento que le toca, en el orden en
+      // que la matriz los pide.
+      for (const [i, archivo] of soportesPrevios.entries()) {
         await subirSoporte({
           solicitudId: id,
           archivo,
@@ -306,15 +312,16 @@ export default function ReporteIncapacidad() {
       setEnviada({
         id,
         consecutivo,
-        siguiente: `Queda en la bandeja de Talento Humano. A ${colaborador.nombre} se le pedirá la certificación por correo.`,
+        siguiente: 'Queda en la bandeja de Talento Humano.',
         filas: [
-          { etiqueta: 'Colaborador', valor: colaborador.nombre },
           {
             etiqueta: 'Periodo',
             valor: `${formatearFecha(form.fechaInicio)} → ${formatearFecha(fechaFin)}`,
           },
           { etiqueta: 'Días', valor: duracion.dias },
-          { etiqueta: 'Soporte antes del', valor: formatearFecha(limiteSoporte) },
+          ...(docsPosteriores.some((d) => d.exigible && d.obligatorio)
+            ? [{ etiqueta: 'Documentos pendientes antes del', valor: formatearFecha(limiteSoporte) }]
+            : []),
         ],
       })
     } catch (err) {
@@ -324,13 +331,15 @@ export default function ReporteIncapacidad() {
     }
   }
 
-  const nombreEmpresa = empresas?.find((e) => e.id === colaborador?.empresa_id)?.nombre
+  const nombreEmpresa = empresas?.find((e) => String(e.id) === empresaId)?.nombre
+  const nombreArea = areas?.find((a) => String(a.id) === areaId)?.nombre
+  const nombreCargo = cargos?.find((c) => String(c.id) === cargoId)?.nombre
   const nombreCategoria = categorias?.find((c) => c.id === tipo?.categoria_id)?.nombre
 
   return (
     <Pantalla
       titulo="Reportar una incapacidad"
-      descripcion="La radica el jefe directo y entra a Talento Humano. El colaborador carga la certificación después."
+      descripcion="Registra tu propia incapacidad. Entra directa a Talento Humano, sin pasar por tu jefe directo."
     >
       <form
         className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1fr_19rem] lg:overflow-hidden"
@@ -341,29 +350,38 @@ export default function ReporteIncapacidad() {
       >
         <div className="min-h-0 space-y-3 lg:overflow-y-auto lg:pr-1">
           <section className="bloque-datos bloque-azul p-3">
-            <h2 className="bloque-titulo mb-2">A quién se le reporta</h2>
+            <h2 className="bloque-titulo mb-2">Información general</h2>
 
-            <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="grid items-end gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-1">
-                <Label htmlFor="colaborador">Colaborador<Obligatorio /></Label>
-                <Select
-                  value={form.colaboradorId}
-                  onValueChange={(v) => set('colaboradorId', v)}
-                >
-                  <SelectTrigger id="colaborador">
-                    <SelectValue placeholder="Busca a la persona…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {gente.map((c) => (
-                      <SelectItem key={c.user_id} value={c.user_id}>
-                        {c.nombre}
-                        {c.documento ? ` · ${c.documento}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Solo aparece la gente de los servicios que coordinas.
+                <Label htmlFor="documento">N.° de identificación<Obligatorio /></Label>
+                <Input
+                  id="documento"
+                  inputMode="numeric"
+                  value={documento}
+                  onChange={(e) => set('documento', e.target.value)}
+                  placeholder="Cédula"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label>Empresa</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {nombreEmpresa ?? 'Sin asignar'}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Servicio actual</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {nombreArea ?? 'Sin asignar'}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <Label>Cargo</Label>
+                <p className="flex h-9 items-center rounded-md border border-input bg-muted/60 px-3 text-sm">
+                  {nombreCargo ?? 'Sin asignar'}
                 </p>
               </div>
 
@@ -381,11 +399,21 @@ export default function ReporteIncapacidad() {
                     ))}
                   </SelectContent>
                 </Select>
-                {tipo?.fundamento_legal && (
-                  <p className="text-xs text-muted-foreground">{tipo.fundamento_legal}</p>
-                )}
               </div>
             </div>
+
+            {tipo?.fundamento_legal && (
+              <p className="mt-2 truncate text-[11px] leading-snug text-muted-foreground" title={tipo.fundamento_legal}>
+                {tipo.fundamento_legal}
+              </p>
+            )}
+
+            {perfilIncompleto && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                Tu perfil no tiene empresa, servicio o cargo asignado. Contacta a Talento Humano
+                antes de registrar la incapacidad.
+              </p>
+            )}
           </section>
 
           <section className="bloque-datos bloque-teal p-3">
@@ -462,37 +490,16 @@ export default function ReporteIncapacidad() {
               />
             </div>
 
-            <div className="mt-2.5 space-y-1">
-              <Label>Diagnósticos relacionados (opcional)</Label>
-              <div className="grid gap-2.5 sm:grid-cols-3">
-                <CampoCie10
-                  id="cie10-rel1"
-                  etiqueta="Dx Rel-1"
-                  valor={dxRel1}
-                  onCambio={setDxRel1}
-                />
-                <CampoCie10
-                  id="cie10-rel2"
-                  etiqueta="Dx Rel-2"
-                  valor={dxRel2}
-                  onCambio={setDxRel2}
-                />
-                <CampoCie10
-                  id="cie10-rel3"
-                  etiqueta="Dx Rel-3"
-                  valor={dxRel3}
-                  onCambio={setDxRel3}
-                />
-              </div>
-            </div>
+            {tipo && <ResumenDocumentos className="mt-2.5" previos={docsPrevios} posteriores={docsPosteriores} />}
 
             <div className="mt-2.5 space-y-1">
-              <Label>Soportes que ya tengas a mano (opcional)</Label>
-              <CampoArchivo archivos={soportes} onCambio={setSoportes} maxMB={Number(config?.max_mb_adjunto ?? 10)} />
-              <p className="text-xs text-muted-foreground">
-                Si no los tienes ahora, {colaborador?.nombre ?? 'el colaborador'} podrá cargarlos
-                después desde su propia solicitud.
-              </p>
+              <Label>Certificado de incapacidad<Obligatorio /></Label>
+              <CampoArchivo
+                archivos={soportesPrevios}
+                onCambio={setSoportesPrevios}
+                maxMB={Number(config?.max_mb_adjunto ?? 10)}
+                obligatorio={docsPrevios.some((d) => d.exigible && d.obligatorio)}
+              />
             </div>
 
             <LineaTiempoPeriodo
@@ -513,16 +520,15 @@ export default function ReporteIncapacidad() {
               className="mt-2 min-h-16"
               value={form.observaciones}
               onChange={(e) => set('observaciones', e.target.value)}
-              placeholder="Cómo te enteraste, número de la incapacidad si lo tienes…"
+              placeholder="Número de la incapacidad, si lo tienes…"
             />
           </section>
         </div>
 
         <PanelResumen
           filas={[
-            { etiqueta: 'Reporta', valor: perfil?.nombre ?? '—' },
-            { etiqueta: 'Colaborador', valor: colaborador?.nombre ?? '—' },
-            { etiqueta: 'Documento', valor: colaborador?.documento ?? '—' },
+            { etiqueta: 'Registra', valor: perfil?.nombre ?? '—' },
+            { etiqueta: 'Documento', valor: documento || '—' },
             { etiqueta: 'Empresa', valor: nombreEmpresa ?? '—' },
             { etiqueta: 'Categoría', valor: nombreCategoria ?? '—' },
             {
@@ -534,18 +540,7 @@ export default function ReporteIncapacidad() {
               etiqueta: 'Dx principal',
               valor: dxPrincipal ? `${dxPrincipal.codigo} · ${dxPrincipal.nombre}` : '—',
             },
-            ...([dxRel1, dxRel2, dxRel3].some(Boolean)
-              ? [
-                  {
-                    etiqueta: 'Dx relacionados',
-                    valor: [dxRel1, dxRel2, dxRel3]
-                      .filter((d): d is Cie10 => d !== null)
-                      .map((d) => d.codigo)
-                      .join(', '),
-                  },
-                ]
-              : []),
-            { etiqueta: 'Soporte antes del', valor: formatearFechaLarga(limiteSoporte), destacado: true },
+            { etiqueta: 'Registro', valor: extemporanea ? 'Extemporáneo' : 'A tiempo', destacado: extemporanea },
             { etiqueta: 'Aprueba', valor: 'Talento Humano' },
           ]}
           avisos={avisos}
@@ -554,7 +549,7 @@ export default function ReporteIncapacidad() {
 
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:justify-end lg:col-span-2">
           <Button type="submit" cargando={enviando}>
-            {!enviando && <Stethoscope />} Reportar la incapacidad
+            {!enviando && <Stethoscope />} Registrar la incapacidad
           </Button>
         </div>
       </form>

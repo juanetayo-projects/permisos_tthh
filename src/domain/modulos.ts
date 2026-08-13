@@ -79,7 +79,7 @@ export const DEFINICION_MODULOS: DefinicionModulo[] = [
     ruta: '/incapacidades',
     etiqueta: 'Incapacidades',
     descripcion:
-      'El jefe directo reporta la incapacidad de alguien de su servicio. Entra directa a Talento Humano y el colaborador carga la certificación después.',
+      'Cada quien registra su propia incapacidad. Entra directa a Talento Humano, sin pasar por la autorización del jefe directo.',
   },
   {
     codigo: 'mis_solicitudes',
@@ -171,12 +171,10 @@ const TODOS: Modulo[] = [
  * el menú vacío y a la persona sin manera de llegar a ningún sitio.
  */
 export const ACCESOS_POR_DEFECTO: MatrizAccesos = {
-  colaborador: [...TODOS],
-  // Reportar incapacidades es suyo: es quien se entera de la ausencia el mismo
-  // día. El colaborador no lo lleva porque su propia incapacidad la reporta su
-  // jefe, no él.
+  // Reportar incapacidades es de todos: cada quien registra la suya propia.
+  colaborador: [...TODOS, 'incapacidades'],
   coordinador: [...TODOS, 'incapacidades'],
-  coordinador_sst: [...TODOS, 'todas_solicitudes', 'ausentismo'],
+  coordinador_sst: [...TODOS, 'incapacidades', 'todas_solicitudes', 'ausentismo'],
   analista_th: [
     ...TODOS,
     'incapacidades',
@@ -186,7 +184,7 @@ export const ACCESOS_POR_DEFECTO: MatrizAccesos = {
     'ausentismo',
     'administracion',
   ],
-  gerente_th: [...TODOS, 'bandeja_cesantias', 'todas_solicitudes'],
+  gerente_th: [...TODOS, 'incapacidades', 'bandeja_cesantias', 'todas_solicitudes'],
   administrador: [
     ...TODOS,
     'incapacidades',

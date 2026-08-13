@@ -208,6 +208,13 @@ export default function SolicitudPermiso() {
     tipo?.nombre === 'Cita médica' &&
     categorias?.find((c) => c.id === tipo.categoria_id)?.nombre === 'Salud'
 
+  /**
+   * En la categoría Salud, la compensación del tiempo es obligatoria: no se
+   * le puede dejar destildar la casilla.
+   */
+  const compensacionBloqueada =
+    categorias?.find((c) => String(c.id) === form.categoriaId)?.nombre === 'Salud'
+
   const duracion = useMemo(
     () =>
       calcularDuracion({
@@ -417,7 +424,7 @@ export default function SolicitudPermiso() {
           horas_permiso: duracion.horas,
           dias_permiso: duracion.dias,
           remunerado: remuneradoBloqueado || form.remunerado,
-          requiere_compensacion: form.requiereCompensacion,
+          requiere_compensacion: compensacionBloqueada || form.requiereCompensacion,
           plan_compensacion: form.planCompensacion.trim() || null,
           justificacion: form.justificacion.trim() || null,
           requiere_soporte_posterior: Boolean(soporteExigido?.posterior?.obligatorio),
@@ -736,10 +743,16 @@ export default function SolicitudPermiso() {
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox
-                    checked={form.requiereCompensacion}
+                    checked={compensacionBloqueada || form.requiereCompensacion}
+                    disabled={compensacionBloqueada}
                     onCheckedChange={(v) => set('requiereCompensacion', v === true)}
                   />
                   Compensaré el tiempo
+                  {compensacionBloqueada && (
+                    <span className="text-xs text-muted-foreground">
+                      (obligatoria en la categoría Salud)
+                    </span>
+                  )}
                 </label>
               </div>
             </section>

@@ -3,10 +3,12 @@ import {
   calcularDuracion,
   calcularVacaciones,
   diasPendientesDeDisfrutar,
+  esRegistroExtemporaneoDeIncapacidad,
   evaluarAntelacion,
   evaluarAntelacionVacaciones,
   evaluarSoporte,
   fechaFinDesdeDias,
+  fechaLimiteRegistroIncapacidad,
   validarSaldos,
 } from '../reglas'
 
@@ -22,6 +24,53 @@ describe('fecha fin de una incapacidad', () => {
 
   it('reproduce la licencia de maternidad de 126 días', () => {
     expect(fechaFinDesdeDias('2026-01-01', 126)).toBe('2026-05-06')
+  })
+})
+
+describe('plazo de registro de una incapacidad', () => {
+  it('admite registrarla el mismo día de expedición', () => {
+    // 2026-03-02 es lunes: el mismo día hábil.
+    expect(
+      esRegistroExtemporaneoDeIncapacidad({
+        fechaExpedicion: '2026-03-02',
+        fechaRegistro: '2026-03-02',
+      })
+    ).toBe(false)
+  })
+
+  it('admite registrarla el día hábil siguiente', () => {
+    expect(
+      esRegistroExtemporaneoDeIncapacidad({
+        fechaExpedicion: '2026-03-02',
+        fechaRegistro: '2026-03-03',
+      })
+    ).toBe(false)
+  })
+
+  it('queda extemporánea pasado el día hábil siguiente', () => {
+    expect(
+      esRegistroExtemporaneoDeIncapacidad({
+        fechaExpedicion: '2026-03-02',
+        fechaRegistro: '2026-03-04',
+      })
+    ).toBe(true)
+  })
+
+  it('una incapacidad expedida en viernes admite registrarla el lunes, saltando el fin de semana', () => {
+    // Viernes 2026-03-06; el hábil siguiente es el lunes 2026-03-09.
+    expect(fechaLimiteRegistroIncapacidad('2026-03-06')).toBe('2026-03-09')
+    expect(
+      esRegistroExtemporaneoDeIncapacidad({
+        fechaExpedicion: '2026-03-06',
+        fechaRegistro: '2026-03-09',
+      })
+    ).toBe(false)
+    expect(
+      esRegistroExtemporaneoDeIncapacidad({
+        fechaExpedicion: '2026-03-06',
+        fechaRegistro: '2026-03-10',
+      })
+    ).toBe(true)
   })
 })
 

@@ -268,6 +268,60 @@ export function validarVacaciones(d: DatosVacaciones): Problema[] {
 }
 
 // -----------------------------------------------------------------------------
+// Incapacidad — TH-F-002
+// -----------------------------------------------------------------------------
+
+export interface DatosIncapacidad extends Identificacion {
+  tipoId: string
+  /** `true` cuando el motivo no tiene duración legal fija y hay que pedirla. */
+  numeroDiasRequerido: boolean
+  numeroDias: number
+  tieneDxPrincipal: boolean
+  /** El motivo exige soporte al registrar y todavía no se adjuntó ninguno. */
+  faltaSoportePrevio: boolean
+}
+
+export function validarIncapacidad(d: DatosIncapacidad): Problema[] {
+  const problemas = validarIdentificacion(d)
+
+  if (!d.tipoId) {
+    problemas.push({
+      campo: 'Origen de la incapacidad',
+      causa: 'No elegiste el origen.',
+      motivo:
+        'Separa la de enfermedad general de las de accidente de trabajo, que van a indicadores distintos y las paga la ARL, no la EPS.',
+    })
+  }
+
+  if (d.numeroDiasRequerido && d.numeroDias <= 0) {
+    problemas.push({
+      campo: 'Número de días',
+      causa: 'No indicaste cuántos días cubre la incapacidad.',
+      motivo: 'Con ese dato la aplicación calcula la fecha final en días corridos.',
+    })
+  }
+
+  if (!d.tieneDxPrincipal) {
+    problemas.push({
+      campo: 'Diagnóstico CIE10 principal',
+      causa: 'No seleccionaste el diagnóstico principal.',
+      motivo: 'Toda incapacidad se registra con su código CIE10, como lo exigen los RIPS.',
+    })
+  }
+
+  if (d.faltaSoportePrevio) {
+    problemas.push({
+      campo: 'Soporte',
+      causa: 'Falta adjuntar el soporte.',
+      motivo:
+        'El certificado de incapacidad es obligatorio para poder registrarla: sin él, Talento Humano no puede darla por recibida.',
+    })
+  }
+
+  return problemas
+}
+
+// -----------------------------------------------------------------------------
 // Retiro parcial de cesantías
 // -----------------------------------------------------------------------------
 
