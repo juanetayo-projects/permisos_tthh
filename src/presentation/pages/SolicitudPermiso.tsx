@@ -489,7 +489,7 @@ export default function SolicitudPermiso() {
     // ventana —que en escritorio no scrollea— y quedaban fuera de alcance la
     // justificación, la compensación y los propios botones de enviar.
     <form
-      className="mx-auto flex max-w-7xl flex-col gap-3 lg:h-full lg:overflow-hidden"
+      className="mx-auto flex max-w-7xl flex-col gap-3 md:h-full md:overflow-hidden"
       onSubmit={(e) => {
         e.preventDefault()
         // Primero lo que falta; después la confirmación del jefe. Al revés, se
@@ -508,8 +508,8 @@ export default function SolicitudPermiso() {
         </p>
       </header>
 
-      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1fr_19rem] lg:overflow-hidden">
-        <div className="min-h-0 space-y-3 lg:overflow-y-auto lg:pr-1">
+      <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[1fr_19rem] md:overflow-hidden">
+        <div className="min-h-0 space-y-3 md:overflow-y-auto md:pr-1">
           {/* ------------------------------------------------ Información general */}
           <section className="bloque-datos bloque-azul p-3">
             <h2 className="bloque-titulo mb-2">Información general</h2>

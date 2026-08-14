@@ -23,7 +23,7 @@ import {
   fechaLimiteSoporte,
 } from '@/domain/reglas'
 import { aISO } from '@/domain/festivos'
-import { documentosDelMomento } from '@/domain/soportes'
+import { documentosDelMomento, type DocumentoConEstado } from '@/domain/soportes'
 import { problemaAlGuardar, validarIncapacidad, type Problema } from '@/domain/validacion'
 import { formatearFecha, formatearFechaLarga } from '@/lib/utils'
 import { PanelResumen, type Aviso } from '@/presentation/components/PanelResumen'
@@ -31,7 +31,6 @@ import { CampoArchivo } from '@/presentation/components/CampoArchivo'
 import { CampoCie10 } from '@/presentation/components/CampoCie10'
 import { CampoFecha } from '@/presentation/components/CampoFecha'
 import { LineaTiempoPeriodo } from '@/presentation/components/LineaTiempoPeriodo'
-import { ResumenDocumentos } from '@/presentation/components/ListaDocumentos'
 import { DialogoProblemas } from '@/presentation/components/DialogoProblemas'
 import {
   DialogoSolicitudEnviada,
@@ -87,10 +86,18 @@ export default function ReporteIncapacidad() {
   const [problemas, setProblemas] = useState<Problema[]>([])
   const [enviando, setEnviando] = useState(false)
   const [enviada, setEnviada] = useState<SolicitudEnviada | null>(null)
-  /** El certificado de incapacidad, obligatorio para poder registrarla. */
-  const [soportesPrevios, setSoportesPrevios] = useState<File[]>([])
+  /**
+   * Un campo de carga por cada documento de la matriz, en vez de uno genérico:
+   * con hasta cuatro documentos distintos (maternidad, por ejemplo), no queda
+   * a la vista cuál archivo era cuál.
+   */
+  const [archivosPorDocumento, setArchivosPorDocumento] = useState<Record<number, File[]>>({})
   /** Diagnóstico CIE10 principal, como lo exigen los RIPS. */
   const [dxPrincipal, setDxPrincipal] = useState<Cie10 | null>(null)
+
+  function setArchivosDeDocumento(documentoId: number, archivos: File[]) {
+    setArchivosPorDocumento((m) => ({ ...m, [documentoId]: archivos }))
+  }
 
   function set<K extends keyof typeof form>(campo: K, valor: (typeof form)[K]) {
     setForm((f) => ({ ...f, [campo]: valor }))
@@ -148,9 +155,14 @@ export default function ReporteIncapacidad() {
   /**
    * El certificado es siempre obligatorio; de dos días de incapacidad en
    * adelante, la matriz suma la historia clínica u otro soporte posterior.
+   *
+   * Solo los documentos «al solicitar» bloquean el envío: los «al volver»
+   * quedan disponibles para cargarlos ya mismo, pero también se pueden dejar
+   * para después, dentro del plazo de la solicitud.
    */
-  const faltaSoportePrevio =
-    docsPrevios.some((d) => d.exigible && d.obligatorio) && soportesPrevios.length === 0
+  const faltaSoportePrevio = docsPrevios.some(
+    (d) => d.exigible && d.obligatorio && (archivosPorDocumento[d.documentoId]?.length ?? 0) === 0
+  )
 
   /** La fecha final nunca se digita: siempre sale de inicio + días corridos. */
   const fechaFin = useMemo(
@@ -213,7 +225,7 @@ export default function ReporteIncapacidad() {
     if (docsPosteriores.some((d) => d.exigible && d.obligatorio)) {
       lista.push({
         tono: 'advertencia',
-        texto: `Los documentos pendientes se cargan desde el detalle de la solicitud, antes del ${formatearFechaLarga(limiteSoporte)}.`,
+        texto: `Los documentos «al volver» puedes cargarlos ya mismo, o desde el detalle de la solicitud antes del ${formatearFechaLarga(limiteSoporte)}.`,
       })
     }
 
@@ -296,17 +308,19 @@ export default function ReporteIncapacidad() {
         },
       })
 
-      // Cada archivo se etiqueta con el documento que le toca, en el orden en
-      // que la matriz los pide.
-      for (const [i, archivo] of soportesPrevios.entries()) {
-        await subirSoporte({
-          solicitudId: id,
-          archivo,
-          momento: 'previo',
-          usuarioId: session.user.id,
-          maxMB: Number(config?.max_mb_adjunto ?? 10),
-          documentoId: docsPrevios[i]?.documentoId ?? null,
-        })
+      // Cada archivo ya sabe qué documento es: viene de su propio campo de
+      // carga, no de un orden que había que adivinar.
+      for (const doc of [...docsPrevios, ...docsPosteriores]) {
+        for (const archivo of archivosPorDocumento[doc.documentoId] ?? []) {
+          await subirSoporte({
+            solicitudId: id,
+            archivo,
+            momento: doc.momento,
+            usuarioId: session.user.id,
+            maxMB: Number(config?.max_mb_adjunto ?? 10),
+            documentoId: doc.documentoId,
+          })
+        }
       }
 
       setEnviada({
@@ -342,13 +356,13 @@ export default function ReporteIncapacidad() {
       descripcion="Registra tu propia incapacidad. Entra directa a Talento Humano, sin pasar por tu jefe directo."
     >
       <form
-        className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1fr_19rem] lg:overflow-hidden"
+        className="grid min-h-0 flex-1 gap-3 md:grid-cols-[1fr_19rem] md:overflow-hidden"
         onSubmit={(e) => {
           e.preventDefault()
           void guardar()
         }}
       >
-        <div className="min-h-0 space-y-3 lg:overflow-y-auto lg:pr-1">
+        <div className="min-h-0 space-y-3 md:overflow-y-auto md:pr-1">
           <section className="bloque-datos bloque-azul p-3">
             <h2 className="bloque-titulo mb-2">Información general</h2>
 
@@ -490,17 +504,21 @@ export default function ReporteIncapacidad() {
               />
             </div>
 
-            {tipo && <ResumenDocumentos className="mt-2.5" previos={docsPrevios} posteriores={docsPosteriores} />}
-
-            <div className="mt-2.5 space-y-1">
-              <Label>Certificado de incapacidad<Obligatorio /></Label>
-              <CampoArchivo
-                archivos={soportesPrevios}
-                onCambio={setSoportesPrevios}
-                maxMB={Number(config?.max_mb_adjunto ?? 10)}
-                obligatorio={docsPrevios.some((d) => d.exigible && d.obligatorio)}
-              />
-            </div>
+            {tipo && (
+              <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+                {[...docsPrevios, ...docsPosteriores]
+                  .filter((d) => d.exigible || d.obligatorio)
+                  .map((d) => (
+                    <CampoDocumento
+                      key={`${d.documentoId}-${d.momento}`}
+                      documento={d}
+                      archivos={archivosPorDocumento[d.documentoId] ?? []}
+                      onCambio={(a) => setArchivosDeDocumento(d.documentoId, a)}
+                      maxMB={Number(config?.max_mb_adjunto ?? 10)}
+                    />
+                  ))}
+              </div>
+            )}
 
             <LineaTiempoPeriodo
               className="mt-2.5"
@@ -547,7 +565,7 @@ export default function ReporteIncapacidad() {
           pie={tramite?.nota_pie}
         />
 
-        <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:justify-end lg:col-span-2">
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:justify-end md:col-span-2">
           <Button type="submit" cargando={enviando}>
             {!enviando && <Stethoscope />} Registrar la incapacidad
           </Button>
@@ -557,5 +575,47 @@ export default function ReporteIncapacidad() {
       <DialogoProblemas problemas={problemas} onCerrar={() => setProblemas([])} />
       <DialogoSolicitudEnviada datos={enviada} />
     </Pantalla>
+  )
+}
+
+/**
+ * Un campo de carga por documento exigido.
+ *
+ * Solo los «al solicitar» bloquean el envío: son los que ya tiene que existir
+ * -la EPS los expide junto con la incapacidad-. Los «al volver» se pueden
+ * cargar aquí mismo si ya se tienen, o dejarse para después dentro del plazo.
+ */
+function CampoDocumento({
+  documento,
+  archivos,
+  onCambio,
+  maxMB,
+}: {
+  documento: DocumentoConEstado
+  archivos: File[]
+  onCambio: (archivos: File[]) => void
+  maxMB: number
+}) {
+  const obligatorio = documento.momento === 'previo' && documento.exigible && documento.obligatorio
+
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={`doc-${documento.documentoId}`} className="text-xs">
+        {documento.nombre}
+        {obligatorio && <Obligatorio />}
+        <span className="ml-1 font-normal text-muted-foreground">
+          ({documento.momento === 'previo' ? 'al solicitar' : 'al volver'})
+        </span>
+      </Label>
+      <CampoArchivo
+        id={`doc-${documento.documentoId}`}
+        archivos={archivos}
+        onCambio={onCambio}
+        maxMB={maxMB}
+        max={3}
+        obligatorio={obligatorio}
+      />
+      {documento.nota && <p className="text-[10px] leading-snug text-muted-foreground">{documento.nota}</p>}
+    </div>
   )
 }
