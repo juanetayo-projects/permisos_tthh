@@ -154,13 +154,12 @@ export default function ReporteIncapacidad() {
 
   /**
    * El certificado es siempre obligatorio; de dos días de incapacidad en
-   * adelante, la matriz suma la historia clínica u otro soporte posterior.
-   *
-   * Solo los documentos «al solicitar» bloquean el envío: los «al volver»
-   * quedan disponibles para cargarlos ya mismo, pero también se pueden dejar
-   * para después, dentro del plazo de la solicitud.
+   * adelante, la matriz suma la historia clínica -o el radicado ante la EPS/
+   * ARL, que la reemplaza-. Los dos bloquean el envío: quien registra la
+   * incapacidad ya la tiene toda encima, así que no hay razón para diferir el
+   * segundo documento a después, como sí pasa en otros trámites.
    */
-  const faltaSoportePrevio = docsPrevios.some(
+  const faltanSoportesObligatorios = [...docsPrevios, ...docsPosteriores].some(
     (d) => d.exigible && d.obligatorio && (archivosPorDocumento[d.documentoId]?.length ?? 0) === 0
   )
 
@@ -222,13 +221,6 @@ export default function ReporteIncapacidad() {
       })
     }
 
-    if (docsPosteriores.some((d) => d.exigible && d.obligatorio)) {
-      lista.push({
-        tono: 'advertencia',
-        texto: `Los documentos «al volver» puedes cargarlos ya mismo, o desde el detalle de la solicitud antes del ${formatearFechaLarga(limiteSoporte)}.`,
-      })
-    }
-
     if (!coordinador) {
       lista.push({
         tono: 'advertencia',
@@ -239,7 +231,7 @@ export default function ReporteIncapacidad() {
     }
 
     return lista
-  }, [tipo, extemporanea, limiteRegistro, docsPosteriores, limiteSoporte, coordinador, perfilIncompleto])
+  }, [tipo, extemporanea, limiteRegistro, coordinador, perfilIncompleto])
 
   function hayProblemas(): boolean {
     const encontrados = validarIncapacidad({
@@ -251,7 +243,7 @@ export default function ReporteIncapacidad() {
       numeroDiasRequerido: Boolean(tipo && !tipo.duracion_en_dias_fija),
       numeroDias: dias,
       tieneDxPrincipal: Boolean(dxPrincipal),
-      faltaSoportePrevio,
+      faltanSoportesObligatorios,
     })
 
     setProblemas(encontrados)
@@ -581,9 +573,10 @@ export default function ReporteIncapacidad() {
 /**
  * Un campo de carga por documento exigido.
  *
- * Solo los «al solicitar» bloquean el envío: son los que ya tiene que existir
- * -la EPS los expide junto con la incapacidad-. Los «al volver» se pueden
- * cargar aquí mismo si ya se tienen, o dejarse para después dentro del plazo.
+ * Todos los obligatorios bloquean el envío, sean «al solicitar» o «al
+ * volver»: quien registra la incapacidad ya la tiene toda encima -la EPS la
+ * expide completa-, así que no hay razón para diferir un segundo documento a
+ * después, como sí pasa en otros trámites que se piden por adelantado.
  */
 function CampoDocumento({
   documento,
@@ -596,7 +589,7 @@ function CampoDocumento({
   onCambio: (archivos: File[]) => void
   maxMB: number
 }) {
-  const obligatorio = documento.momento === 'previo' && documento.exigible && documento.obligatorio
+  const obligatorio = documento.exigible && documento.obligatorio
 
   return (
     <div className="space-y-1">

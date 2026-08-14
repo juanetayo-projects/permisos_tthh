@@ -277,8 +277,8 @@ export interface DatosIncapacidad extends Identificacion {
   numeroDiasRequerido: boolean
   numeroDias: number
   tieneDxPrincipal: boolean
-  /** El motivo exige soporte al registrar y todavía no se adjuntó ninguno. */
-  faltaSoportePrevio: boolean
+  /** Falta algún documento obligatorio de la matriz, sea «al solicitar» o «al volver». */
+  faltanSoportesObligatorios: boolean
 }
 
 export function validarIncapacidad(d: DatosIncapacidad): Problema[] {
@@ -309,12 +309,12 @@ export function validarIncapacidad(d: DatosIncapacidad): Problema[] {
     })
   }
 
-  if (d.faltaSoportePrevio) {
+  if (d.faltanSoportesObligatorios) {
     problemas.push({
       campo: 'Soporte',
-      causa: 'Falta adjuntar el soporte.',
+      causa: 'Falta adjuntar uno o más documentos obligatorios.',
       motivo:
-        'El certificado de incapacidad es obligatorio para poder registrarla: sin él, Talento Humano no puede darla por recibida.',
+        'El certificado de incapacidad -y, de más de 2 días, la historia clínica o el radicado ante la EPS/ARL- son obligatorios para poder registrarla: sin ellos, Talento Humano no puede darla por recibida.',
     })
   }
 
