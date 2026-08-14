@@ -323,6 +323,35 @@
   }
 
   /*
+   * Scroll sutil del menú lateral.
+   *
+   * Sobre la franja azul, la barra de scroll por defecto del sistema se veía
+   * como un bloque gris ajeno a la marca. Delgada y casi transparente: solo
+   * se nota al pasar el mouse por encima, no en reposo.
+   */
+  .scroll-sutil {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+
+  .scroll-sutil::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scroll-sutil::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scroll-sutil::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+  }
+
+  .scroll-sutil:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.35);
+  }
+
+  /*
    * Bloques de datos de los formularios.
    *
    * Sobre fondo blanco, una tarjeta blanca con borde gris no separa nada: los

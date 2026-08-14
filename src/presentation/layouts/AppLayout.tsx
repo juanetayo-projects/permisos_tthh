@@ -272,7 +272,7 @@ export function AppLayout() {
           debajo asomaba el fondo de la página. */}
       <aside
         className={cn(
-          'franja-institucional flex w-full shrink-0 flex-col gap-4 p-4',
+          'franja-institucional scroll-sutil flex w-full shrink-0 flex-col gap-4 p-4',
           'lg:fixed lg:inset-y-0 lg:left-0 lg:w-72 lg:overflow-y-auto',
           !menuAbierto && 'max-lg:pb-0'
         )}

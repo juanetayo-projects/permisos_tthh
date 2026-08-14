@@ -31,10 +31,10 @@ export function Pantalla({
 }) {
   return (
     <div className={cn('mx-auto flex flex-col gap-4 lg:h-full', ancho)}>
-      <header className="flex shrink-0 flex-wrap items-start justify-between gap-3">
+      <header className="franja-institucional flex shrink-0 flex-wrap items-start justify-between gap-3 rounded-xl px-4 py-3.5">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-tight">{titulo}</h1>
-          {descripcion && <p className="mt-1 text-sm text-muted-foreground">{descripcion}</p>}
+          <h1 className="text-xl font-semibold tracking-tight text-white">{titulo}</h1>
+          {descripcion && <p className="mt-1 text-sm text-white/70">{descripcion}</p>}
         </div>
         {acciones && <div className="flex flex-wrap gap-2">{acciones}</div>}
       </header>

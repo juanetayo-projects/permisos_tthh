@@ -62,7 +62,7 @@ export default function MisSolicitudes() {
           <Button variant="outline" size="sm" onClick={() => navigate('/solicitar/permiso')}>
             <FileText /> Nuevo permiso
           </Button>
-          <Button size="sm" onClick={() => navigate('/solicitar/vacaciones')}>
+          <Button variant="secondary" size="sm" onClick={() => navigate('/solicitar/vacaciones')}>
             <CalendarDays /> Nuevas vacaciones
           </Button>
         </>
