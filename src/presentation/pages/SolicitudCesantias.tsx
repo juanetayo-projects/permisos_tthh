@@ -264,12 +264,12 @@ export default function SolicitudCesantias() {
         void guardar(true)
       }}
     >
-      <header className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-3">
-        <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+      <header className="franja-institucional flex shrink-0 flex-wrap items-baseline justify-between gap-x-3 rounded-xl px-3 py-2">
+        <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-white">
           <PiggyBank className="size-5 text-[var(--acento-ambar)]" />
           Solicitud de retiro parcial de cesantías
         </h1>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-white/70">
           Formato {tramite?.codigo_formato} · versión {tramite?.version_formato} · solicitado el{' '}
           {formatearFechaLarga(aISO(new Date()))}
         </p>

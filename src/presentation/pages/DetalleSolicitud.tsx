@@ -211,14 +211,16 @@ export default function DetalleSolicitud() {
     // siempre visibles y, si el contenido no cabe, se desplaza dentro de su
     // columna. Con una solicitud normal cabe entero en un portátil de 720 px.
     <div className="mx-auto flex max-w-6xl flex-col gap-3 lg:h-full lg:overflow-hidden">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => navigate(-1)}
-        className="-ml-2 shrink-0 self-start"
-      >
-        <ArrowLeft /> Volver
-      </Button>
+      <header className="franja-institucional flex shrink-0 items-center rounded-xl px-2.5 py-2.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(-1)}
+          className="text-white hover:bg-white/10 hover:text-white"
+        >
+          <ArrowLeft /> Volver
+        </Button>
+      </header>
 
       {/* Cabecera con relieve: es el ancla de la pantalla, no una fila de texto. */}
       <header className="panel-relieve shrink-0 overflow-hidden">

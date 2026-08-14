@@ -161,10 +161,10 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      <header className="franja-institucional flex flex-wrap items-start justify-between gap-3 rounded-xl px-4 py-3.5">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Panel ejecutivo</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-xl font-semibold tracking-tight text-white">Panel ejecutivo</h1>
+          <p className="mt-1 text-sm text-white/70">
             Permisos y vacaciones · {filtradas.length} solicitud{filtradas.length === 1 ? '' : 'es'} en el periodo
           </p>
         </div>

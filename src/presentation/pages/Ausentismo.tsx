@@ -247,10 +247,10 @@ export default function Ausentismo() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      <header className="franja-institucional flex flex-wrap items-start justify-between gap-3 rounded-xl px-4 py-3.5">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Control de ausentismo</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h1 className="text-xl font-semibold tracking-tight text-white">Control de ausentismo</h1>
+          <p className="mt-1 text-sm text-white/70">
             {filtradas.length} ausencia{filtradas.length === 1 ? '' : 's'} ·{' '}
             {indicadores.colaboradoresConAusencia} colaborador
             {indicadores.colaboradoresConAusencia === 1 ? '' : 'es'} sobre una plantilla de{' '}

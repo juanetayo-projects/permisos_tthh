@@ -47,9 +47,9 @@ export default function Validaciones() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Validar colaboradores</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+      <header className="franja-institucional rounded-xl px-4 py-3.5">
+        <h1 className="text-xl font-semibold tracking-tight text-white">Validar colaboradores</h1>
+        <p className="mt-1 text-sm text-white/70">
           Confirma los datos de quienes se registraron. Hasta que los valides, no pueden crear
           solicitudes.
         </p>

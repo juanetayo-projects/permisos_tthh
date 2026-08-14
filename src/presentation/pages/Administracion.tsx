@@ -440,9 +440,9 @@ export default function Administracion() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 lg:h-full lg:overflow-y-auto lg:pr-1">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Administración</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+      <header className="franja-institucional rounded-xl px-4 py-3.5">
+        <h1 className="text-xl font-semibold tracking-tight text-white">Administración</h1>
+        <p className="mt-1 text-sm text-white/70">
           Catálogos, usuarios y reglas de operación de la aplicación.
         </p>
       </header>

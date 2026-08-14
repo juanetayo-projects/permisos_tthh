@@ -500,9 +500,9 @@ export default function SolicitudPermiso() {
         setConfirmando(true)
       }}
     >
-      <header className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-3">
-        <h1 className="text-lg font-semibold tracking-tight">Solicitud de permiso</h1>
-        <p className="text-xs text-muted-foreground">
+      <header className="franja-institucional flex shrink-0 flex-wrap items-baseline justify-between gap-x-3 rounded-xl px-3 py-2">
+        <h1 className="text-lg font-semibold tracking-tight text-white">Solicitud de permiso</h1>
+        <p className="text-xs text-white/70">
           Formato {tramite?.codigo_formato} · versión {tramite?.version_formato} · solicitado el{' '}
           {formatearFechaLarga(aISO(new Date()))}
         </p>

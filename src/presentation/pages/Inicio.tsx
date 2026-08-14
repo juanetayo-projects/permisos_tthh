@@ -55,12 +55,12 @@ export default function Inicio() {
     // Por eso la columna ocupa el alto disponible y son los bloques los que se
     // ajustan, no la ventana la que crece.
     <div className="mx-auto flex max-w-6xl flex-col gap-3 lg:h-full lg:gap-2.5 lg:overflow-hidden">
-      <header className="shrink-0">
-        <h1 className="text-xl font-semibold tracking-tight">
+      <header className="franja-institucional shrink-0 rounded-xl px-4 py-3.5">
+        <h1 className="text-xl font-semibold tracking-tight text-white">
           {saludo()}
           {primerNombre && `, ${primerNombre}`}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
+        <p className="mt-0.5 text-sm text-white/70">
           Gestiona tus permisos y vacaciones sin papel.
         </p>
       </header>
